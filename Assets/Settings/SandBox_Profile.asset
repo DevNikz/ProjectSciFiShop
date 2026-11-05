@@ -178,10 +178,10 @@ MonoBehaviour:
     m_Value: 2
   maxDistance:
     m_OverrideState: 1
-    m_Value: 25
+    m_Value: 20
   thickness:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 2
   edgeFade:
     m_OverrideState: 1
     m_Value: 32
