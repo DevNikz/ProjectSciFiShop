@@ -8,16 +8,20 @@ using UnityEngine;
 /// <summary>
 /// Carriable Editor Inspector
 /// - Draws the default inspector, then an "Add-ons" foldout.
-/// - Lists one "Add X" button per [FPSAddon] component found in Assets/FPSCore/Runtime/Addon/
-///   that is not yet on the object.
+/// - Lists one "Add X" button per [CarriableAddon] component found in the AddonFolders
+///   (_SubAddons and Assets/_Scripts/) that is not yet on the object.
 /// - Clicking adds the component (Undo-aware, multi-object); the button then disappears.
 /// - Removing the component brings the button back.
 /// </summary>
 [CustomEditor(typeof(Carriable), true)]
 [CanEditMultipleObjects]
-public class CarriableEdtitor : Editor
+public class CarriableEditor : Editor
 {
-    private const string AddonFolder = "Assets/FPSCore/Runtime/_Addon/_SubAddons"; //"Assets/FPSCore/Runtime/_Addon/_SubAddons/Carriable/_Object";
+    private static readonly string[] AddonFolders =
+    {
+        "Assets/FPSCore/Runtime/_Addon/_SubAddons", //"Assets/FPSCore/Runtime/_Addon/_SubAddons/Carriable/_Object";
+        "Assets/_Scripts",
+    };
     private const string FoldoutKey = "FPSCore.CarriableEditor.AddonsFoldout";
 
     private static readonly HashSet<Type> _warned = new HashSet<Type>();
@@ -104,10 +108,10 @@ public class CarriableEdtitor : Editor
             && !type.IsGenericTypeDefinition;
     }
 
-    // [FPSAddon] types (reflection) that live in the Addon folder, sorted by label.
+    // [CarriableAddon] types (reflection) that live in the Addon folders, sorted by label.
     private static Type[] GetAddonTypes()
     {
-        var folderTypes = GetTypesInAddonFolder();
+        var folderTypes = GetTypesInAddonFolders();
         var result = new List<Type>();
 
         foreach (var type in TypeCache.GetTypesWithAttribute<CarriableAddonAttribute>())
@@ -136,13 +140,14 @@ public class CarriableEdtitor : Editor
         return result.ToArray();
     }
 
-    private static HashSet<Type> GetTypesInAddonFolder()
+    private static HashSet<Type> GetTypesInAddonFolders()
     {
         var types = new HashSet<Type>();
-        if (!AssetDatabase.IsValidFolder(AddonFolder))
+        var validFolders = AddonFolders.Where(AssetDatabase.IsValidFolder).ToArray();
+        if (validFolders.Length == 0)
             return types;
 
-        foreach (var guid in AssetDatabase.FindAssets("t:MonoScript", new[] { AddonFolder }))
+        foreach (var guid in AssetDatabase.FindAssets("t:MonoScript", validFolders))
         {
             var path = AssetDatabase.GUIDToAssetPath(guid);
             var type = AssetDatabase.LoadAssetAtPath<MonoScript>(path)?.GetClass();
