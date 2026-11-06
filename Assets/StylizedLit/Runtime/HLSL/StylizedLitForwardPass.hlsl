@@ -2,6 +2,11 @@
 #define STYLIZED_LIT_FORWARD_PASS_INCLUDED
 
 #include "Assets/StylizedLit/Runtime/HLSL/StylizedCommon.hlsl"
+
+// Directional dissolve needs world position even when no light feature asked for it.
+#if defined(STYLIZED_CLIP_REQUIRES_POSITIONWS) && !defined(REQUIRES_WORLD_SPACE_POS_INTERPOLATOR)
+    #define REQUIRES_WORLD_SPACE_POS_INTERPOLATOR
+#endif
 #include "Assets/StylizedLit/Runtime/HLSL/StylizedLighting.hlsl"
 #if defined(LOD_FADE_CROSSFADE)
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
@@ -239,8 +244,22 @@ void StylizedLitPassFragment(
     ApplyPerPixelDisplacement(viewDirTS, input.uv);
 #endif
 
+    // Dither + dissolve clip (alpha test is done inside surface data setup). Edge factor feeds emission below.
+    half dissolveEdge = 0.0h;
+#if defined(STYLIZED_CLIP_ACTIVE)
+#if defined(REQUIRES_WORLD_SPACE_POS_INTERPOLATOR)
+    dissolveEdge = ApplyStylizedFeatureClip(input.uv, input.positionCS, input.positionWS);
+#else
+    dissolveEdge = ApplyStylizedFeatureClip(input.uv, input.positionCS, float3(0.0, 0.0, 0.0));
+#endif
+#endif
+
     SurfaceData surfaceData;
     InitializeStylizedSurfaceData(input.uv, surfaceData);
+
+#if defined(_DISSOLVE_ON)
+    surfaceData.emission += _DissolveEdgeColor.rgb * dissolveEdge;
+#endif
 
 #ifdef LOD_FADE_CROSSFADE
     LODFadeCrossFade(input.positionCS);
@@ -258,6 +277,7 @@ void StylizedLitPassFragment(
 
     half4 color = StylizedFragmentLit(inputData, surfaceData);
     color.rgb = MixFog(color.rgb, inputData.fogCoord);
+    color.rgb = ApplyDitherPosterize(color.rgb, input.positionCS);
     color.a = OutputAlpha(color.a, IsSurfaceTypeTransparent(_Surface));
 
     outColor = color;

@@ -24,6 +24,9 @@ struct OutlineVaryings
     half fogFactor    : TEXCOORD1;
     UNITY_VERTEX_INPUT_INSTANCE_ID
     UNITY_VERTEX_OUTPUT_STEREO
+#if defined(STYLIZED_CLIP_REQUIRES_POSITIONWS)
+    float3 positionWSClip : TEXCOORD2;
+#endif
 };
 
 OutlineVaryings StylizedOutlineVertex(OutlineAttributes input)
@@ -34,6 +37,9 @@ OutlineVaryings StylizedOutlineVertex(OutlineAttributes input)
     UNITY_INITIALIZE_VERTEX_OUTPUT_STEREO(output);
 
     float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
+#if defined(STYLIZED_CLIP_REQUIRES_POSITIONWS)
+    output.positionWSClip = positionWS; // un-extruded, so the dissolve matches the surface
+#endif
     float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
 
     // World-space size of one screen pixel at this vertex.
@@ -60,8 +66,8 @@ half4 StylizedOutlineFragment(OutlineVaryings input) : SV_Target
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
-#if defined(STYLIZED_CLIP_REQUIRES_UV)
-    ApplyStylizedClip(input.uv);
+#if defined(STYLIZED_CLIP_ACTIVE)
+    ApplyStylizedClip(STYLIZED_CLIP_UV(input), input.positionCS, STYLIZED_CLIP_WS(input));
 #endif
 
     half3 color = MixFog(_OutlineColor.rgb, input.fogFactor);

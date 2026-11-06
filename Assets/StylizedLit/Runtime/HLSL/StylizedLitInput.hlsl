@@ -1,5 +1,5 @@
-// StylizedLitInput.hlsl  (Phase 4)
-// Derived from URP 17.3 (Unity 6.3) LitInput.hlsl. Phases 3-4 appended the Toon, Rim, Matcap and Outline properties.
+// StylizedLitInput.hlsl  (Phase 5)
+// Derived from URP 17.3 (Unity 6.3) LitInput.hlsl. Phases 3-5 appended the Toon, Rim, Matcap, Outline, Pixelate, Dither and Dissolve properties.
 // The UnityPerMaterial layout below is LOCKED for SRP Batcher: it must be identical in every pass.
 // New stylized properties (Phase 3+) are appended to the CBUFFER and to the DOTS block here, never per-pass.
 #ifndef STYLIZED_LIT_INPUT_INCLUDED
@@ -59,6 +59,20 @@ half _MatcapBlend;
 half _OutlineEnabled;
 half _OutlineWidth;
 half _OutlineDistanceScaling;
+float4 _DissolveAxis;
+half4 _DissolveEdgeColor;
+float _PixelSize;
+float _DissolveStart;
+float _DissolveLength;
+float _DitherFadeNear;
+float _DitherFadeFar;
+half _DitherAmount;
+half _DitherScale;
+half _DitherColorLevels;
+half _DissolveAmount;
+half _DissolveNoiseScale;
+half _DissolveEdgeWidth;
+half _DissolveNoiseStrength;
 UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 CBUFFER_END
 
@@ -105,6 +119,20 @@ UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
     UNITY_DOTS_INSTANCED_PROP(float , _OutlineEnabled)
     UNITY_DOTS_INSTANCED_PROP(float , _OutlineWidth)
     UNITY_DOTS_INSTANCED_PROP(float , _OutlineDistanceScaling)
+    UNITY_DOTS_INSTANCED_PROP(float4, _DissolveAxis)
+    UNITY_DOTS_INSTANCED_PROP(float4, _DissolveEdgeColor)
+    UNITY_DOTS_INSTANCED_PROP(float , _PixelSize)
+    UNITY_DOTS_INSTANCED_PROP(float , _DissolveStart)
+    UNITY_DOTS_INSTANCED_PROP(float , _DissolveLength)
+    UNITY_DOTS_INSTANCED_PROP(float , _DitherFadeNear)
+    UNITY_DOTS_INSTANCED_PROP(float , _DitherFadeFar)
+    UNITY_DOTS_INSTANCED_PROP(float , _DitherAmount)
+    UNITY_DOTS_INSTANCED_PROP(float , _DitherScale)
+    UNITY_DOTS_INSTANCED_PROP(float , _DitherColorLevels)
+    UNITY_DOTS_INSTANCED_PROP(float , _DissolveAmount)
+    UNITY_DOTS_INSTANCED_PROP(float , _DissolveNoiseScale)
+    UNITY_DOTS_INSTANCED_PROP(float , _DissolveEdgeWidth)
+    UNITY_DOTS_INSTANCED_PROP(float , _DissolveNoiseStrength)
 UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 
 // Here, we want to avoid overriding a property like e.g. _BaseColor with something like this:
@@ -154,6 +182,20 @@ static float  unity_DOTS_Sampled_MatcapBlend;
 static float  unity_DOTS_Sampled_OutlineEnabled;
 static float  unity_DOTS_Sampled_OutlineWidth;
 static float  unity_DOTS_Sampled_OutlineDistanceScaling;
+static float4 unity_DOTS_Sampled_DissolveAxis;
+static float4 unity_DOTS_Sampled_DissolveEdgeColor;
+static float  unity_DOTS_Sampled_PixelSize;
+static float  unity_DOTS_Sampled_DissolveStart;
+static float  unity_DOTS_Sampled_DissolveLength;
+static float  unity_DOTS_Sampled_DitherFadeNear;
+static float  unity_DOTS_Sampled_DitherFadeFar;
+static float  unity_DOTS_Sampled_DitherAmount;
+static float  unity_DOTS_Sampled_DitherScale;
+static float  unity_DOTS_Sampled_DitherColorLevels;
+static float  unity_DOTS_Sampled_DissolveAmount;
+static float  unity_DOTS_Sampled_DissolveNoiseScale;
+static float  unity_DOTS_Sampled_DissolveEdgeWidth;
+static float  unity_DOTS_Sampled_DissolveNoiseStrength;
 
 void SetupDOTSStylizedMaterialPropertyCaches()
 {
@@ -194,6 +236,20 @@ void SetupDOTSStylizedMaterialPropertyCaches()
     unity_DOTS_Sampled_OutlineEnabled = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _OutlineEnabled);
     unity_DOTS_Sampled_OutlineWidth = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _OutlineWidth);
     unity_DOTS_Sampled_OutlineDistanceScaling = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _OutlineDistanceScaling);
+    unity_DOTS_Sampled_DissolveAxis = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float4, _DissolveAxis);
+    unity_DOTS_Sampled_DissolveEdgeColor = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float4, _DissolveEdgeColor);
+    unity_DOTS_Sampled_PixelSize = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _PixelSize);
+    unity_DOTS_Sampled_DissolveStart = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DissolveStart);
+    unity_DOTS_Sampled_DissolveLength = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DissolveLength);
+    unity_DOTS_Sampled_DitherFadeNear = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DitherFadeNear);
+    unity_DOTS_Sampled_DitherFadeFar = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DitherFadeFar);
+    unity_DOTS_Sampled_DitherAmount = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DitherAmount);
+    unity_DOTS_Sampled_DitherScale = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DitherScale);
+    unity_DOTS_Sampled_DitherColorLevels = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DitherColorLevels);
+    unity_DOTS_Sampled_DissolveAmount = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DissolveAmount);
+    unity_DOTS_Sampled_DissolveNoiseScale = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DissolveNoiseScale);
+    unity_DOTS_Sampled_DissolveEdgeWidth = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DissolveEdgeWidth);
+    unity_DOTS_Sampled_DissolveNoiseStrength = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DissolveNoiseStrength);
 }
 
 #undef UNITY_SETUP_DOTS_MATERIAL_PROPERTY_CACHES
@@ -236,6 +292,20 @@ void SetupDOTSStylizedMaterialPropertyCaches()
 #define _OutlineEnabled         unity_DOTS_Sampled_OutlineEnabled
 #define _OutlineWidth           unity_DOTS_Sampled_OutlineWidth
 #define _OutlineDistanceScaling unity_DOTS_Sampled_OutlineDistanceScaling
+#define _DissolveAxis           unity_DOTS_Sampled_DissolveAxis
+#define _DissolveEdgeColor      unity_DOTS_Sampled_DissolveEdgeColor
+#define _PixelSize              unity_DOTS_Sampled_PixelSize
+#define _DissolveStart          unity_DOTS_Sampled_DissolveStart
+#define _DissolveLength         unity_DOTS_Sampled_DissolveLength
+#define _DitherFadeNear         unity_DOTS_Sampled_DitherFadeNear
+#define _DitherFadeFar          unity_DOTS_Sampled_DitherFadeFar
+#define _DitherAmount           unity_DOTS_Sampled_DitherAmount
+#define _DitherScale            unity_DOTS_Sampled_DitherScale
+#define _DitherColorLevels      unity_DOTS_Sampled_DitherColorLevels
+#define _DissolveAmount         unity_DOTS_Sampled_DissolveAmount
+#define _DissolveNoiseScale     unity_DOTS_Sampled_DissolveNoiseScale
+#define _DissolveEdgeWidth      unity_DOTS_Sampled_DissolveEdgeWidth
+#define _DissolveNoiseStrength  unity_DOTS_Sampled_DissolveNoiseStrength
 
 #endif
 
@@ -244,6 +314,7 @@ TEXTURE2D(_OcclusionMap);       SAMPLER(sampler_OcclusionMap);
 TEXTURE2D(_DetailMask);         SAMPLER(sampler_DetailMask);
 TEXTURE2D(_ToonRampMap);        SAMPLER(sampler_ToonRampMap); // import with Wrap Mode = Clamp
 TEXTURE2D(_MatcapMap);           SAMPLER(sampler_MatcapMap);
+TEXTURE2D(_DissolveNoiseMap);    SAMPLER(sampler_DissolveNoiseMap);
 TEXTURE2D(_DetailAlbedoMap);    SAMPLER(sampler_DetailAlbedoMap);
 TEXTURE2D(_DetailNormalMap);    SAMPLER(sampler_DetailNormalMap);
 TEXTURE2D(_MetallicGlossMap);   SAMPLER(sampler_MetallicGlossMap);
@@ -371,8 +442,20 @@ half3 ApplyDetailNormal(float2 detailUv, half3 normalTS, half detailMask)
 #endif
 }
 
+// Snaps UVs to a _PixelSize x _PixelSize grid (texel centers) for a pixel-art look. Identity when _PIXELATE_ON is off.
+// Defined here (not in StylizedCommon) because every texture sample site below needs it.
+float2 ComputeStylizedUV(float2 uv)
+{
+#if defined(_PIXELATE_ON)
+    float size = max(_PixelSize, 1.0);
+    uv = (floor(uv * size) + 0.5) / size;
+#endif
+    return uv;
+}
+
 inline void InitializeStylizedSurfaceData(float2 uv, out SurfaceData outSurfaceData)
 {
+    uv = ComputeStylizedUV(uv);
     half4 albedoAlpha = SampleAlbedoAlpha(uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap));
     outSurfaceData.alpha = Alpha(albedoAlpha.a, _BaseColor, _Cutoff);
 

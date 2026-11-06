@@ -1,11 +1,12 @@
 // StylizedLitShaderGUI.cs  (Phase 1)
 // Lives in Runtime/, so the whole file is wrapped in #if UNITY_EDITOR to keep player builds compiling.
 // Subclasses URP's public BaseShaderGUI and reuses the public LitGUI helpers, mirroring URP's internal LitShader GUI.
-// Phases 1-4 draw: Surface Options (+ Workflow Mode), Surface Inputs (base, metallic/specular, smoothness, normal,
+// Phases 1-5 draw: Surface Options (+ Workflow Mode), Surface Inputs (base, metallic/specular, smoothness, normal,
 //                height, occlusion, emission, tiling/offset) and Advanced Options (highlights, reflections, base advanced).
 // Phase 2 adds the Detail Inputs foldout; Clear Coat comes from LitGUI.Inputs once the shader declares its properties.
 // Phase 3 adds the Toon Lighting foldout and the _TOON_ON / _TOON_RAMPMAP keyword rules.
 // Phase 4 adds Rim Light, Matcap and Outline foldouts; Outline works by enabling/disabling the "SRPDefaultUnlit" pass.
+// Phase 5 adds Pixelation, Dither and Dissolve foldouts and their keyword rules.
 // Phase 3+ adds stylized foldouts through FillAdditionalFoldouts.
 #if UNITY_EDITOR
 using System;
@@ -27,6 +28,9 @@ namespace StylizedLit.Editor
         const uint RimFoldoutBit = 1u << 5;
         const uint MatcapFoldoutBit = 1u << 6;
         const uint OutlineFoldoutBit = 1u << 7;
+        const uint PixelateFoldoutBit = 1u << 8;
+        const uint DitherFoldoutBit = 1u << 9;
+        const uint DissolveFoldoutBit = 1u << 10;
         const string OutlinePassName = "SRPDefaultUnlit";
 
         LitGUI.LitProperties _litProperties;
@@ -54,6 +58,9 @@ namespace StylizedLit.Editor
             materialScopesList.RegisterHeaderScope(new GUIContent("Rim Light"), RimFoldoutBit, _ => DrawRimInputs());
             materialScopesList.RegisterHeaderScope(new GUIContent("Matcap"), MatcapFoldoutBit, _ => DrawMatcapInputs());
             materialScopesList.RegisterHeaderScope(new GUIContent("Outline"), OutlineFoldoutBit, _ => DrawOutlineInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Pixelation"), PixelateFoldoutBit, _ => DrawPixelateInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Dither"), DitherFoldoutBit, _ => DrawDitherInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Dissolve"), DissolveFoldoutBit, _ => DrawDissolveInputs());
         }
 
         // Material changed check. Keywords must stay in sync with the shader_feature list in StylizedLit.shader.
@@ -155,6 +162,37 @@ namespace StylizedLit.Editor
                 ("_MatcapBlend", "Blend Mode", "Additive, Multiply or Replace."));
         }
 
+        void DrawPixelateInputs()
+        {
+            DrawSection("_PixelateEnabled", "Enable Pixelation", "Snaps all texture lookups to a pixel grid for a pixel-art look.",
+                ("_PixelSize", "Pixel Grid Size", "Number of pixels across the UV 0-1 range (after tiling)."));
+        }
+
+        void DrawDitherInputs()
+        {
+            DrawSection("_DitherEnabled", "Enable Dither", "Ordered (Bayer) dithering: stippled fade-out and optional color quantizing.",
+                ("_DitherAmount", "Coverage", "1 = fully visible, 0 = fully hidden. Values in between stipple the surface."),
+                ("_DitherScale", "Pattern Scale", "Size of one dither cell in screen pixels."),
+                ("_DitherFadeNear", "Camera Fade Hidden Below", "Perspective cameras only. Closer than this distance the object is fully dithered away."),
+                ("_DitherFadeFar", "Camera Fade Visible Above", "Fully visible beyond this distance. Must be greater than the hidden distance to enable the fade."),
+                ("_DitherColorLevels", "Color Levels", "0 = off. 2-32 quantizes the final color with a Bayer pattern (clamps HDR to 0-1)."));
+        }
+
+        void DrawDissolveInputs()
+        {
+            DrawSection("_DissolveEnabled", "Enable Dissolve", "Noise-driven dissolve with a glowing edge. Clips shadows, depth and outline too.",
+                ("_DissolveAmount", "Amount", "0 = intact, 1 = fully dissolved."),
+                ("_DissolveNoiseMap", "Noise Map", "Optional. Without a map a procedural noise is used."),
+                ("_DissolveNoiseScale", "Noise Scale", "Tiling of the noise over the UVs."),
+                ("_DissolveEdgeWidth", "Edge Width", "Width of the glowing edge band."),
+                ("_DissolveEdgeColor", "Edge Color", "HDR emission color of the edge."),
+                ("_DissolveDirectional", "Directional", "Dissolve front moves along a world-space axis instead of pure noise."),
+                ("_DissolveAxis", "Direction (World)", "Axis the front travels along (xyz)."),
+                ("_DissolveStart", "Start Position", "Position along the axis where dissolving begins."),
+                ("_DissolveLength", "Length", "Distance along the axis the front covers."),
+                ("_DissolveNoiseStrength", "Noise Strength", "How much noise roughens the directional front."));
+        }
+
         void DrawOutlineInputs()
         {
             DrawSection("_OutlineEnabled", "Enable Outline", "Draws an inverted-hull outline pass (SRPDefaultUnlit). Disabled materials skip the pass entirely.",
@@ -209,7 +247,23 @@ namespace StylizedLit.Editor
             SetToonKeywords(material);
             SetToggleKeyword(material, "_RimEnabled", "_RIM_ON");
             SetToggleKeyword(material, "_MatcapEnabled", "_MATCAP_ON");
+            SetToggleKeyword(material, "_PixelateEnabled", "_PIXELATE_ON");
+            SetToggleKeyword(material, "_DitherEnabled", "_DITHER_ON");
+            SetDissolveKeywords(material);
             SetOutlinePass(material);
+        }
+
+        static void SetDissolveKeywords(Material material)
+        {
+            if (!material.HasProperty("_DissolveEnabled"))
+                return;
+
+            bool dissolve = material.GetFloat("_DissolveEnabled") > 0.5f;
+            bool directional = material.HasProperty("_DissolveDirectional") && material.GetFloat("_DissolveDirectional") > 0.5f;
+            bool hasNoiseMap = material.HasProperty("_DissolveNoiseMap") && material.GetTexture("_DissolveNoiseMap") != null;
+            CoreUtils.SetKeyword(material, "_DISSOLVE_ON", dissolve);
+            CoreUtils.SetKeyword(material, "_DISSOLVE_DIRECTIONAL", dissolve && directional);
+            CoreUtils.SetKeyword(material, "_DISSOLVE_NOISEMAP", dissolve && hasNoiseMap);
         }
 
         static void SetToggleKeyword(Material material, string toggleProperty, string keyword)

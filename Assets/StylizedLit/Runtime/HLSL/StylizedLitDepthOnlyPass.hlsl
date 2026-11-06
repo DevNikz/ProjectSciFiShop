@@ -22,6 +22,9 @@ struct Varyings
     float4 positionCS   : SV_POSITION;
     UNITY_VERTEX_INPUT_INSTANCE_ID
     UNITY_VERTEX_OUTPUT_STEREO
+#if defined(STYLIZED_CLIP_REQUIRES_POSITIONWS)
+    float3 positionWSClip : TEXCOORD1;
+#endif
 };
 
 Varyings StylizedDepthOnlyVertex(Attributes input)
@@ -35,6 +38,9 @@ Varyings StylizedDepthOnlyVertex(Attributes input)
         output.uv = TRANSFORM_TEX(input.texcoord, _BaseMap);
     #endif
     output.positionCS = TransformObjectToHClip(input.position.xyz);
+    #if defined(STYLIZED_CLIP_REQUIRES_POSITIONWS)
+    output.positionWSClip = TransformObjectToWorld(input.position.xyz);
+    #endif
     return output;
 }
 
@@ -43,8 +49,8 @@ half StylizedDepthOnlyFragment(Varyings input) : SV_TARGET
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
-    #if defined(STYLIZED_CLIP_REQUIRES_UV)
-        ApplyStylizedClip(input.uv);
+    #if defined(STYLIZED_CLIP_ACTIVE)
+        ApplyStylizedClip(STYLIZED_CLIP_UV(input), input.positionCS, STYLIZED_CLIP_WS(input));
     #endif
 
     #if defined(LOD_FADE_CROSSFADE)

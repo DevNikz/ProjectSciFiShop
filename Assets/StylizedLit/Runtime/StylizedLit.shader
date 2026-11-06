@@ -1,4 +1,4 @@
-// Stylized/Master Lit  (Phase 4: Lit parity + toon + rim + matcap + outline, Forward+ only)
+// Stylized/Master Lit  (Phase 5: Lit parity + toon + rim + matcap + outline + pixelate + dither + dissolve, Forward+ only)
 // Mirrors Unity 6.3 (6000.3, URP 17.3) Lit / ComplexLit: property names, keywords and pass layout.
 // Cluster (Forward+) light loop keyword is _CLUSTER_LIGHT_LOOP (replaced _FORWARD_PLUS from Unity 6.1).
 // Forward-only: no GBuffer pass. Deferred renders this via the UniversalForwardOnly pass.
@@ -87,6 +87,31 @@ Shader "Stylized/Master Lit"
         _OutlineWidth("Outline Width", Range(0.0, 10.0)) = 2.0
         _OutlineDistanceScaling("Screen Space Width", Range(0.0, 1.0)) = 0.0
 
+        // Pixelation (Phase 5). _PixelateEnabled drives _PIXELATE_ON.
+        [ToggleUI] _PixelateEnabled("Enable Pixelation", Float) = 0.0
+        _PixelSize("Pixel Grid Size", Range(4.0, 512.0)) = 64.0
+
+        // Dither (Phase 5). _DitherEnabled drives _DITHER_ON.
+        [ToggleUI] _DitherEnabled("Enable Dither", Float) = 0.0
+        _DitherAmount("Dither Coverage", Range(0.0, 1.0)) = 1.0
+        _DitherScale("Pattern Scale (pixels)", Range(1.0, 8.0)) = 1.0
+        _DitherFadeNear("Camera Fade Hidden Below", Float) = 0.0
+        _DitherFadeFar("Camera Fade Visible Above", Float) = 0.0
+        _DitherColorLevels("Color Levels (0 = off)", Range(0.0, 32.0)) = 0.0
+
+        // Dissolve (Phase 5). _DissolveEnabled drives _DISSOLVE_ON; _DissolveDirectional drives _DISSOLVE_DIRECTIONAL.
+        [ToggleUI] _DissolveEnabled("Enable Dissolve", Float) = 0.0
+        [ToggleUI] _DissolveDirectional("Directional", Float) = 0.0
+        [NoScaleOffset] _DissolveNoiseMap("Noise Map", 2D) = "white" {}
+        _DissolveAmount("Amount", Range(0.0, 1.0)) = 0.0
+        _DissolveNoiseScale("Noise Scale", Range(0.1, 50.0)) = 5.0
+        _DissolveEdgeWidth("Edge Width", Range(0.0, 0.5)) = 0.05
+        [HDR] _DissolveEdgeColor("Edge Color", Color) = (1, 0.4, 0, 1)
+        _DissolveAxis("Direction (World)", Vector) = (0, 1, 0, 0)
+        _DissolveStart("Start Position", Float) = 0.0
+        _DissolveLength("Length", Float) = 2.0
+        _DissolveNoiseStrength("Noise Strength", Range(0.0, 1.0)) = 0.3
+
         // Blending state
         _Surface("__surface", Float) = 0.0
         _Blend("__blend", Float) = 0.0
@@ -143,6 +168,11 @@ Shader "Stylized/Master Lit"
 
             HLSLPROGRAM
             #pragma target 2.0
+            #pragma shader_feature_local _DISSOLVE_ON
+            #pragma shader_feature_local _DISSOLVE_DIRECTIONAL
+            #pragma shader_feature_local_fragment _DISSOLVE_NOISEMAP
+            #pragma shader_feature_local_fragment _DITHER_ON
+            #pragma shader_feature_local_fragment _PIXELATE_ON
 
             #pragma vertex StylizedLitPassVertex
             #pragma fragment StylizedLitPassFragment
@@ -225,6 +255,11 @@ Shader "Stylized/Master Lit"
 
             HLSLPROGRAM
             #pragma target 2.0
+            #pragma shader_feature_local _DISSOLVE_ON
+            #pragma shader_feature_local _DISSOLVE_DIRECTIONAL
+            #pragma shader_feature_local_fragment _DISSOLVE_NOISEMAP
+            #pragma shader_feature_local_fragment _DITHER_ON
+            #pragma shader_feature_local_fragment _PIXELATE_ON
 
             #pragma vertex StylizedOutlineVertex
             #pragma fragment StylizedOutlineFragment
@@ -253,6 +288,11 @@ Shader "Stylized/Master Lit"
 
             HLSLPROGRAM
             #pragma target 2.0
+            #pragma shader_feature_local _DISSOLVE_ON
+            #pragma shader_feature_local _DISSOLVE_DIRECTIONAL
+            #pragma shader_feature_local_fragment _DISSOLVE_NOISEMAP
+            #pragma shader_feature_local_fragment _DITHER_ON
+            #pragma shader_feature_local_fragment _PIXELATE_ON
 
             #pragma vertex StylizedShadowPassVertex
             #pragma fragment StylizedShadowPassFragment
@@ -284,6 +324,11 @@ Shader "Stylized/Master Lit"
 
             HLSLPROGRAM
             #pragma target 2.0
+            #pragma shader_feature_local _DISSOLVE_ON
+            #pragma shader_feature_local _DISSOLVE_DIRECTIONAL
+            #pragma shader_feature_local_fragment _DISSOLVE_NOISEMAP
+            #pragma shader_feature_local_fragment _DITHER_ON
+            #pragma shader_feature_local_fragment _PIXELATE_ON
 
             #pragma vertex StylizedDepthOnlyVertex
             #pragma fragment StylizedDepthOnlyFragment
@@ -312,6 +357,11 @@ Shader "Stylized/Master Lit"
 
             HLSLPROGRAM
             #pragma target 2.0
+            #pragma shader_feature_local _DISSOLVE_ON
+            #pragma shader_feature_local _DISSOLVE_DIRECTIONAL
+            #pragma shader_feature_local_fragment _DISSOLVE_NOISEMAP
+            #pragma shader_feature_local_fragment _DITHER_ON
+            #pragma shader_feature_local_fragment _PIXELATE_ON
 
             #pragma vertex StylizedDepthNormalsVertex
             #pragma fragment StylizedDepthNormalsFragment
@@ -363,8 +413,8 @@ Shader "Stylized/Master Lit"
             ENDHLSL
         }
 
-        // Object motion vectors (TAA, motion blur, STP). Phase 5 replaces ObjectMotionVectors.hlsl with a copy
-        // that also applies dither/dissolve clipping. XRMotionVectors and Universal2D are intentionally not included.
+        // Object motion vectors (TAA, motion blur, STP) using a Stylized copy of URP's ObjectMotionVectors.hlsl so that
+        // dither and dissolve clip them too. XRMotionVectors and Universal2D are intentionally not included.
         Pass
         {
             Name "MotionVectors"
@@ -372,12 +422,26 @@ Shader "Stylized/Master Lit"
             ColorMask RG
 
             HLSLPROGRAM
+            #pragma target 3.5
+
+            #pragma vertex StylizedMotionVectorsVertex
+            #pragma fragment StylizedMotionVectorsFragment
+
             #pragma shader_feature_local _ALPHATEST_ON
+            #pragma shader_feature_local _DISSOLVE_ON
+            #pragma shader_feature_local _DISSOLVE_DIRECTIONAL
+            #pragma shader_feature_local_fragment _DISSOLVE_NOISEMAP
+            #pragma shader_feature_local_fragment _DITHER_ON
+            #pragma shader_feature_local_fragment _PIXELATE_ON
             #pragma multi_compile _ LOD_FADE_CROSSFADE
             #pragma shader_feature_local_vertex _ADD_PRECOMPUTED_VELOCITY
 
+            #pragma multi_compile_instancing
+            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"
+            #include_with_pragmas "Packages/com.unity.render-pipelines.core/ShaderLibrary/FoveatedRenderingKeywords.hlsl"
+
             #include "Assets/StylizedLit/Runtime/HLSL/StylizedLitInput.hlsl"
-            #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/ObjectMotionVectors.hlsl"
+            #include "Assets/StylizedLit/Runtime/HLSL/StylizedLitMotionVectorsPass.hlsl"
             ENDHLSL
         }
     }
