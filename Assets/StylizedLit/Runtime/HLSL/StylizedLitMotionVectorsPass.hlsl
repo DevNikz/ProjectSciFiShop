@@ -30,6 +30,9 @@ struct Attributes
 #if _ADD_PRECOMPUTED_VELOCITY
     float3 alembicMotionVector  : TEXCOORD5;
 #endif
+    #if defined(STYLIZED_VERTEX_DEFORM)
+    float3 normalOS     : NORMAL;
+#endif
     UNITY_VERTEX_INPUT_INSTANCE_ID
 };
 
@@ -52,6 +55,9 @@ struct Varyings
 // Vertex
 Varyings StylizedMotionVectorsVertex(Attributes input)
 {
+#if defined(STYLIZED_VERTEX_DEFORM)
+    input.position.xyz = ApplyStylizedVertexDeformation(input.position.xyz, input.normalOS);
+#endif
     Varyings output = (Varyings)0;
 
     UNITY_SETUP_INSTANCE_ID(input);

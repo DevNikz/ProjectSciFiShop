@@ -88,6 +88,8 @@ namespace SSGICore
         // textures
         public static readonly int Depth = ID("_SSGI_Depth");
         public static readonly int Normals = ID("_SSGI_Normals");
+        public static readonly int NormalsRes = ID("_SSGI_NormalsRes");
+        public static readonly int NormalsOut = ID("_SSGI_NormalsOut");
         public static readonly int Motion = ID("_SSGI_Motion");
         public static readonly int Color = ID("_SSGI_Color");
         public static readonly int PrevColor = ID("_SSGI_PrevColor");
@@ -115,6 +117,7 @@ namespace SSGICore
         public static readonly int CompDepth = ID("_SSGICore_Depth");
         public static readonly int CompRaw = ID("_SSGICore_Raw");
         public static readonly int CompAge = ID("_SSGICore_Age");
+        public static readonly int CompNormals = ID("_SSGICore_Normals");
         public static readonly int CompParams = ID("_SSGICore_Params");
         public static readonly int CompSize = ID("_SSGICore_Size");
         public static readonly int UserGI = ID("_SSGICore_GITexture");

@@ -54,6 +54,9 @@ float4 GetShadowPositionHClip(Attributes input)
 
 Varyings StylizedShadowPassVertex(Attributes input)
 {
+#if defined(STYLIZED_VERTEX_DEFORM)
+    input.positionOS.xyz = ApplyStylizedVertexDeformation(input.positionOS.xyz, input.normalOS);
+#endif
     Varyings output;
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_TRANSFER_INSTANCE_ID(input, output);

@@ -31,6 +31,9 @@ struct OutlineVaryings
 
 OutlineVaryings StylizedOutlineVertex(OutlineAttributes input)
 {
+#if defined(STYLIZED_VERTEX_DEFORM)
+    input.positionOS.xyz = ApplyStylizedVertexDeformation(input.positionOS.xyz, input.normalOS);
+#endif
     OutlineVaryings output = (OutlineVaryings)0;
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_TRANSFER_INSTANCE_ID(input, output);
@@ -40,7 +43,9 @@ OutlineVaryings StylizedOutlineVertex(OutlineAttributes input)
 #if defined(STYLIZED_CLIP_REQUIRES_POSITIONWS)
     output.positionWSClip = positionWS; // un-extruded, so the dissolve matches the surface
 #endif
-    float3 normalWS = TransformObjectToWorldNormal(input.normalOS);
+    // Smoothing blends the mesh normal toward the radial direction, which closes gaps on hard-edged convex meshes.
+    float3 outlineNormalOS = normalize(lerp(input.normalOS, normalize(input.positionOS.xyz), _OutlineSmoothing));
+    float3 normalWS = TransformObjectToWorldNormal(outlineNormalOS);
 
     // World-space size of one screen pixel at this vertex.
     float worldPerPixel = (unity_OrthoParams.w > 0.5)

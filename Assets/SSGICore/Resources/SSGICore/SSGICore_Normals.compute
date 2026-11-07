@@ -1,0 +1,74 @@
+#pragma kernel NormalResolve
+
+#include "SSGICore_Common.hlsl"
+
+RWTexture2D<float4> _SSGI_NormalsOut;
+
+// Writes validated view-space normals (xyz) and the source used (w): 0 depth-reconstructed, 1 raw, 2 octahedral.
+//
+// Auto mode: objects may pack DepthNormals differently (URP Lit = plain signed normals, some custom shaders =
+// octahedral 8-8-8). Both decode to unit vectors, so the bytes alone are ambiguous. Where depth is locally planar
+// the depth-reconstructed normal is a trustworthy reference, so the candidate that agrees best with it wins.
+[numthreads(8, 8, 1)]
+void NormalResolve(uint3 id : SV_DispatchThreadID)
+{
+    int2 px = (int2)id.xy;
+    if (any(px >= (int2)_SSGI_FullSize.xy)) return;
+
+    float raw = _SSGI_Depth.Load(int3(px, 0));
+    if (IsSkyRaw(raw))
+    {
+        _SSGI_NormalsOut[px] = float4(0, 0, 1, 0);
+        return;
+    }
+
+    float3 rec = ReconstructNormalVS(px);
+    int mode = _SSGI_NormalMode; // 0 raw, 1 octahedral, 2 reconstruct, 3 auto
+
+    if (mode == 2)
+    {
+        _SSGI_NormalsOut[px] = float4(rec, 0);
+        return;
+    }
+
+    float3 packed = _SSGI_Normals.Load(int3(px, 0)).xyz;
+
+    float rawLen = length(packed);
+    bool rawValid = abs(rawLen - 1.0) < 0.1;
+    float3 rawVS = rawValid ? normalize(mul((float3x3)_SSGI_View, packed / rawLen)) : float3(0, 0, 1);
+
+    float3 octWS = SSGIDecodeOct(SSGIUnpack888ToFloat2(packed) * 2.0 - 1.0);
+    float3 octVS = normalize(mul((float3x3)_SSGI_View, octWS));
+
+    if (mode == 0)
+    {
+        _SSGI_NormalsOut[px] = rawValid ? float4(rawVS, 1) : float4(rec, 0);
+        return;
+    }
+    if (mode == 1)
+    {
+        _SSGI_NormalsOut[px] = float4(octVS, 2);
+        return;
+    }
+
+    // Auto: is depth locally planar (second difference small)?
+    float c = LoadHzb(0, px);
+    float dx2 = abs(LoadHzb(0, px + int2(-1, 0)) + LoadHzb(0, px + int2(1, 0)) - 2.0 * c);
+    float dy2 = abs(LoadHzb(0, px + int2(0, -1)) + LoadHzb(0, px + int2(0, 1)) - 2.0 * c);
+    bool trusted = dx2 < 0.03 * c && dy2 < 0.03 * c;
+
+    if (trusted)
+    {
+        float scoreRaw = rawValid ? dot(rawVS, rec) : -1.0;
+        float scoreOct = dot(octVS, rec);
+        float best = max(scoreRaw, scoreOct);
+        if (best > 0.5)
+            _SSGI_NormalsOut[px] = scoreRaw >= scoreOct ? float4(rawVS, 1) : float4(octVS, 2);
+        else
+            _SSGI_NormalsOut[px] = float4(rec, 0);
+    }
+    else
+    {
+        _SSGI_NormalsOut[px] = rawValid ? float4(rawVS, 1) : float4(octVS, 2);
+    }
+}

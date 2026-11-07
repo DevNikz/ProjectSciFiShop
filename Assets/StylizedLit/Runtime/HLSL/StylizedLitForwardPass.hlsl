@@ -3,8 +3,8 @@
 
 #include "Assets/StylizedLit/Runtime/HLSL/StylizedCommon.hlsl"
 
-// Directional dissolve needs world position even when no light feature asked for it.
-#if defined(STYLIZED_CLIP_REQUIRES_POSITIONWS) && !defined(REQUIRES_WORLD_SPACE_POS_INTERPOLATOR)
+// Directional dissolve and triplanar mapping need world position even when no light feature asked for it.
+#if (defined(STYLIZED_CLIP_REQUIRES_POSITIONWS) || defined(_TRIPLANAR_ON)) && !defined(REQUIRES_WORLD_SPACE_POS_INTERPOLATOR)
     #define REQUIRES_WORLD_SPACE_POS_INTERPOLATOR
 #endif
 #include "Assets/StylizedLit/Runtime/HLSL/StylizedLighting.hlsl"
@@ -161,6 +161,9 @@ void InitializeBakedGIData(Varyings input, inout InputData inputData)
 
 Varyings StylizedLitPassVertex(Attributes input)
 {
+#if defined(STYLIZED_VERTEX_DEFORM)
+    input.positionOS.xyz = ApplyStylizedVertexDeformation(input.positionOS.xyz, input.normalOS);
+#endif
     Varyings output = (Varyings)0;
 
     UNITY_SETUP_INSTANCE_ID(input);
@@ -259,6 +262,11 @@ void StylizedLitPassFragment(
 
 #if defined(_DISSOLVE_ON)
     surfaceData.emission += _DissolveEdgeColor.rgb * dissolveEdge;
+#endif
+
+#if defined(_TRIPLANAR_ON)
+    // The UV lookup above is wasted for the albedo; the projected color replaces it.
+    surfaceData.albedo = SampleTriplanarAlbedo(input.positionWS, input.normalWS) * _BaseColor.rgb;
 #endif
 
 #ifdef LOD_FADE_CROSSFADE

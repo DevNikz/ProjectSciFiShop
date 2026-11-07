@@ -13,6 +13,8 @@ Material:
   m_ModifiedSerializedProperties: 4
   m_ValidKeywords:
   - _NORMALMAP
+  - _OCCLUSIONMAP
+  - _PARALLAXMAP
   - _PIXELATE_ON
   - _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
   - _TOON_ON
@@ -46,11 +48,11 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _OcclusionMap:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: 440191eaca39b4342adf93a9820a7246, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _ParallaxMap:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: 6e82a2d019f35044290e16e4cfc8cf47, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _ToonRampMap:
@@ -65,7 +67,10 @@ Material:
     - _DitherAmount: 1
     - _DitherEnabled: 0
     - _DitherScale: 8
-    - _Metallic: 0.25
+    - _HatchEnabled: 0
+    - _HatchScale: 2
+    - _Metallic: 0
+    - _OcclusionStrength: 1
     - _Parallax: 0.08
     - _PixelSize: 256
     - _PixelateEnabled: 1
@@ -84,6 +89,10 @@ Material:
     - _ToonSteps: 4
     - _ToonStrength: 1
     - _ToonThreshold: 0
+    - _TriplanarEnabled: 0
+    - _TriplanarScale: 1
+    - _TriplanarSharpness: 16
+    - _TriplanarSpace: 1
     m_Colors:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _Color: {r: 1, g: 1, b: 1, a: 1}

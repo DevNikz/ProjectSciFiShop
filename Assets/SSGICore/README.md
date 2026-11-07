@@ -20,12 +20,19 @@ bilateral upsample -> additive composite.
 * **Lighting Source**: Current frame, Previous frame (free extra bounces by feedback), or Blended.
 * **Bounces**: extra explicit bounces inside the trace (albedo is approximated).
 * **Debug View**: GI, Raw Trace, History Age.
-* **Normal Source**: Raw (default), Octahedral (if "Accurate G-buffer normals" is on), Reconstruct from depth.
+* **Normal Source**: Auto (default) decides per pixel between raw, octahedral and depth-reconstructed normals, so objects
+  whose shaders pack DepthNormals differently all work. Raw / Octahedral / Reconstruct force one mode.
+* **Debug View**: also Normals and Normal Source (red = reconstructed, green = raw, blue = octahedral).
 
 ## Forward+ albedo note
 Forward+ has no albedo buffer. The built-in composite estimates albedo from scene-colour chroma x *Albedo Level*.
 For exact results in your own shaders include `Shaders/SSGICoreSampling.hlsl` and use
 `SSGICoreSampleGI(screenUV) * albedo`. The texture is exposed as global `_SSGICore_GITexture` after the composite.
+
+## Custom shaders
+Objects must be written by the DepthNormals pass to appear in depth/normals. In a hand-written shader add
+`UsePass "Universal Render Pipeline/Lit/DepthNormals"` (or implement a `DepthNormals` pass using URP's `DepthNormalsPass.hlsl`).
+Objects with no such pass cannot be fixed by SSGICore.
 
 ## Known limitations (v0.1.0)
 * Compute-shader path only; the fragment fallback (phase 7) is not implemented, unsupported devices skip the effect.

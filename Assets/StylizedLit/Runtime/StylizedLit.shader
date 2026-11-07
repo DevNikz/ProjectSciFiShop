@@ -1,4 +1,4 @@
-// Stylized/Master Lit  (Phase 5: Lit parity + toon + rim + matcap + outline + pixelate + dither + dissolve, Forward+ only)
+// Stylized/Master Lit  (Phase 6: Lit parity + full stylized feature set, Forward+ only)
 // Mirrors Unity 6.3 (6000.3, URP 17.3) Lit / ComplexLit: property names, keywords and pass layout.
 // Cluster (Forward+) light loop keyword is _CLUSTER_LIGHT_LOOP (replaced _FORWARD_PLUS from Unity 6.1).
 // Forward-only: no GBuffer pass. Deferred renders this via the UniversalForwardOnly pass.
@@ -86,6 +86,7 @@ Shader "Stylized/Master Lit"
         _OutlineColor("Outline Color", Color) = (0, 0, 0, 1)
         _OutlineWidth("Outline Width", Range(0.0, 10.0)) = 2.0
         _OutlineDistanceScaling("Screen Space Width", Range(0.0, 1.0)) = 0.0
+        _OutlineSmoothing("Outline Smoothing", Range(0.0, 1.0)) = 0.0
 
         // Pixelation (Phase 5). _PixelateEnabled drives _PIXELATE_ON.
         [ToggleUI] _PixelateEnabled("Enable Pixelation", Float) = 0.0
@@ -111,6 +112,37 @@ Shader "Stylized/Master Lit"
         _DissolveStart("Start Position", Float) = 0.0
         _DissolveLength("Length", Float) = 2.0
         _DissolveNoiseStrength("Noise Strength", Range(0.0, 1.0)) = 0.3
+
+        // Triplanar (Phase 6). _TriplanarEnabled drives _TRIPLANAR_ON (albedo only).
+        [ToggleUI] _TriplanarEnabled("Enable Triplanar", Float) = 0.0
+        _TriplanarScale("Triplanar Scale", Float) = 1.0
+        _TriplanarSharpness("Blend Sharpness", Range(1.0, 16.0)) = 4.0
+        [Enum(World, 0, Object, 1)] _TriplanarSpace("Projection Space", Float) = 0.0
+
+        // Wind (Phase 6, vertex stage). _WindEnabled drives _WIND_ON. Direction is in object space.
+        [ToggleUI] _WindEnabled("Enable Wind", Float) = 0.0
+        _WindDirection("Direction (Object)", Vector) = (1, 0, 0, 0)
+        _WindStrength("Strength", Float) = 0.1
+        _WindSpeed("Speed", Float) = 1.5
+        _WindFrequency("Frequency", Float) = 2.0
+        _WindBaseHeight("Base Height (Object Y)", Float) = 0.0
+        _WindHeightRange("Height Range", Float) = 1.0
+
+        // Vertex displacement (Phase 6, vertex stage). _DisplaceEnabled drives _VERTEX_DISPLACE_ON.
+        [ToggleUI] _DisplaceEnabled("Enable Vertex Displacement", Float) = 0.0
+        _DisplaceStrength("Strength", Float) = 0.05
+        _DisplaceFrequency("Frequency", Float) = 4.0
+        _DisplaceSpeed("Speed", Float) = 1.0
+
+        // Hatching / halftone (Phase 6, screen space). _HatchEnabled drives _HATCH_ON.
+        [ToggleUI] _HatchEnabled("Enable Hatching / Halftone", Float) = 0.0
+        [Enum(Halftone, 0, Hatching, 1, CrossHatching, 2)] _HatchMode("Mode", Float) = 0.0
+        _HatchScale("Cell Size (pixels)", Range(2.0, 64.0)) = 8.0
+        _HatchAngle("Angle (degrees)", Range(0.0, 180.0)) = 45.0
+        _HatchColor("Ink Color", Color) = (0, 0, 0, 1)
+        _HatchStrength("Strength", Range(0.0, 1.0)) = 1.0
+        _HatchBias("Darkness Bias", Range(-0.5, 0.5)) = 0.0
+        _HatchSoftness("Edge Softness", Range(0.0, 1.0)) = 0.1
 
         // Blending state
         _Surface("__surface", Float) = 0.0
@@ -173,6 +205,8 @@ Shader "Stylized/Master Lit"
             #pragma shader_feature_local_fragment _DISSOLVE_NOISEMAP
             #pragma shader_feature_local_fragment _DITHER_ON
             #pragma shader_feature_local_fragment _PIXELATE_ON
+            #pragma shader_feature_local_vertex _WIND_ON
+            #pragma shader_feature_local_vertex _VERTEX_DISPLACE_ON
 
             #pragma vertex StylizedLitPassVertex
             #pragma fragment StylizedLitPassFragment
@@ -198,6 +232,8 @@ Shader "Stylized/Master Lit"
             #pragma shader_feature_local_fragment _TOON_RAMPMAP
             #pragma shader_feature_local_fragment _RIM_ON
             #pragma shader_feature_local_fragment _MATCAP_ON
+            #pragma shader_feature_local_fragment _TRIPLANAR_ON
+            #pragma shader_feature_local_fragment _HATCH_ON
 
             // -------------------------------------
             // Universal Pipeline keywords
@@ -260,6 +296,8 @@ Shader "Stylized/Master Lit"
             #pragma shader_feature_local_fragment _DISSOLVE_NOISEMAP
             #pragma shader_feature_local_fragment _DITHER_ON
             #pragma shader_feature_local_fragment _PIXELATE_ON
+            #pragma shader_feature_local_vertex _WIND_ON
+            #pragma shader_feature_local_vertex _VERTEX_DISPLACE_ON
 
             #pragma vertex StylizedOutlineVertex
             #pragma fragment StylizedOutlineFragment
@@ -293,6 +331,8 @@ Shader "Stylized/Master Lit"
             #pragma shader_feature_local_fragment _DISSOLVE_NOISEMAP
             #pragma shader_feature_local_fragment _DITHER_ON
             #pragma shader_feature_local_fragment _PIXELATE_ON
+            #pragma shader_feature_local_vertex _WIND_ON
+            #pragma shader_feature_local_vertex _VERTEX_DISPLACE_ON
 
             #pragma vertex StylizedShadowPassVertex
             #pragma fragment StylizedShadowPassFragment
@@ -329,6 +369,8 @@ Shader "Stylized/Master Lit"
             #pragma shader_feature_local_fragment _DISSOLVE_NOISEMAP
             #pragma shader_feature_local_fragment _DITHER_ON
             #pragma shader_feature_local_fragment _PIXELATE_ON
+            #pragma shader_feature_local_vertex _WIND_ON
+            #pragma shader_feature_local_vertex _VERTEX_DISPLACE_ON
 
             #pragma vertex StylizedDepthOnlyVertex
             #pragma fragment StylizedDepthOnlyFragment
@@ -362,6 +404,8 @@ Shader "Stylized/Master Lit"
             #pragma shader_feature_local_fragment _DISSOLVE_NOISEMAP
             #pragma shader_feature_local_fragment _DITHER_ON
             #pragma shader_feature_local_fragment _PIXELATE_ON
+            #pragma shader_feature_local_vertex _WIND_ON
+            #pragma shader_feature_local_vertex _VERTEX_DISPLACE_ON
 
             #pragma vertex StylizedDepthNormalsVertex
             #pragma fragment StylizedDepthNormalsFragment
@@ -433,6 +477,8 @@ Shader "Stylized/Master Lit"
             #pragma shader_feature_local_fragment _DISSOLVE_NOISEMAP
             #pragma shader_feature_local_fragment _DITHER_ON
             #pragma shader_feature_local_fragment _PIXELATE_ON
+            #pragma shader_feature_local_vertex _WIND_ON
+            #pragma shader_feature_local_vertex _VERTEX_DISPLACE_ON
             #pragma multi_compile _ LOD_FADE_CROSSFADE
             #pragma shader_feature_local_vertex _ADD_PRECOMPUTED_VELOCITY
 

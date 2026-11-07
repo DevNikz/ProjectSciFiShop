@@ -11,7 +11,7 @@ namespace SSGICore.Tests
             if (!SystemInfo.supportsComputeShaders)
                 Assert.Ignore("Compute shaders unsupported on this platform.");
 
-            string[] names = { "Hzb", "Trace", "Temporal", "Filter", "Upsample" };
+            string[] names = { "Normals", "Hzb", "Trace", "Temporal", "Filter", "Upsample" };
             foreach (string n in names)
             {
                 var cs = Resources.Load<ComputeShader>("SSGICore/SSGICore_" + n);

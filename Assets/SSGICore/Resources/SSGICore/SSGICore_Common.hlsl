@@ -42,7 +42,8 @@ int _SSGI_StepSize;
 
 // ---- inputs ---------------------------------------------------------------------------------------------
 Texture2D<float>  _SSGI_Depth;     // raw device depth
-Texture2D<float4> _SSGI_Normals;
+Texture2D<float4> _SSGI_Normals;     // raw DepthNormals texture (only read by the NormalResolve kernel)
+Texture2D<float4> _SSGI_NormalsRes;  // resolved view-space normals (xyz) + source id (w)
 Texture2D<float4> _SSGI_Motion;
 Texture2D<float4> _SSGI_Color;
 Texture2D<float4> _SSGI_PrevColor;
@@ -145,22 +146,10 @@ float3 ReconstructNormalVS(int2 px)
     return dot(n, c) > 0.0 ? -n : n; // face the camera
 }
 
+// Resolved view-space normal written by the NormalResolve kernel.
 float3 LoadNormalVS(int2 px)
 {
-    if (_SSGI_NormalMode == 2)
-        return ReconstructNormalVS(px);
-
-    float4 packed = _SSGI_Normals.Load(int3(px, 0));
-    float3 nWS;
-    if (_SSGI_NormalMode == 1)
-        nWS = SSGIDecodeOct(SSGIUnpack888ToFloat2(packed.xyz) * 2.0 - 1.0);
-    else
-        nWS = packed.xyz;
-
-    float len = dot(nWS, nWS);
-    if (len < 1e-4) return ReconstructNormalVS(px);
-    nWS *= rsqrt(len);
-    return normalize(mul((float3x3)_SSGI_View, nWS));
+    return _SSGI_NormalsRes.Load(int3(px, 0)).xyz;
 }
 
 float3 ViewToWorldDir(float3 dirVS) { return mul(dirVS, (float3x3)_SSGI_View); }

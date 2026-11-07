@@ -1,4 +1,4 @@
-// StylizedCommon.hlsl  (Phase 5)
+// StylizedCommon.hlsl  (Phase 6)
 // Shared helpers for all passes. Include AFTER StylizedLitInput.hlsl.
 // Clip features (alpha test, dither, dissolve) are evaluated through ApplyStylizedClip in every depth-like pass
 // and through ApplyStylizedFeatureClip in ForwardLit (which already alpha-clips inside surface data setup).
@@ -27,6 +27,36 @@
 #else
     #define STYLIZED_CLIP_WS(i) float3(0.0, 0.0, 0.0)
 #endif
+
+// ---- Vertex deformation (wind + displacement) ----
+// Every pass that transforms vertices must call ApplyStylizedVertexDeformation first so that shadows, depth,
+// normals, motion vectors and the outline all see the same deformed mesh. Normals are NOT recomputed.
+#if defined(_WIND_ON) || defined(_VERTEX_DISPLACE_ON)
+    #define STYLIZED_VERTEX_DEFORM 1
+#endif
+
+float3 ApplyStylizedVertexDeformation(float3 positionOS, float3 normalOS)
+{
+#if defined(STYLIZED_VERTEX_DEFORM)
+    float time = _TimeParameters.x;
+#if defined(_WIND_ON)
+    // Sway grows with object-space height (quadratic, so the base stays planted). The pivot gives each object its own phase.
+    float3 pivotWS = TransformObjectToWorld(float3(0.0, 0.0, 0.0));
+    float phase = dot(pivotWS.xz, float2(0.7, 0.4));
+    float mask = saturate((positionOS.y - _WindBaseHeight) / max(_WindHeightRange, 1e-3));
+    mask *= mask;
+    float wave = sin(time * _WindSpeed + phase + positionOS.y * _WindFrequency)
+               + 0.5 * sin(time * _WindSpeed * 2.3 + phase * 1.7 + positionOS.x * _WindFrequency);
+    positionOS += _WindDirection.xyz * (wave * _WindStrength * mask);
+#endif
+#if defined(_VERTEX_DISPLACE_ON)
+    float d = sin(dot(positionOS, float3(1.7, 2.3, 1.1)) * _DisplaceFrequency + time * _DisplaceSpeed)
+            * cos(positionOS.x * _DisplaceFrequency * 1.3 - time * _DisplaceSpeed * 0.7);
+    positionOS += normalOS * (d * _DisplaceStrength);
+#endif
+#endif
+    return positionOS;
+}
 
 // ---- Dither ----
 static const half kBayer4x4[16] = { 0, 8, 2, 10,  12, 4, 14, 6,  3, 11, 1, 9,  15, 7, 13, 5 };

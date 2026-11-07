@@ -52,7 +52,7 @@ namespace SSGICore
 
         sealed class CompositeData
         {
-            public TextureHandle gi, opaque, depth, raw, age;
+            public TextureHandle gi, opaque, depth, raw, age, normals;
             public Material material;
             public MaterialPropertyBlock block;
             public int passIndex;
@@ -212,6 +212,7 @@ namespace SSGICore
             }
 
             const GraphicsFormat kRgba = GraphicsFormat.R16G16B16A16_SFloat;
+            TextureHandle normalsRes = CreateUav(renderGraph, fullW, fullH, kRgba, "SSGICore_Normals");
             TextureHandle trace = CreateUav(renderGraph, lowW, lowH, kRgba, "SSGICore_Trace");
             TextureHandle filterA = CreateUav(renderGraph, lowW, lowH, kRgba, "SSGICore_FilterA");
             TextureHandle filterB = CreateUav(renderGraph, lowW, lowH, kRgba, "SSGICore_FilterB");
@@ -223,6 +224,16 @@ namespace SSGICore
             TextureHandle histColorPrev = renderGraph.ImportTexture(hist.GetPrevious(0));
             TextureHandle histMomPrev = renderGraph.ImportTexture(hist.GetPrevious(1));
             TextureHandle histGeoPrev = renderGraph.ImportTexture(hist.GetPrevious(2));
+
+            // ---- 0. Normal resolve (per-pixel choice of raw / octahedral / depth-reconstructed) ---------
+            using (var b = renderGraph.AddComputePass("SSGICore Normals", out StepData d))
+            {
+                d.Begin(SSGICoreResources.Normals, SSGICoreResources.KNormals, fullW, fullH, c, 0);
+                d.Add(SSGICoreIds.Depth, depth);            b.UseTexture(depth, AccessFlags.Read);
+                d.Add(SSGICoreIds.Normals, normalsIn);      b.UseTexture(normalsIn, AccessFlags.Read);
+                d.Add(SSGICoreIds.NormalsOut, normalsRes);  b.UseTexture(normalsRes, AccessFlags.Write);
+                b.SetRenderFunc(static (StepData data, ComputeGraphContext ctx) => data.Execute(ctx.cmd));
+            }
 
             // ---- 1. HZB (min eye depth pyramid, levels 1..5) --------------------------------------------
             using (var b = renderGraph.AddComputePass("SSGICore HZB 1", out StepData d))
@@ -251,7 +262,7 @@ namespace SSGICore
             {
                 d.Begin(SSGICoreResources.Trace, SSGICoreResources.KTrace, lowW, lowH, c, 0);
                 d.Add(SSGICoreIds.Depth, depth);            b.UseTexture(depth, AccessFlags.Read);
-                d.Add(SSGICoreIds.Normals, normalsIn);      b.UseTexture(normalsIn, AccessFlags.Read);
+                d.Add(SSGICoreIds.NormalsRes, normalsRes);      b.UseTexture(normalsRes, AccessFlags.Read);
                 d.Add(SSGICoreIds.Motion, motionIn);        b.UseTexture(motionIn, AccessFlags.Read);
                 d.Add(SSGICoreIds.Color, opaque);           b.UseTexture(opaque, AccessFlags.Read);
                 d.Add(SSGICoreIds.PrevColor, prevColorIn);  b.UseTexture(prevColorIn, AccessFlags.Read);
@@ -270,7 +281,7 @@ namespace SSGICore
                 d.Begin(SSGICoreResources.Temporal, SSGICoreResources.KTemporal, lowW, lowH, c, 0);
                 d.Add(SSGICoreIds.TraceIn, trace);              b.UseTexture(trace, AccessFlags.Read);
                 d.Add(SSGICoreIds.Depth, depth);                b.UseTexture(depth, AccessFlags.Read);
-                d.Add(SSGICoreIds.Normals, normalsIn);          b.UseTexture(normalsIn, AccessFlags.Read);
+                d.Add(SSGICoreIds.NormalsRes, normalsRes);          b.UseTexture(normalsRes, AccessFlags.Read);
                 d.Add(SSGICoreIds.Motion, motionIn);            b.UseTexture(motionIn, AccessFlags.Read);
                 d.Add(SSGICoreIds.HistColorPrev, histColorPrev); b.UseTexture(histColorPrev, AccessFlags.Read);
                 d.Add(SSGICoreIds.HistMomPrev, histMomPrev);     b.UseTexture(histMomPrev, AccessFlags.Read);
@@ -294,7 +305,7 @@ namespace SSGICore
                 {
                     d.Begin(SSGICoreResources.Filter, SSGICoreResources.KAtrous, lowW, lowH, c, 1 << i);
                     d.Add(SSGICoreIds.Depth, depth);        b.UseTexture(depth, AccessFlags.Read);
-                    d.Add(SSGICoreIds.Normals, normalsIn);  b.UseTexture(normalsIn, AccessFlags.Read);
+                    d.Add(SSGICoreIds.NormalsRes, normalsRes);  b.UseTexture(normalsRes, AccessFlags.Read);
                     d.Add(SSGICoreIds.FilterIn, src);       b.UseTexture(src, AccessFlags.Read);
                     d.Add(SSGICoreIds.FilterOut, dst);      b.UseTexture(dst, AccessFlags.Write);
                     b.SetRenderFunc(static (StepData data, ComputeGraphContext ctx) => data.Execute(ctx.cmd));
@@ -307,7 +318,7 @@ namespace SSGICore
             {
                 d.Begin(SSGICoreResources.Upsample, SSGICoreResources.KUpsample, fullW, fullH, c, 0);
                 d.Add(SSGICoreIds.Depth, depth);        b.UseTexture(depth, AccessFlags.Read);
-                d.Add(SSGICoreIds.Normals, normalsIn);  b.UseTexture(normalsIn, AccessFlags.Read);
+                d.Add(SSGICoreIds.NormalsRes, normalsRes);  b.UseTexture(normalsRes, AccessFlags.Read);
                 d.Add(SSGICoreIds.FilterIn, filtered);  b.UseTexture(filtered, AccessFlags.Read);
                 d.Add(SSGICoreIds.GIOut, giFull);       b.UseTexture(giFull, AccessFlags.Write);
                 b.SetRenderFunc(static (StepData data, ComputeGraphContext ctx) => data.Execute(ctx.cmd));
@@ -322,7 +333,9 @@ namespace SSGICore
                 d.depth = depth;        b.UseTexture(depth, AccessFlags.Read);
                 d.raw = default;
                 d.age = default;
+                d.normals = default;
                 if (debug == SSGICoreDebugView.RawTrace) { d.raw = trace;         b.UseTexture(trace, AccessFlags.Read); }
+                if (debug == SSGICoreDebugView.Normals || debug == SSGICoreDebugView.NormalSource) { d.normals = normalsRes; b.UseTexture(normalsRes, AccessFlags.Read); }
                 if (debug == SSGICoreDebugView.HistoryAge) { d.age = histColorCur; b.UseTexture(histColorCur, AccessFlags.Read); }
 
                 d.material = SSGICoreResources.Composite;
@@ -343,6 +356,7 @@ namespace SSGICore
                     cmd.SetGlobalTexture(SSGICoreIds.CompDepth, data.depth);
                     if (data.raw.IsValid()) cmd.SetGlobalTexture(SSGICoreIds.CompRaw, data.raw);
                     if (data.age.IsValid()) cmd.SetGlobalTexture(SSGICoreIds.CompAge, data.age);
+                    if (data.normals.IsValid()) cmd.SetGlobalTexture(SSGICoreIds.CompNormals, data.normals);
                     data.block.SetVector(SSGICoreIds.CompParams, data.prm);
                     data.block.SetVector(SSGICoreIds.CompSize, data.size);
                     cmd.DrawProcedural(Matrix4x4.identity, data.material, data.passIndex, MeshTopology.Triangles, 3, 1, data.block);

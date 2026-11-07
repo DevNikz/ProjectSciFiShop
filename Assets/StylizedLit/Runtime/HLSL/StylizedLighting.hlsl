@@ -1,4 +1,4 @@
-// StylizedLighting.hlsl  (Phase 4: PBR + toon + rim/matcap hooks)
+// StylizedLighting.hlsl  (Phase 6: PBR + toon + rim/matcap/hatch hooks)
 // Mirrors URP 17.3 (Unity 6.3) UniversalFragmentPBR (ShaderLibrary/Lighting.hlsl) but routes every light through
 // EvaluateLightContribution, so main, Forward+ directional and additional lights share one code path.
 // Toon lighting lives in ToonLighting; EvaluateLightContribution lerps PBR and toon per light by _ToonStrength.
@@ -172,6 +172,10 @@ half4 StylizedFragmentLit(InputData inputData, SurfaceData surfaceData)
 
     #if defined(_MATCAP_ON)
     finalColor.rgb = ApplyMatcap(finalColor.rgb, inputData);
+    #endif
+
+    #if defined(_HATCH_ON)
+    finalColor.rgb = ApplyHatching(finalColor.rgb, inputData);
     #endif
 
 #if REAL_IS_HALF

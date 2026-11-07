@@ -50,6 +50,18 @@ namespace SSGICore.Tests
         }
 
         [Test]
+        public void NormalSource_DefaultsToAuto_AndKeepsShaderModeValues()
+        {
+            var v = ScriptableObject.CreateInstance<SSGICoreVolume>();
+            Assert.AreEqual(SSGICoreNormalSource.Auto, v.normalSource.value);
+            Assert.AreEqual(0, (int)SSGICoreNormalSource.Raw);
+            Assert.AreEqual(1, (int)SSGICoreNormalSource.Octahedral);
+            Assert.AreEqual(2, (int)SSGICoreNormalSource.ReconstructFromDepth);
+            Assert.AreEqual(3, (int)SSGICoreNormalSource.Auto);
+            Object.DestroyImmediate(v);
+        }
+
+        [Test]
         public void LowSize_RoundsUp()
         {
             Assert.AreEqual(961, SSGICoreUtil.LowSize(1921, 2));

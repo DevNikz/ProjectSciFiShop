@@ -8,8 +8,8 @@ namespace SSGICore
     public enum SSGICoreQualityPreset { Low, Medium, High, Custom }
     public enum SSGICoreResolution { Full = 1, Half = 2, Quarter = 4 }
     public enum SSGICoreLightingSource { CurrentFrame, PreviousFrame, Blended }
-    public enum SSGICoreNormalSource { Raw, Octahedral, ReconstructFromDepth }
-    public enum SSGICoreDebugView { None, GI, RawTrace, HistoryAge }
+    public enum SSGICoreNormalSource { Raw = 0, Octahedral = 1, ReconstructFromDepth = 2, Auto = 3 }
+    public enum SSGICoreDebugView { None = 0, GI = 1, RawTrace = 2, HistoryAge = 3, Normals = 4, NormalSource = 5 }
 
     [Serializable]
     public sealed class SSGICoreQualityParameter : VolumeParameter<SSGICoreQualityPreset>
@@ -87,7 +87,8 @@ namespace SSGICore
         public ClampedFloatParameter motionRejection = new ClampedFloatParameter(8f, 0f, 64f);
 
         [Header("Advanced")]
-        public SSGICoreNormalSourceParameter normalSource = new SSGICoreNormalSourceParameter(SSGICoreNormalSource.Raw);
+        [Tooltip("Auto picks raw / octahedral / depth-reconstructed normals per pixel, so objects whose shaders pack normals differently all work.")]
+        public SSGICoreNormalSourceParameter normalSource = new SSGICoreNormalSourceParameter(SSGICoreNormalSource.Auto);
         public SSGICoreDebugViewParameter debugView = new SSGICoreDebugViewParameter(SSGICoreDebugView.None);
 
         public bool IsActive() => enable.value && intensity.value > 0f;

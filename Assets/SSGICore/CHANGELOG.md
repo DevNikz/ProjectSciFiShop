@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.0 (rev 2)
+* Fix: composite pass now allows global state modification.
+* Fix: per-pixel normal resolve (Auto) for scenes mixing URP Lit and custom-packed DepthNormals; new Normals debug views.
+
 ## 0.1.0
 * Initial release: HZB ray-march SSGI (mode A), downsampling (1x/2x/4x), IGN dithering, temporal accumulation,
   variance-guided a-trous denoiser, bilateral upsample, multi-bounce (explicit + temporal feedback), Low/Medium/High presets,
