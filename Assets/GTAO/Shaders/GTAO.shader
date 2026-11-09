@@ -114,6 +114,22 @@ Shader "Hidden/GTAO_URP/GTAO"
             #include "GTAO.hlsl"
             ENDHLSL
         }
+
+        Pass // 8
+        {
+            Name "GTAO_Atrous"
+            HLSLPROGRAM
+            #pragma target 3.5
+            #pragma exclude_renderers gles
+            #pragma vertex Vert
+            #pragma fragment FragAtrous
+            #pragma multi_compile_local_fragment _ _GTAO_DEPTH_MIPS
+            #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
+            #pragma multi_compile_local_fragment _ _SOURCE_DEPTH_NORMALS
+            #pragma multi_compile_local_fragment _ _ORTHOGRAPHIC
+            #include "GTAO.hlsl"
+            ENDHLSL
+        }
     }
     Fallback Off
 }

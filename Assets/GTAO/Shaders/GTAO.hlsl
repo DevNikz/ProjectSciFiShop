@@ -30,6 +30,8 @@ float4 _GTAO_FullSize;  // camera w,h,1/w,1/h
 float4 _GTAO_Temporal;  // x historyWeight (0=off), y velocityFadeInvPx, z depthTolerance, w clampK
 float4 _GTAO_Blur;      // x radius, y depthSharpness
 float4 _GTAO_MipParams; // x depthMipBias, y highest mip index
+float4 _GTAO_Denoise;   // x planeTolerance, y temporal v2 (4-tap history + age) when > 0.5, z bilateral 2x2 upsample when > 0.5
+float _GTAO_AtrousStep; // pixel step of the current a-trous iteration (set per pass)
 float4 _GTAO_Tune;      // x sampleDistributionPower, y thinOccluderCompensation, z noise (0 interleaved, 1 hilbert)
 float4x4 _GTAO_ViewToWorld;
 float4x4 _GTAO_WorldToView;
@@ -279,14 +281,16 @@ float2 FragEstimate(Varyings i) : SV_Target
     return float2(ao, d);
 }
 
-// Pass 1: temporal resolve. Variance-clamped 3x3 history box, reprojected by motion
-// vectors when available, else by camera matrices; fades out on disocclusion/motion.
-float2 FragTemporal(Varyings i) : SV_Target
+// Pass 1: temporal resolve. Variance-clamped 3x3 neighbourhood, reprojected by motion vectors when available,
+// else by camera matrices. Legacy: one bilinear history tap with a fixed weight. v2 (Atrous denoiser): four
+// depth-validated history taps (bilinear weights) plus a per-pixel history age in .z, so history rebuilds quickly
+// after disocclusion instead of blending against a stale value.
+float4 FragTemporal(Varyings i) : SV_Target
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
     float2 uv = i.texcoord;
     float2 cur = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, uv, 0).xy;
-    if (_GTAO_Temporal.x <= 0.0) return cur; // no history yet: never sample uninitialised texture
+    if (_GTAO_Temporal.x <= 0.0) return float4(cur, 1.0, 0.0); // no history yet: never sample uninitialised texture
 
     float2 t = _GTAO_Size.zw;
     float m1 = 0, m2 = 0, mn = cur.x, mx = cur.x;
@@ -311,15 +315,73 @@ float2 FragTemporal(Varyings i) : SV_Target
 #endif
 
     bool ok = all(prevUV > 0.0) && all(prevUV < 1.0);
+    float velPx = length((uv - prevUV) * _GTAO_FullSize.xy);
+    float velFade = saturate(1.0 - velPx * _GTAO_Temporal.y); // fade history under motion
+
+    [branch] if (_GTAO_Denoise.y > 0.5)
+    {
+        float2 pt = prevUV * _GTAO_Size.xy - 0.5;
+        float2 fl = floor(pt);
+        float2 fr = pt - fl;
+        float aoSum = 0.0, ageSum = 0.0, wSum = 0.0;
+        [unroll] for (int k = 0; k < 4; k++)
+        {
+            float2 o = float2(k & 1, k >> 1);
+            float bw = (o.x > 0.5 ? fr.x : 1.0 - fr.x) * (o.y > 0.5 ? fr.y : 1.0 - fr.y);
+            float2 tuv = (fl + o + 0.5) * _GTAO_Size.zw;
+            float4 hk = SAMPLE_TEXTURE2D_X_LOD(_GTAO_History, sampler_PointClamp, tuv, 0);
+            bool finiteTap = hk.x == hk.x && hk.y == hk.y && hk.z == hk.z; // NaN guard
+            float dv = saturate(1.0 - abs(hk.y - expected) / max(expected * _GTAO_Temporal.z, 1e-4)); // disocclusion rejection
+            float wk = finiteTap ? bw * dv : 0.0;
+            aoSum += hk.x * wk; ageSum += hk.z * wk; wSum += wk;
+        }
+        float invW = wSum > 1e-5 ? 1.0 / wSum : 0.0;
+        float valid = ok ? saturate(wSum) * velFade : 0.0;
+        float effAge = ageSum * invW * valid;           // confidence-weighted history age
+        float wv = min(effAge / (effAge + 1.0), _GTAO_Temporal.x); // 0 on the first frame, rises towards temporalWeight
+        float aoOut = lerp(cur.x, clamp(aoSum * invW, lo, hi), wv);
+        return float4(aoOut, cur.y, min(effAge + 1.0, 128.0), 0.0);
+    }
+
     float2 h = SAMPLE_TEXTURE2D_X_LOD(_GTAO_History, sampler_LinearClamp, prevUV, 0).xy;
     if (h.x != h.x || h.y != h.y) ok = false; // NaN guard
 
     float depthErr = abs(h.y - expected) / max(expected, 1e-3);
     float conf = saturate(1.0 - depthErr / max(_GTAO_Temporal.z, 1e-4)); // disocclusion rejection
-    float velPx = length((uv - prevUV) * _GTAO_FullSize.xy);
-    float velFade = saturate(1.0 - velPx * _GTAO_Temporal.y); // fade history under motion
     float w = ok ? _GTAO_Temporal.x * conf * velFade : 0.0;
-    return float2(lerp(cur.x, clamp(h.x, lo, hi), w), cur.y);
+    return float4(lerp(cur.x, clamp(h.x, lo, hi), w), cur.y, 0.0, 0.0);
+}
+
+// Weight of a neighbour by its distance from the centre pixel's tangent plane: 1 on the plane, 0 beyond 1/invTol.
+float DepthPlaneWeight(float3 N, float3 P, float3 Pq, float invTol)
+{
+    return saturate(1.0 - abs(dot(N, Pq - P)) * invTol);
+}
+
+// Pass 8: one a-trous iteration. 3x3 binomial kernel dilated by _GTAO_AtrousStep, each tap weighted by plane distance.
+float2 FragAtrous(Varyings i) : SV_Target
+{
+    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+    float2 uv = i.texcoord;
+    float2 c = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, uv, 0).xy;
+    float dc = c.y;
+    if (dc >= _ProjectionParams.z * 0.99) return c; // sky / beyond far plane: AO is 1, nothing to filter
+
+    float3 P = ViewPos(uv, dc);
+    float3 N = GetNormal(uv, P, dc);
+    float invTol = 1.0 / max(_GTAO_Denoise.x * dc, 1e-4);
+    float2 stp = _GTAO_Size.zw * _GTAO_AtrousStep;
+
+    float sum = 0.0, wsum = 0.0;
+    [unroll] for (int y = -1; y <= 1; y++)
+    [unroll] for (int x = -1; x <= 1; x++)
+    {
+        float2 suv = uv + float2(x, y) * stp;
+        float2 s = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, suv, 0).xy;
+        float w = (float)((2 - abs(x)) * (2 - abs(y))) * DepthPlaneWeight(N, P, ViewPos(suv, s.y), invTol); // [1 2 1] x [1 2 1]
+        sum += s.x * w; wsum += w;
+    }
+    return float2(sum / wsum, c.y); // centre tap has weight 4, so wsum >= 4
 }
 
 // Depth-aware separable blur, shared by the H and V+upsample passes.
@@ -345,10 +407,35 @@ float2 FragBlurH(Varyings i) : SV_Target
     return DoBlur(i.texcoord, float2(1, 0), false);
 }
 
+// Depth-aware 2x2 upsample from AO resolution to full resolution: the four nearest AO texels, each weighted by
+// bilinear coverage x similarity of its stored depth to the full-res pixel's depth. If every tap is rejected,
+// the tap closest in depth wins instead of a blind bilinear blend.
+float UpsampleAO(float2 uv)
+{
+    float dF = SampleViewDepth(uv, 0.0);
+    float2 pt = uv * _GTAO_Size.xy - 0.5;
+    float2 fl = floor(pt);
+    float2 fr = pt - fl;
+    float sum = 0.0, wsum = 0.0, bestAO = 1.0, bestErr = 1e30;
+    [unroll] for (int k = 0; k < 4; k++)
+    {
+        float2 o = float2(k & 1, k >> 1);
+        float bw = (o.x > 0.5 ? fr.x : 1.0 - fr.x) * (o.y > 0.5 ? fr.y : 1.0 - fr.y);
+        float2 tuv = (fl + o + 0.5) * _GTAO_Size.zw;
+        float2 s = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, tuv, 0).xy;
+        float err = abs(s.y - dF) / max(dF, 1e-3);
+        float w = bw * exp(-err * _GTAO_Blur.y);
+        sum += s.x * w; wsum += w;
+        if (err < bestErr) { bestErr = err; bestAO = s.x; }
+    }
+    return wsum > 1e-4 ? sum / wsum : bestAO;
+}
+
 float ResolveAO(Varyings i)
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-    return DoBlur(i.texcoord, float2(0, 1), true).x; // vertical blur doubles as bilateral upsample
+    [branch] if (_GTAO_Denoise.z > 0.5) return UpsampleAO(i.texcoord); // Atrous + downsample
+    return DoBlur(i.texcoord, float2(0, 1), true).x; // legacy: vertical blur doubles as bilateral upsample
 }
 
 float4 FragResolve(Varyings i) : SV_Target   { float a = ResolveAO(i); return float4(a, a, a, a); }

@@ -19,7 +19,8 @@ namespace GTAO_URP
             PassComposite = 4,
             PassDebug = 5,
             PassPrefilterDepth = 6,
-            PassDepthMip = 7;
+            PassDepthMip = 7,
+            PassAtrous = 8;
 
         const int DepthMipCount = 5; // mip 0 (full res) .. mip 4
 
@@ -36,6 +37,8 @@ namespace GTAO_URP
             public static readonly int Blur = Shader.PropertyToID("_GTAO_Blur");
             public static readonly int MipParams = Shader.PropertyToID("_GTAO_MipParams");
             public static readonly int Tune = Shader.PropertyToID("_GTAO_Tune");
+            public static readonly int Denoise = Shader.PropertyToID("_GTAO_Denoise");
+            public static readonly int AtrousStep = Shader.PropertyToID("_GTAO_AtrousStep");
             public static readonly int[] DepthMips =
             {
                 Shader.PropertyToID("_GTAO_DepthMip0"),
@@ -73,7 +76,11 @@ namespace GTAO_URP
             new ProfilingSampler("GTAO Debug"),
             new ProfilingSampler("GTAO Prefilter Depth"),
             new ProfilingSampler("GTAO Depth Mip"),
+            new ProfilingSampler("GTAO Atrous"),
         };
+
+        // a-trous iterations are capped at 3 by GTAOSettings.GetAtrousIterations (steps 1, 2, 4)
+        static readonly string[] s_AtrousPassNames = { "GTAO Atrous 1", "GTAO Atrous 2", "GTAO Atrous 3" };
 
         static readonly string[] s_DepthMipTexNames =
         {
@@ -105,6 +112,7 @@ namespace GTAO_URP
             internal TextureHandle[] mips; // depth MIP chain; entries are null when unused
             internal bool applyGlobals;
             internal float directStrength;
+            internal float atrousStep;
         }
 
         // Inputs/outputs of one AddPass call; unset handles stay null.
@@ -117,6 +125,7 @@ namespace GTAO_URP
                 history,
                 motion;
             internal TextureHandle[] depthMips; // null = pass doesn't read the depth MIP chain
+            internal float atrousStep; // pixel step for PassAtrous
             internal bool publishGlobals,
                 readWriteDst,
                 srcIsDepth;
@@ -127,6 +136,7 @@ namespace GTAO_URP
                 this.dst = dst;
                 depth = normals = history = motion = TextureHandle.nullHandle;
                 depthMips = null;
+                atrousStep = 0f;
                 publishGlobals = readWriteDst = srcIsDepth = false;
             }
         }
@@ -157,6 +167,7 @@ namespace GTAO_URP
 
         static GraphicsFormat s_FmtRG = GraphicsFormat.None,
             s_FmtR = GraphicsFormat.None,
+            s_FmtHist = GraphicsFormat.None,
             s_FmtDepth16 = GraphicsFormat.None,
             s_FmtDepth32 = GraphicsFormat.None;
 
@@ -200,6 +211,10 @@ namespace GTAO_URP
                 GraphicsFormat.R32G32B32A32_SFloat
             );
             s_FmtR = Pick(GraphicsFormat.R8_UNorm, GraphicsFormat.R8G8B8A8_UNorm);
+            s_FmtHist = Pick( // (ao, depth, age, -): age drives the Atrous temporal path
+                GraphicsFormat.R16G16B16A16_SFloat,
+                GraphicsFormat.R32G32B32A32_SFloat
+            );
             s_FmtDepth16 = Pick(
                 GraphicsFormat.R16_SFloat,
                 GraphicsFormat.R32_SFloat,
@@ -269,13 +284,24 @@ namespace GTAO_URP
             bool camOk =
                 cam.cameraType == CameraType.Game || cam.cameraType == CameraType.SceneView;
             bool wantTemporal = s.temporal && camOk && s.temporalWeight > 0f;
+            bool atrous = s.denoiser == GTAODenoiser.Atrous;
+            // Half-res AO published as-is (bilinear) instead of a full-res resolve pass. Lighting mode + Atrous only.
+            bool publishLowRes =
+                s.downsample && !m_AfterOpaque && atrous && s.upsample == GTAOUpsample.Bilinear;
+            FilterMode aoFilter = publishLowRes ? FilterMode.Bilinear : FilterMode.Point; // URP lit shaders sample with the RT's own filter
             HistoryData hist = null;
             bool histValid = false;
             int prevIdx = 0,
                 curIdx = 0;
             if (wantTemporal)
             {
-                hist = AcquireHistory(cam.camera.GetInstanceID(), aw, ah, s_FmtRG, out histValid);
+                hist = AcquireHistory(
+                    cam.camera.GetInstanceID(),
+                    aw,
+                    ah,
+                    atrous ? s_FmtHist : s_FmtRG,
+                    out histValid
+                );
                 if (hist == null)
                     wantTemporal = false;
                 else
@@ -305,10 +331,11 @@ namespace GTAO_URP
                 ah,
                 s_FmtRG,
                 "_GTAO_Raw",
-                FilterMode.Point
+                aoFilter
             );
 
-            int blurR = s.GetBlurRadius();
+            int blurR = atrous ? 0 : s.GetBlurRadius(); // legacy separable blur only
+            int atrousIters = Mathf.Min(s.GetAtrousIterations(), s_AtrousPassNames.Length);
             TextureHandle blurTex = TextureHandle.nullHandle;
             if (blurR > 0)
                 blurTex = CreateAOTexture(
@@ -321,8 +348,16 @@ namespace GTAO_URP
                     FilterMode.Point
                 );
 
+            // a-trous ping-pong targets (iteration 1 -> A, 2 -> B, 3 -> A)
+            TextureHandle atrousA = TextureHandle.nullHandle,
+                atrousB = TextureHandle.nullHandle;
+            if (atrousIters > 0)
+                atrousA = CreateAOTexture(renderGraph, d, aw, ah, s_FmtRG, "_GTAO_AtrousA", aoFilter);
+            if (atrousIters > 1)
+                atrousB = CreateAOTexture(renderGraph, d, aw, ah, s_FmtRG, "_GTAO_AtrousB", aoFilter);
+
             TextureHandle final = TextureHandle.nullHandle;
-            if (!m_AfterOpaque)
+            if (!m_AfterOpaque && !publishLowRes)
                 final = CreateAOTexture(
                     renderGraph,
                     d,
@@ -361,6 +396,7 @@ namespace GTAO_URP
                     normals = normals,
                     srcIsDepth = true,
                     depthMips = mips,
+                    publishGlobals = publishLowRes && !wantTemporal && atrousIters == 0,
                 }
             );
             TextureHandle chain = aoTex;
@@ -374,7 +410,12 @@ namespace GTAO_URP
                     renderGraph,
                     "GTAO Temporal",
                     PassTemporal,
-                    new PassInputs(chain, hCur) { history = hPrev, motion = motion }
+                    new PassInputs(chain, hCur)
+                    {
+                        history = hPrev,
+                        motion = motion,
+                        publishGlobals = publishLowRes && atrousIters == 0,
+                    }
                 );
                 chain = hCur;
 
@@ -389,7 +430,7 @@ namespace GTAO_URP
                 hist.hasPrev = false;
             }
 
-            // 3. Blur H
+            // 3. Spatial denoise: legacy horizontal blur, or a-trous iterations (step 1, 2, 4)
             if (blurR > 0)
             {
                 AddPass(
@@ -399,6 +440,27 @@ namespace GTAO_URP
                     new PassInputs(chain, blurTex)
                 );
                 chain = blurTex;
+            }
+            else
+            {
+                for (int it = 0; it < atrousIters; it++)
+                {
+                    TextureHandle dst = (it & 1) == 0 ? atrousA : atrousB;
+                    AddPass(
+                        renderGraph,
+                        s_AtrousPassNames[it],
+                        PassAtrous,
+                        new PassInputs(chain, dst)
+                        {
+                            depth = depth,
+                            normals = normals,
+                            depthMips = mip0Only,
+                            atrousStep = 1 << it,
+                            publishGlobals = publishLowRes && it == atrousIters - 1,
+                        }
+                    );
+                    chain = dst;
+                }
             }
 
             // 4. Blur V + upsample -> output
@@ -417,7 +479,7 @@ namespace GTAO_URP
                     }
                 );
             }
-            else
+            else if (!publishLowRes) // low-res publish: the last denoise pass already exported _ScreenSpaceOcclusionTexture
             {
                 AddPass(
                     renderGraph,
@@ -501,6 +563,7 @@ namespace GTAO_URP
                 pd.history = io.history;
                 pd.motion = io.motion;
                 pd.applyGlobals = io.publishGlobals;
+                pd.atrousStep = io.atrousStep;
                 pd.mips ??= new TextureHandle[DepthMipCount]; // PassData is pooled: allocated once, then reused
                 for (int i = 0; i < DepthMipCount; i++)
                     pd.mips[i] = io.depthMips != null ? io.depthMips[i] : TextureHandle.nullHandle;
@@ -547,6 +610,8 @@ namespace GTAO_URP
                         for (int i = 0; i < DepthMipCount; i++)
                             if (data.mips[i].IsValid())
                                 m.SetTexture(IDs.DepthMips[i], data.mips[i]);
+                        if (data.pass == PassAtrous)
+                            m.SetFloat(IDs.AtrousStep, data.atrousStep);
 
                         Blitter.BlitTexture(
                             ctx.cmd,
@@ -612,7 +677,16 @@ namespace GTAO_URP
                     s.clampStrength
                 )
             );
-            m.SetVector(IDs.Blur, new Vector4(s.GetBlurRadius(), s.blurDepthSharpness, 0, 0));
+            m.SetVector(IDs.Blur, new Vector4(s.GetResolveBlurRadius(), s.blurDepthSharpness, 0, 0));
+            m.SetVector(
+                IDs.Denoise,
+                new Vector4(
+                    s.planeTolerance,
+                    s.denoiser == GTAODenoiser.Atrous ? 1f : 0f,
+                    s.denoiser == GTAODenoiser.Atrous && down > 1 ? 1f : 0f, // bilateral upsample in the resolve pass
+                    0f
+                )
+            );
             m.SetVector(IDs.MipParams, new Vector4(s.depthMipBias, DepthMipCount - 1, 0, 0));
             m.SetVector(
                 IDs.Tune,

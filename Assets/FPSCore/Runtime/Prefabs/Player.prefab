@@ -268,11 +268,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: FPSCore::Interactor
   origin: {fileID: 0}
-  interactRange: 3
+  interactRange: 5
   rayMask:
     serializedVersion: 2
     m_Bits: 4294967295
-  drawGizmos: 1
+  drawGizmos: 0
   _targetDebug: {fileID: 0}
 --- !u!114 &2719600394696896032
 MonoBehaviour:
@@ -286,7 +286,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ae48382c3d07b20488bc94b94ffea4c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: FPSCore::InteractorDragAim
-  fallbackReach: 3
+  fallbackReach: 5
+  drawGizmos: 1
+  _targetDebug: {fileID: 0}
 --- !u!114 &4488323731278178166
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -440,11 +442,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: FPSCore::Dragger
   hold:
-    minHoldDistance: 1
-    maxHoldDistance: 2.2
+    minHoldDistance: 0.5
+    maxHoldDistance: 5
     wallClearance: 0.3
-    breakDistance: 2
-    releaseSpeedCap: 3
+    breakDistance: 5
+    releaseSpeedCap: 5
   feel:
     sizeWeight: 0.5
     loadRef: 10

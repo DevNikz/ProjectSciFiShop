@@ -163,7 +163,7 @@ MonoBehaviour:
     m_Value: 2
   maxSteps:
     m_OverrideState: 1
-    m_Value: 32
+    m_Value: 48
   bounces:
     m_OverrideState: 1
     m_Value: 2
@@ -193,10 +193,10 @@ MonoBehaviour:
     m_Value: 20
   maxDistance:
     m_OverrideState: 1
-    m_Value: 20
+    m_Value: 50
   thickness:
     m_OverrideState: 1
-    m_Value: 2
+    m_Value: 1
   edgeFade:
     m_OverrideState: 1
     m_Value: 32
@@ -214,7 +214,7 @@ MonoBehaviour:
     m_Value: 0.5
   fireflyClamp:
     m_OverrideState: 1
-    m_Value: 25
+    m_Value: 50
   temporalClamp:
     m_OverrideState: 1
     m_Value: 2

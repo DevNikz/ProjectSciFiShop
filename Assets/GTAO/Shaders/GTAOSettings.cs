@@ -8,6 +8,8 @@ namespace GTAO_URP
     public enum GTAONormals { DepthNormals, ReconstructFromDepth }
     public enum GTAOBlur { Off, Low, Medium, High }
     public enum GTAONoise { Interleaved, Hilbert }
+    public enum GTAODenoiser { Legacy, Atrous }
+    public enum GTAOUpsample { Bilateral, Bilinear }
 
     [Serializable]
     public class GTAOSettings
@@ -59,7 +61,14 @@ namespace GTAO_URP
         public bool useMotionVectors = true;
 
         [Header("Spatial")]
+        [Tooltip("Legacy: separable Gaussian blur + fixed-weight temporal (original). Atrous: plane-aware a-trous filter (iterations from Blur) + depth-validated temporal with per-pixel history age.")]
+        public GTAODenoiser denoiser = GTAODenoiser.Atrous;
+        [Tooltip("Legacy: blur radius. Atrous: number of filter iterations (Low 1, Medium 2, High 3).")]
         public GTAOBlur blur = GTAOBlur.Medium;
+        [Tooltip("Only used with Downsample + Atrous. Bilateral: depth-aware 2x2 upsample to full res. Bilinear (Lighting mode only): skips the full-res pass and publishes the half-res AO directly; cheaper, but leaks across depth edges.")]
+        public GTAOUpsample upsample = GTAOUpsample.Bilateral;
+        [Tooltip("Atrous only. Max distance of a neighbour from the centre pixel's surface plane, as a fraction of view depth. Lower = sharper edges, higher = smoother.")]
+        [Range(0.001f, 0.2f)] public float planeTolerance = 0.02f;
         [Range(1f, 500f)] public float blurDepthSharpness = 100f;
 
         [Header("Debug")]
@@ -85,6 +94,17 @@ namespace GTAO_URP
             return downsample ? Mathf.Max(r, 1) : r; // bilateral upsample needs at least one tap
         }
 
+        // Number of a-trous iterations (step 1, 2, 4). 0 when the legacy denoiser is selected.
+        public int GetAtrousIterations()
+        {
+            if (denoiser != GTAODenoiser.Atrous) return 0;
+            return blur == GTAOBlur.Low ? 1 : blur == GTAOBlur.Medium ? 2 : blur == GTAOBlur.High ? 3 : 0;
+        }
+
+        // Radius of the final resolve filter. Legacy: the blur radius (also acts as the upsample). Atrous: none; the
+        // a-trous passes already smoothed, and half-res upsampling is the dedicated bilateral path in ResolveAO.
+        public int GetResolveBlurRadius() => denoiser == GTAODenoiser.Legacy ? GetBlurRadius() : 0;
+
         // Clamped copy; guards against bad serialized/inspector values reaching the shader.
         public GTAOSettings Sanitized()
         {
@@ -109,6 +129,8 @@ namespace GTAO_URP
             dst.debugView = debugView;
             dst.useDepthMips = useDepthMips;
             dst.noise = noise;
+            dst.denoiser = denoiser;
+            dst.upsample = upsample;
             dst.highPrecisionDepthMips = highPrecisionDepthMips;
 
             dst.radius = Mathf.Clamp(NanSafe(radius, 0.5f), 0.05f, 10f);
@@ -122,6 +144,7 @@ namespace GTAO_URP
             if (dst.fadeEnd > 0f && dst.fadeStart >= dst.fadeEnd) dst.fadeStart = dst.fadeEnd * 0.5f;
             dst.sampleDistributionPower = Mathf.Clamp(NanSafe(sampleDistributionPower, 2f), 1f, 3f);
             dst.thinOccluderCompensation = Mathf.Clamp(NanSafe(thinOccluderCompensation, 0f), 0f, 0.7f);
+            dst.planeTolerance = Mathf.Clamp(NanSafe(planeTolerance, 0.02f), 0.001f, 0.2f);
             dst.depthMipBias = Mathf.Clamp(NanSafe(depthMipBias, 3.3f), 0f, 6f);
             dst.temporalWeight = Mathf.Clamp(NanSafe(temporalWeight, 0.9f), 0f, 0.98f);
             dst.velocityFadePixels = Mathf.Max(1f, NanSafe(velocityFadePixels, 20f));

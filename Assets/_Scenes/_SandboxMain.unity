@@ -4372,14 +4372,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
-    - target: {fileID: 2719600394696896032, guid: 7626e08f4fcee4d43b6c17710170014c, type: 3}
-      propertyPath: fallbackReach
-      value: 5
-      objectReference: {fileID: 0}
-    - target: {fileID: 2905406474112133260, guid: 7626e08f4fcee4d43b6c17710170014c, type: 3}
-      propertyPath: hold.maxHoldDistance
-      value: 5
-      objectReference: {fileID: 0}
     - target: {fileID: 3476640955920598647, guid: 7626e08f4fcee4d43b6c17710170014c, type: 3}
       propertyPath: m_Name
       value: Player
@@ -4423,14 +4415,6 @@ PrefabInstance:
     - target: {fileID: 3507249674297301370, guid: 7626e08f4fcee4d43b6c17710170014c, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5769876448624140953, guid: 7626e08f4fcee4d43b6c17710170014c, type: 3}
-      propertyPath: drawGizmos
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 5769876448624140953, guid: 7626e08f4fcee4d43b6c17710170014c, type: 3}
-      propertyPath: interactRange
-      value: 5
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

@@ -90,16 +90,16 @@ MonoBehaviour:
   settings:
     apply: 1
     normals: 0
-    radius: 2
+    radius: 1
     intensity: 1.5
     falloffRange: 0.1
-    multiBounce: 0.5
+    multiBounce: 0
     directLightingStrength: 0.25
     quality: 1
     customSlices: 2
     customSteps: 4
     maxPixelRadius: 256
-    downsample: 1
+    downsample: 0
     fadeStart: 60
     fadeEnd: 100
     useDepthMips: 1
@@ -114,8 +114,11 @@ MonoBehaviour:
     depthTolerance: 0.03
     clampStrength: 1.25
     useMotionVectors: 1
+    denoiser: 1
     blur: 3
-    blurDepthSharpness: 100
+    upsample: 1
+    planeTolerance: 0.02
+    blurDepthSharpness: 500
     debugView: 0
   shader: {fileID: 4800000, guid: 30a1080d3cf26954290f430b46881b6b, type: 3}
 --- !u!114 &7491601281297515449
