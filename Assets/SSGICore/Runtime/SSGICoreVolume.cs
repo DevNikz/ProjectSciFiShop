@@ -8,8 +8,9 @@ namespace SSGICore
     public enum SSGICoreQualityPreset { Low, Medium, High, Custom }
     public enum SSGICoreResolution { Full = 1, Half = 2, Quarter = 4 }
     public enum SSGICoreLightingSource { CurrentFrame, PreviousFrame, Blended }
-    public enum SSGICoreNormalSource { Raw, Octahedral, ReconstructFromDepth }
-    public enum SSGICoreDebugView { None, GI, RawTrace, HistoryAge }
+    public enum SSGICoreNormalSource { Raw = 0, Octahedral = 1, ReconstructFromDepth = 2, Auto = 3 }
+    public enum SSGICoreDenoiserMode { Legacy = 0, Enhanced = 1 }
+    public enum SSGICoreDebugView { None = 0, GI = 1, RawTrace = 2, HistoryAge = 3, Normals = 4, NormalSource = 5 }
 
     [Serializable]
     public sealed class SSGICoreQualityParameter : VolumeParameter<SSGICoreQualityPreset>
@@ -41,6 +42,12 @@ namespace SSGICore
         public SSGICoreDebugViewParameter(SSGICoreDebugView value, bool overrideState = false) : base(value, overrideState) { }
     }
 
+    [Serializable]
+    public sealed class SSGICoreDenoiserModeParameter : VolumeParameter<SSGICoreDenoiserMode>
+    {
+        public SSGICoreDenoiserModeParameter(SSGICoreDenoiserMode value, bool overrideState = false) : base(value, overrideState) { }
+    }
+
     /// <summary>Volume override holding every SSGICore setting.</summary>
     [Serializable]
     [VolumeComponentMenu("Lighting/SSGICore")]
@@ -60,6 +67,20 @@ namespace SSGICore
         public BoolParameter temporal = new BoolParameter(true);
         public ClampedIntParameter temporalFrames = new ClampedIntParameter(16, 2, 64);
         public ClampedIntParameter filterIterations = new ClampedIntParameter(3, 0, 4);
+        [Tooltip("Legacy = original temporal + a-trous. Enhanced = neighbourhood firefly rejection, luminance-confidence history, disocclusion fill, age-aware filter tolerance and filtered-history feedback.")]
+        public SSGICoreDenoiserModeParameter denoiserMode = new SSGICoreDenoiserModeParameter(SSGICoreDenoiserMode.Legacy);
+
+        [Header("Radiance cache (experimental)")]
+        [Tooltip("World-space cache of recently seen lit surfaces, fed from the screen. Rays that leave the screen read it instead of only the ambient cube, so off-screen geometry still bounces light. Range follows Max Distance.")]
+        public BoolParameter radianceCache = new BoolParameter(false);
+
+        [Header("ReSTIR (experimental)")]
+        [Tooltip("Resample first-hit samples across frames and neighbouring pixels (ReSTIR-lite) instead of averaging the rays of each pixel. Costs extra bandwidth; best with fewer rays/filter iterations.")]
+        public BoolParameter restir = new BoolParameter(false);
+        [Tooltip("Also reuse one neighbouring pixel's sample per frame. No visibility test, so can leak light across thin occluders.")]
+        public BoolParameter restirSpatial = new BoolParameter(true);
+        [Tooltip("History confidence cap as a multiple of the per-frame candidate count. Higher = smoother and slower to react.")]
+        public ClampedIntParameter restirHistoryCap = new ClampedIntParameter(20, 1, 64);
 
         [Header("Ray March")]
         [Tooltip("Maximum ray length in world units.")]
@@ -87,7 +108,8 @@ namespace SSGICore
         public ClampedFloatParameter motionRejection = new ClampedFloatParameter(8f, 0f, 64f);
 
         [Header("Advanced")]
-        public SSGICoreNormalSourceParameter normalSource = new SSGICoreNormalSourceParameter(SSGICoreNormalSource.Raw);
+        [Tooltip("Auto picks raw / octahedral / depth-reconstructed normals per pixel, so objects whose shaders pack normals differently all work.")]
+        public SSGICoreNormalSourceParameter normalSource = new SSGICoreNormalSourceParameter(SSGICoreNormalSource.Auto);
         public SSGICoreDebugViewParameter debugView = new SSGICoreDebugViewParameter(SSGICoreDebugView.None);
 
         public bool IsActive() => enable.value && intensity.value > 0f;

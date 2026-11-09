@@ -1,8 +1,19 @@
 #pragma kernel Trace
+#pragma kernel TraceRestir
 
-#include "SSGICore_Common.hlsl"
+#include "SSGICore_Restir.hlsl"
 
 RWTexture2D<float4> _SSGI_TraceOut;
+RWTexture2D<float4> _SSGI_LowGeoOut;   // view normal (xyz) + eye depth (w); w = 0 marks sky
+
+// TraceRestir only: previous-frame reservoirs + history geometry (read), current reservoirs (write).
+Texture2D<float4>   _SSGI_HistGeoPrev;
+Texture2D<float4>   _SSGI_ResAPrev;
+Texture2D<float4>   _SSGI_ResBPrev;
+Texture2D<float4>   _SSGI_ResCPrev;
+RWTexture2D<float4> _SSGI_ResAOut;
+RWTexture2D<float4> _SSGI_ResBOut;
+RWTexture2D<float4> _SSGI_ResCOut;
 
 float3 FallbackRadiance(float3 dirVS)
 {
@@ -11,6 +22,57 @@ float3 FallbackRadiance(float3 dirVS)
     return n2.x * _SSGI_AmbientCube[d.x >= 0.0 ? 0 : 1].rgb
          + n2.y * _SSGI_AmbientCube[d.y >= 0.0 ? 2 : 3].rgb
          + n2.z * _SSGI_AmbientCube[d.z >= 0.0 ? 4 : 5].rgb;
+}
+
+Texture3D<float4> _SSGI_CacheTex;      // radiance cache: 6 axis faces packed along x (6N x N x N), rgb premultiplied by weight w
+
+#define SSGI_CACHE_N 32.0
+
+// Radiance seen by a surface whose normal faces nFace, stored per cell as an 'ambient cube' of lit scene colour.
+// Returns (radiance, confidence 0..1); confidence 0 outside the grid or where nothing was injected.
+float4 CacheLookup(float3 posWS, float3 nFace)
+{
+    float3 c = posWS / _SSGI_CacheBase.w - _SSGI_CacheBase.xyz; // continuous cell coordinates, centres at +0.5
+    if (any(c < 0.5) || any(c > SSGI_CACHE_N - 0.5)) return 0;
+
+    float3 n2 = nFace * nFace;
+    float3 premult = 0;
+    float w = 0;
+    [unroll]
+    for (int a = 0; a < 3; a++)
+    {
+        int face = a * 2 + (nFace[a] >= 0.0 ? 0 : 1); // +X -X +Y -Y +Z -Z, same order as the ambient cube
+        float3 uvw = float3((face * SSGI_CACHE_N + c.x) / (6.0 * SSGI_CACHE_N), c.y / SSGI_CACHE_N, c.z / SSGI_CACHE_N);
+        float4 t = _SSGI_CacheTex.SampleLevel(sampler_linear_clamp, uvw, 0);
+        premult += n2[a] * t.rgb;
+        w += n2[a] * t.w;
+    }
+    return float4(premult / max(w, 1e-4), saturate(w * 0.25));
+}
+
+// Radiance for a ray that found no on-screen hit: the radiance cache along the ray (nearest confident sample wins),
+// the rest from the ambient cube. Identical to the old ambient-cube fallback when the cache is disabled.
+float3 FallbackRadianceAt(float3 dirVS, float3 originVS)
+{
+    float3 ambient = FallbackRadiance(dirVS) * _SSGI_FallbackIntensity;
+    if (_SSGI_CacheEnabled == 0) return ambient;
+
+    float3 oWS = mul(_SSGI_InvView, float4(originVS, 1.0)).xyz;
+    float3 dWS = ViewToWorldDir(dirVS);
+    float3 nFace = -dWS; // the surface that this ray would see faces back along the ray
+
+    float3 cached = 0;
+    float taken = 0;
+    [unroll]
+    for (int k = 0; k < 3; k++)
+    {
+        float t = _SSGI_MaxDistance * (k == 0 ? 0.15 : (k == 1 ? 0.4 : 1.0));
+        float4 s = CacheLookup(oWS + dWS * t, nFace);
+        float take = (1.0 - taken) * s.a;
+        cached += s.rgb * take;
+        taken += take;
+    }
+    return cached + ambient * (1.0 - taken);
 }
 
 // Lit scene colour at a hit pixel: current frame, previous frame (reprojected), or a blend of both.
@@ -110,13 +172,16 @@ bool MarchRay(float3 originVS, float3 dirVS, float jitter, out int2 hitPx)
     return false;
 }
 
-float4 TracePath(int2 fp, float3 origin, float3 normalVS, int ray)
+// Same estimator as before; additionally reports the first-bounce sample point (view space) and the normal there.
+float4 TracePathEx(int2 fp, float3 origin, float3 normalVS, int ray, out float3 firstPosVS, out float3 firstNormalVS)
 {
     float3 radiance = 0;
     float3 throughput = 1;
     float hitFlag = 0;
     float3 o = origin;
     float3 n = normalVS;
+    firstPosVS = origin;
+    firstNormalVS = normalVS;
 
     for (int b = 0; b < _SSGI_Bounces; b++)
     {
@@ -127,7 +192,12 @@ float4 TracePath(int2 fp, float3 origin, float3 normalVS, int ray)
         int2 hitPx;
         if (!MarchRay(o, d, jitter, hitPx))
         {
-            radiance += throughput * FallbackRadiance(d) * _SSGI_FallbackIntensity;
+            if (b == 0)
+            {
+                firstPosVS = o + d * _SSGI_MaxDistance; // miss: treat as a far point along the ray
+                firstNormalVS = -d;
+            }
+            radiance += throughput * FallbackRadianceAt(d, o);
             break;
         }
 
@@ -138,16 +208,27 @@ float4 TracePath(int2 fp, float3 origin, float3 normalVS, int ray)
         float2 uvH = PixelToUV(hitPx);
         float2 e = min(uvH, 1.0 - uvH);
         float fade = saturate(min(e.x, e.y) * _SSGI_EdgeFade);
-        Lh = lerp(FallbackRadiance(d) * _SSGI_FallbackIntensity, Lh, fade);
+        Lh = lerp(FallbackRadianceAt(d, o), Lh, fade);
 
         radiance += throughput * Lh;
         if (b == 0) hitFlag = 1.0;
 
         throughput *= ApproxAlbedo(Lh);
         n = LoadNormalVS(hitPx);
+        if (b == 0)
+        {
+            firstPosVS = posH;
+            firstNormalVS = n;
+        }
         o = posH + n * (0.01 + eyeH * 0.002);
     }
     return float4(radiance, hitFlag);
+}
+
+float4 TracePath(int2 fp, float3 origin, float3 normalVS, int ray)
+{
+    float3 firstPos, firstNormal;
+    return TracePathEx(fp, origin, normalVS, ray, firstPos, firstNormal);
 }
 
 [numthreads(8, 8, 1)]
@@ -161,12 +242,14 @@ void Trace(uint3 id : SV_DispatchThreadID)
     if (IsSkyRaw(raw))
     {
         _SSGI_TraceOut[lp] = 0;
+        _SSGI_LowGeoOut[lp] = float4(0, 0, 1, 0);
         return;
     }
 
     float eye = EyeDepthFromRaw(raw);
     float3 posVS = ViewPosFromPixel(fp, eye);
     float3 nVS = LoadNormalVS(fp);
+    _SSGI_LowGeoOut[lp] = float4(nVS, eye);
     float3 origin = posVS + nVS * (0.01 + eye * 0.002);
 
     float3 sum = 0;
@@ -179,4 +262,72 @@ void Trace(uint3 id : SV_DispatchThreadID)
     }
     float inv = rcp((float)_SSGI_RayCount);
     _SSGI_TraceOut[lp] = float4(sum * inv, hits * inv);
+}
+
+// ---- ReSTIR-lite: initial candidates + temporal reuse ------------------------------------------------------
+[numthreads(8, 8, 1)]
+void TraceRestir(uint3 id : SV_DispatchThreadID)
+{
+    int2 lp = (int2)id.xy;
+    if (any(lp >= (int2)_SSGI_LowSize.xy)) return;
+
+    int2 fp = LowToFull(lp);
+    float raw = _SSGI_Depth.Load(int3(fp, 0));
+    if (IsSkyRaw(raw))
+    {
+        _SSGI_LowGeoOut[lp] = float4(0, 0, 1, 0);
+        _SSGI_ResAOut[lp] = 0;
+        _SSGI_ResBOut[lp] = 0;
+        _SSGI_ResCOut[lp] = 0;
+        return;
+    }
+
+    float eye = EyeDepthFromRaw(raw);
+    float3 posVS = ViewPosFromPixel(fp, eye);
+    float3 nVS = LoadNormalVS(fp);
+    _SSGI_LowGeoOut[lp] = float4(nVS, eye);
+    float3 origin = posVS + nVS * (0.01 + eye * 0.002);
+
+    float3 posWS = mul(_SSGI_InvView, float4(posVS, 1.0)).xyz;
+    float3 nWS = ViewToWorldDir(nVS);
+
+    // initial candidates (resampled importance sampling over the rays of this pixel)
+    SSGIResAcc acc = (SSGIResAcc)0;
+    for (int r = 0; r < _SSGI_RayCount; r++)
+    {
+        float3 xsVS, nsVS;
+        float4 res = TracePathEx(fp, origin, nVS, r, xsVS, nsVS);
+        float3 Lo = res.rgb;
+        float3 xs = mul(_SSGI_InvView, float4(xsVS, 1.0)).xyz;
+        float3 ns = ViewToWorldDir(nsVS);
+        float pHat = ResTargetPdf(Lo, ResCos(posWS, nWS, xs));
+        ResAccUpdate(acc, xs, Lo, ns, pHat, SSGILuma(Lo), 1.0, ResRand(fp, r + 1));
+    }
+
+    // temporal reuse: previous frame's reservoir at the reprojected pixel (static receiver, so the Jacobian is 1)
+    if (_SSGI_ResValid != 0)
+    {
+        float2 puv = PrevUV(fp, posVS);
+        if (puv.x > 0.0 && puv.y > 0.0 && puv.x < 1.0 && puv.y < 1.0)
+        {
+            int2 q = min((int2)(puv * _SSGI_LowSize.xy), (int2)_SSGI_LowSize.xy - 1);
+            float4 g = _SSGI_HistGeoPrev.Load(int3(q, 0));
+            float expectedEye = -mul(_SSGI_PrevView, float4(posWS, 1.0)).z;
+            float dz = abs(g.w - expectedEye) / max(expectedEye, 1e-3);
+            if (dz < 0.05 && dot(g.xyz, nWS) > 0.8)
+            {
+                SSGIReservoir p = ReadReservoir(_SSGI_ResAPrev, _SSGI_ResBPrev, _SSGI_ResCPrev, q);
+                if (p.M > 0.0 && p.W > 0.0)
+                {
+                    float mPrev = min(p.M, (float)_SSGI_ResMaxM * acc.M);
+                    float pHatP = ResTargetPdf(p.Lo, ResCos(posWS, nWS, p.xs));
+                    ResAccUpdate(acc, p.xs, p.Lo, p.ns, pHatP, pHatP * p.W * mPrev, mPrev, ResRand(fp, 7));
+                }
+            }
+        }
+    }
+
+    _SSGI_ResAOut[lp] = float4(acc.xs, acc.M);
+    _SSGI_ResBOut[lp] = float4(acc.Lo, ResContributionWeight(acc));
+    _SSGI_ResCOut[lp] = float4(acc.ns, 0);
 }

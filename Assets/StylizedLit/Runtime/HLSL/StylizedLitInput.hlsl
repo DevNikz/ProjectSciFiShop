@@ -1,5 +1,5 @@
-// StylizedLitInput.hlsl  (Phase 4)
-// Derived from URP 17.3 (Unity 6.3) LitInput.hlsl. Phases 3-4 appended the Toon, Rim, Matcap and Outline properties.
+// StylizedLitInput.hlsl  (Phase 6)
+// Derived from URP 17.3 (Unity 6.3) LitInput.hlsl. Phases 3-5 appended the Toon, Rim, Matcap, Outline, Pixelate, Dither, Dissolve, Triplanar, Wind, Displace and Hatch properties.
 // The UnityPerMaterial layout below is LOCKED for SRP Batcher: it must be identical in every pass.
 // New stylized properties (Phase 3+) are appended to the CBUFFER and to the DOTS block here, never per-pass.
 #ifndef STYLIZED_LIT_INPUT_INCLUDED
@@ -59,6 +59,40 @@ half _MatcapBlend;
 half _OutlineEnabled;
 half _OutlineWidth;
 half _OutlineDistanceScaling;
+float4 _DissolveAxis;
+half4 _DissolveEdgeColor;
+float _PixelSize;
+float _DissolveStart;
+float _DissolveLength;
+float _DitherFadeNear;
+float _DitherFadeFar;
+half _DitherAmount;
+half _DitherScale;
+half _DitherColorLevels;
+half _DissolveAmount;
+half _DissolveNoiseScale;
+half _DissolveEdgeWidth;
+half _DissolveNoiseStrength;
+float4 _WindDirection;
+half4 _HatchColor;
+float _TriplanarScale;
+float _WindStrength;
+float _WindSpeed;
+float _WindFrequency;
+float _WindBaseHeight;
+float _WindHeightRange;
+float _DisplaceStrength;
+float _DisplaceFrequency;
+float _DisplaceSpeed;
+float _HatchScale;
+half _TriplanarSharpness;
+half _TriplanarSpace;
+half _HatchMode;
+half _HatchAngle;
+half _HatchStrength;
+half _HatchBias;
+half _HatchSoftness;
+half _OutlineSmoothing;
 UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 CBUFFER_END
 
@@ -105,6 +139,40 @@ UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
     UNITY_DOTS_INSTANCED_PROP(float , _OutlineEnabled)
     UNITY_DOTS_INSTANCED_PROP(float , _OutlineWidth)
     UNITY_DOTS_INSTANCED_PROP(float , _OutlineDistanceScaling)
+    UNITY_DOTS_INSTANCED_PROP(float4, _DissolveAxis)
+    UNITY_DOTS_INSTANCED_PROP(float4, _DissolveEdgeColor)
+    UNITY_DOTS_INSTANCED_PROP(float , _PixelSize)
+    UNITY_DOTS_INSTANCED_PROP(float , _DissolveStart)
+    UNITY_DOTS_INSTANCED_PROP(float , _DissolveLength)
+    UNITY_DOTS_INSTANCED_PROP(float , _DitherFadeNear)
+    UNITY_DOTS_INSTANCED_PROP(float , _DitherFadeFar)
+    UNITY_DOTS_INSTANCED_PROP(float , _DitherAmount)
+    UNITY_DOTS_INSTANCED_PROP(float , _DitherScale)
+    UNITY_DOTS_INSTANCED_PROP(float , _DitherColorLevels)
+    UNITY_DOTS_INSTANCED_PROP(float , _DissolveAmount)
+    UNITY_DOTS_INSTANCED_PROP(float , _DissolveNoiseScale)
+    UNITY_DOTS_INSTANCED_PROP(float , _DissolveEdgeWidth)
+    UNITY_DOTS_INSTANCED_PROP(float , _DissolveNoiseStrength)
+    UNITY_DOTS_INSTANCED_PROP(float4, _WindDirection)
+    UNITY_DOTS_INSTANCED_PROP(float4, _HatchColor)
+    UNITY_DOTS_INSTANCED_PROP(float , _TriplanarScale)
+    UNITY_DOTS_INSTANCED_PROP(float , _WindStrength)
+    UNITY_DOTS_INSTANCED_PROP(float , _WindSpeed)
+    UNITY_DOTS_INSTANCED_PROP(float , _WindFrequency)
+    UNITY_DOTS_INSTANCED_PROP(float , _WindBaseHeight)
+    UNITY_DOTS_INSTANCED_PROP(float , _WindHeightRange)
+    UNITY_DOTS_INSTANCED_PROP(float , _DisplaceStrength)
+    UNITY_DOTS_INSTANCED_PROP(float , _DisplaceFrequency)
+    UNITY_DOTS_INSTANCED_PROP(float , _DisplaceSpeed)
+    UNITY_DOTS_INSTANCED_PROP(float , _HatchScale)
+    UNITY_DOTS_INSTANCED_PROP(float , _TriplanarSharpness)
+    UNITY_DOTS_INSTANCED_PROP(float , _TriplanarSpace)
+    UNITY_DOTS_INSTANCED_PROP(float , _HatchMode)
+    UNITY_DOTS_INSTANCED_PROP(float , _HatchAngle)
+    UNITY_DOTS_INSTANCED_PROP(float , _HatchStrength)
+    UNITY_DOTS_INSTANCED_PROP(float , _HatchBias)
+    UNITY_DOTS_INSTANCED_PROP(float , _HatchSoftness)
+    UNITY_DOTS_INSTANCED_PROP(float , _OutlineSmoothing)
 UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 
 // Here, we want to avoid overriding a property like e.g. _BaseColor with something like this:
@@ -154,6 +222,40 @@ static float  unity_DOTS_Sampled_MatcapBlend;
 static float  unity_DOTS_Sampled_OutlineEnabled;
 static float  unity_DOTS_Sampled_OutlineWidth;
 static float  unity_DOTS_Sampled_OutlineDistanceScaling;
+static float4 unity_DOTS_Sampled_DissolveAxis;
+static float4 unity_DOTS_Sampled_DissolveEdgeColor;
+static float  unity_DOTS_Sampled_PixelSize;
+static float  unity_DOTS_Sampled_DissolveStart;
+static float  unity_DOTS_Sampled_DissolveLength;
+static float  unity_DOTS_Sampled_DitherFadeNear;
+static float  unity_DOTS_Sampled_DitherFadeFar;
+static float  unity_DOTS_Sampled_DitherAmount;
+static float  unity_DOTS_Sampled_DitherScale;
+static float  unity_DOTS_Sampled_DitherColorLevels;
+static float  unity_DOTS_Sampled_DissolveAmount;
+static float  unity_DOTS_Sampled_DissolveNoiseScale;
+static float  unity_DOTS_Sampled_DissolveEdgeWidth;
+static float  unity_DOTS_Sampled_DissolveNoiseStrength;
+static float4 unity_DOTS_Sampled_WindDirection;
+static float4 unity_DOTS_Sampled_HatchColor;
+static float  unity_DOTS_Sampled_TriplanarScale;
+static float  unity_DOTS_Sampled_WindStrength;
+static float  unity_DOTS_Sampled_WindSpeed;
+static float  unity_DOTS_Sampled_WindFrequency;
+static float  unity_DOTS_Sampled_WindBaseHeight;
+static float  unity_DOTS_Sampled_WindHeightRange;
+static float  unity_DOTS_Sampled_DisplaceStrength;
+static float  unity_DOTS_Sampled_DisplaceFrequency;
+static float  unity_DOTS_Sampled_DisplaceSpeed;
+static float  unity_DOTS_Sampled_HatchScale;
+static float  unity_DOTS_Sampled_TriplanarSharpness;
+static float  unity_DOTS_Sampled_TriplanarSpace;
+static float  unity_DOTS_Sampled_HatchMode;
+static float  unity_DOTS_Sampled_HatchAngle;
+static float  unity_DOTS_Sampled_HatchStrength;
+static float  unity_DOTS_Sampled_HatchBias;
+static float  unity_DOTS_Sampled_HatchSoftness;
+static float  unity_DOTS_Sampled_OutlineSmoothing;
 
 void SetupDOTSStylizedMaterialPropertyCaches()
 {
@@ -194,6 +296,40 @@ void SetupDOTSStylizedMaterialPropertyCaches()
     unity_DOTS_Sampled_OutlineEnabled = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _OutlineEnabled);
     unity_DOTS_Sampled_OutlineWidth = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _OutlineWidth);
     unity_DOTS_Sampled_OutlineDistanceScaling = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _OutlineDistanceScaling);
+    unity_DOTS_Sampled_DissolveAxis = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float4, _DissolveAxis);
+    unity_DOTS_Sampled_DissolveEdgeColor = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float4, _DissolveEdgeColor);
+    unity_DOTS_Sampled_PixelSize = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _PixelSize);
+    unity_DOTS_Sampled_DissolveStart = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DissolveStart);
+    unity_DOTS_Sampled_DissolveLength = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DissolveLength);
+    unity_DOTS_Sampled_DitherFadeNear = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DitherFadeNear);
+    unity_DOTS_Sampled_DitherFadeFar = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DitherFadeFar);
+    unity_DOTS_Sampled_DitherAmount = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DitherAmount);
+    unity_DOTS_Sampled_DitherScale = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DitherScale);
+    unity_DOTS_Sampled_DitherColorLevels = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DitherColorLevels);
+    unity_DOTS_Sampled_DissolveAmount = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DissolveAmount);
+    unity_DOTS_Sampled_DissolveNoiseScale = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DissolveNoiseScale);
+    unity_DOTS_Sampled_DissolveEdgeWidth = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DissolveEdgeWidth);
+    unity_DOTS_Sampled_DissolveNoiseStrength = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DissolveNoiseStrength);
+    unity_DOTS_Sampled_WindDirection = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float4, _WindDirection);
+    unity_DOTS_Sampled_HatchColor = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float4, _HatchColor);
+    unity_DOTS_Sampled_TriplanarScale = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _TriplanarScale);
+    unity_DOTS_Sampled_WindStrength = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _WindStrength);
+    unity_DOTS_Sampled_WindSpeed = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _WindSpeed);
+    unity_DOTS_Sampled_WindFrequency = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _WindFrequency);
+    unity_DOTS_Sampled_WindBaseHeight = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _WindBaseHeight);
+    unity_DOTS_Sampled_WindHeightRange = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _WindHeightRange);
+    unity_DOTS_Sampled_DisplaceStrength = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DisplaceStrength);
+    unity_DOTS_Sampled_DisplaceFrequency = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DisplaceFrequency);
+    unity_DOTS_Sampled_DisplaceSpeed = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _DisplaceSpeed);
+    unity_DOTS_Sampled_HatchScale = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _HatchScale);
+    unity_DOTS_Sampled_TriplanarSharpness = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _TriplanarSharpness);
+    unity_DOTS_Sampled_TriplanarSpace = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _TriplanarSpace);
+    unity_DOTS_Sampled_HatchMode = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _HatchMode);
+    unity_DOTS_Sampled_HatchAngle = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _HatchAngle);
+    unity_DOTS_Sampled_HatchStrength = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _HatchStrength);
+    unity_DOTS_Sampled_HatchBias = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _HatchBias);
+    unity_DOTS_Sampled_HatchSoftness = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _HatchSoftness);
+    unity_DOTS_Sampled_OutlineSmoothing = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _OutlineSmoothing);
 }
 
 #undef UNITY_SETUP_DOTS_MATERIAL_PROPERTY_CACHES
@@ -236,6 +372,40 @@ void SetupDOTSStylizedMaterialPropertyCaches()
 #define _OutlineEnabled         unity_DOTS_Sampled_OutlineEnabled
 #define _OutlineWidth           unity_DOTS_Sampled_OutlineWidth
 #define _OutlineDistanceScaling unity_DOTS_Sampled_OutlineDistanceScaling
+#define _DissolveAxis           unity_DOTS_Sampled_DissolveAxis
+#define _DissolveEdgeColor      unity_DOTS_Sampled_DissolveEdgeColor
+#define _PixelSize              unity_DOTS_Sampled_PixelSize
+#define _DissolveStart          unity_DOTS_Sampled_DissolveStart
+#define _DissolveLength         unity_DOTS_Sampled_DissolveLength
+#define _DitherFadeNear         unity_DOTS_Sampled_DitherFadeNear
+#define _DitherFadeFar          unity_DOTS_Sampled_DitherFadeFar
+#define _DitherAmount           unity_DOTS_Sampled_DitherAmount
+#define _DitherScale            unity_DOTS_Sampled_DitherScale
+#define _DitherColorLevels      unity_DOTS_Sampled_DitherColorLevels
+#define _DissolveAmount         unity_DOTS_Sampled_DissolveAmount
+#define _DissolveNoiseScale     unity_DOTS_Sampled_DissolveNoiseScale
+#define _DissolveEdgeWidth      unity_DOTS_Sampled_DissolveEdgeWidth
+#define _DissolveNoiseStrength  unity_DOTS_Sampled_DissolveNoiseStrength
+#define _WindDirection          unity_DOTS_Sampled_WindDirection
+#define _HatchColor             unity_DOTS_Sampled_HatchColor
+#define _TriplanarScale         unity_DOTS_Sampled_TriplanarScale
+#define _WindStrength           unity_DOTS_Sampled_WindStrength
+#define _WindSpeed              unity_DOTS_Sampled_WindSpeed
+#define _WindFrequency          unity_DOTS_Sampled_WindFrequency
+#define _WindBaseHeight         unity_DOTS_Sampled_WindBaseHeight
+#define _WindHeightRange        unity_DOTS_Sampled_WindHeightRange
+#define _DisplaceStrength       unity_DOTS_Sampled_DisplaceStrength
+#define _DisplaceFrequency      unity_DOTS_Sampled_DisplaceFrequency
+#define _DisplaceSpeed          unity_DOTS_Sampled_DisplaceSpeed
+#define _HatchScale             unity_DOTS_Sampled_HatchScale
+#define _TriplanarSharpness     unity_DOTS_Sampled_TriplanarSharpness
+#define _TriplanarSpace         unity_DOTS_Sampled_TriplanarSpace
+#define _HatchMode              unity_DOTS_Sampled_HatchMode
+#define _HatchAngle             unity_DOTS_Sampled_HatchAngle
+#define _HatchStrength          unity_DOTS_Sampled_HatchStrength
+#define _HatchBias              unity_DOTS_Sampled_HatchBias
+#define _HatchSoftness          unity_DOTS_Sampled_HatchSoftness
+#define _OutlineSmoothing       unity_DOTS_Sampled_OutlineSmoothing
 
 #endif
 
@@ -244,6 +414,7 @@ TEXTURE2D(_OcclusionMap);       SAMPLER(sampler_OcclusionMap);
 TEXTURE2D(_DetailMask);         SAMPLER(sampler_DetailMask);
 TEXTURE2D(_ToonRampMap);        SAMPLER(sampler_ToonRampMap); // import with Wrap Mode = Clamp
 TEXTURE2D(_MatcapMap);           SAMPLER(sampler_MatcapMap);
+TEXTURE2D(_DissolveNoiseMap);    SAMPLER(sampler_DissolveNoiseMap);
 TEXTURE2D(_DetailAlbedoMap);    SAMPLER(sampler_DetailAlbedoMap);
 TEXTURE2D(_DetailNormalMap);    SAMPLER(sampler_DetailNormalMap);
 TEXTURE2D(_MetallicGlossMap);   SAMPLER(sampler_MetallicGlossMap);
@@ -371,8 +542,20 @@ half3 ApplyDetailNormal(float2 detailUv, half3 normalTS, half detailMask)
 #endif
 }
 
+// Snaps UVs to a _PixelSize x _PixelSize grid (texel centers) for a pixel-art look. Identity when _PIXELATE_ON is off.
+// Defined here (not in StylizedCommon) because every texture sample site below needs it.
+float2 ComputeStylizedUV(float2 uv)
+{
+#if defined(_PIXELATE_ON)
+    float size = max(_PixelSize, 1.0);
+    uv = (floor(uv * size) + 0.5) / size;
+#endif
+    return uv;
+}
+
 inline void InitializeStylizedSurfaceData(float2 uv, out SurfaceData outSurfaceData)
 {
+    uv = ComputeStylizedUV(uv);
     half4 albedoAlpha = SampleAlbedoAlpha(uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap));
     outSurfaceData.alpha = Alpha(albedoAlpha.a, _BaseColor, _Cutoff);
 

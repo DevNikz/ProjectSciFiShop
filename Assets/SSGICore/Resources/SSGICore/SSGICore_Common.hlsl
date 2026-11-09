@@ -18,6 +18,9 @@ float4   _SSGI_ZParams;
 float4   _SSGI_FullSize;      // w, h, 1/w, 1/h
 float4   _SSGI_LowSize;       // w, h, 1/w, 1/h
 float4   _SSGI_AmbientCube[6];// +X -X +Y -Y +Z -Z
+float4   _SSGI_RayA;          // view ray at ndc (0,0).xy, ray per unit ndc.x (xy)  -> see ViewPosFromPixel
+float4   _SSGI_RayB;          // ray per unit ndc.y (xy)
+float4   _SSGI_HzbRects[6];   // HZB atlas rect per level: x offset, y offset, width, height (level 0 = depth buffer)
 float _SSGI_Near;
 float _SSGI_Thickness;
 float _SSGI_MaxDistance;
@@ -39,18 +42,23 @@ int _SSGI_HistoryValid;
 int _SSGI_MaxAge;
 int _SSGI_HasMotion;
 int _SSGI_StepSize;
+float4   _SSGI_CacheBase;     // xyz = world cell coordinate of grid cell (0,0,0), w = cell size (m)
+float4   _SSGI_CacheDelta;    // xyz = this frame's base - last frame's base, w = 1 when last frame's cache is usable
+int _SSGI_CacheEnabled;   // 1 = rays that leave the screen query the radiance cache
+int _SSGI_ResValid;       // reservoir history usable this frame
+int _SSGI_ResMaxM;        // history confidence cap, multiples of the current candidate count
+int _SSGI_ResSpatial;     // 1 = spatial reservoir reuse
+int _SSGI_Enhanced;       // 1 = enhanced denoiser paths (Volume: Denoiser Mode)
 
 // ---- inputs ---------------------------------------------------------------------------------------------
 Texture2D<float>  _SSGI_Depth;     // raw device depth
-Texture2D<float4> _SSGI_Normals;
+Texture2D<float4> _SSGI_Normals;     // raw DepthNormals texture (only read by the NormalsAndHzb1 kernel)
+Texture2D<float4> _SSGI_NormalsRes;  // resolved normals, packed (see PackNormalVS)
 Texture2D<float4> _SSGI_Motion;
 Texture2D<float4> _SSGI_Color;
 Texture2D<float4> _SSGI_PrevColor;
-Texture2D<float>  _SSGI_Hzb1;
-Texture2D<float>  _SSGI_Hzb2;
-Texture2D<float>  _SSGI_Hzb3;
-Texture2D<float>  _SSGI_Hzb4;
-Texture2D<float>  _SSGI_Hzb5;
+Texture2D<float>  _SSGI_HzbAtlas;  // min eye-depth pyramid, levels 1..5 packed into one texture (see _SSGI_HzbRects)
+Texture2D<float4> _SSGI_LowGeo;    // trace-resolution geometry: view-space normal (xyz) + eye depth (w, <= 0 for sky)
 
 // ---- helpers --------------------------------------------------------------------------------------------
 float SSGILuma(float3 c) { return dot(c, float3(0.2126, 0.7152, 0.0722)); }
@@ -83,6 +91,8 @@ int2 LowToFull(int2 lp)
 }
 
 // View space: camera looks down -Z. Returns the point on the pixel's view ray at the given eye depth.
+// For a perspective projection the ray through the z = -1 plane is affine in ndc, so it is evaluated from
+// three precomputed vectors instead of an inverse-projection multiply and a perspective divide.
 float3 ViewPosFromPixel(int2 px, float eye)
 {
     float2 uv = PixelToUV(px);
@@ -90,9 +100,8 @@ float3 ViewPosFromPixel(int2 px, float eye)
 #if UNITY_UV_STARTS_AT_TOP
     ndc.y = -ndc.y;
 #endif
-    float4 h = mul(_SSGI_InvProj, float4(ndc, 0.5, 1.0));
-    float3 r = h.xyz / h.w;
-    return r * (eye / -r.z);
+    float2 ray = _SSGI_RayA.xy + ndc.x * _SSGI_RayA.zw + ndc.y * _SSGI_RayB.xy;
+    return float3(ray * eye, -eye);
 }
 
 float2 ClipToPixel(float4 clip)
@@ -103,12 +112,6 @@ float2 ClipToPixel(float4 clip)
     uv.y = 1.0 - uv.y;
 #endif
     return uv * _SSGI_FullSize.xy;
-}
-
-float3 ViewPosAt(int2 px)
-{
-    px = clamp(px, int2(0, 0), (int2)_SSGI_FullSize.xy - 1);
-    return ViewPosFromPixel(px, EyeDepthFromRaw(_SSGI_Depth.Load(int3(px, 0))));
 }
 
 // ---- normals --------------------------------------------------------------------------------------------
@@ -129,38 +132,26 @@ float3 SSGIDecodeOct(float2 f)
     return normalize(n);
 }
 
-float3 ReconstructNormalVS(int2 px)
+// Resolved normals are stored packed: rgb = normal * 0.5 + 0.5, a = source id / 3 (0 depth-reconstructed, 1 raw, 2 octahedral).
+float4 PackNormalVS(float3 n, int source)
 {
-    float3 c = ViewPosAt(px);
-    float3 l = ViewPosAt(px + int2(-1, 0));
-    float3 r = ViewPosAt(px + int2(1, 0));
-    float3 u = ViewPosAt(px + int2(0, -1));
-    float3 d = ViewPosAt(px + int2(0, 1));
-    float3 dx = abs(r.z - c.z) < abs(c.z - l.z) ? r - c : c - l;
-    float3 dy = abs(d.z - c.z) < abs(c.z - u.z) ? d - c : c - u;
-    float3 n = cross(dx, dy);
-    float len = dot(n, n);
-    if (len < 1e-12) return float3(0, 0, 1);
-    n *= rsqrt(len);
-    return dot(n, c) > 0.0 ? -n : n; // face the camera
+    return float4(n * 0.5 + 0.5, source * (1.0 / 3.0));
 }
 
+float3 UnpackNormalVS(float4 packedN)
+{
+    return normalize(packedN.xyz * 2.0 - 1.0);
+}
+
+int UnpackNormalSource(float4 packedN)
+{
+    return (int)(packedN.w * 3.0 + 0.5);
+}
+
+// Resolved view-space normal written by the NormalsAndHzb1 kernel.
 float3 LoadNormalVS(int2 px)
 {
-    if (_SSGI_NormalMode == 2)
-        return ReconstructNormalVS(px);
-
-    float4 packed = _SSGI_Normals.Load(int3(px, 0));
-    float3 nWS;
-    if (_SSGI_NormalMode == 1)
-        nWS = SSGIDecodeOct(SSGIUnpack888ToFloat2(packed.xyz) * 2.0 - 1.0);
-    else
-        nWS = packed.xyz;
-
-    float len = dot(nWS, nWS);
-    if (len < 1e-4) return ReconstructNormalVS(px);
-    nWS *= rsqrt(len);
-    return normalize(mul((float3x3)_SSGI_View, nWS));
+    return UnpackNormalVS(_SSGI_NormalsRes.Load(int3(px, 0)));
 }
 
 float3 ViewToWorldDir(float3 dirVS) { return mul(dirVS, (float3x3)_SSGI_View); }
@@ -211,7 +202,7 @@ float3 CosineHemisphere(float2 xi, float3 n)
     return normalize(t * h.x + b * h.y + n * h.z);
 }
 
-// ---- HZB (min eye-depth pyramid; level 0 = depth buffer) ------------------------------------------------
+// ---- HZB (min eye-depth pyramid; level 0 = depth buffer, levels 1..5 live in one atlas) --------------------
 float LoadHzb(int level, int2 p)
 {
     if (level == 0)
@@ -219,28 +210,27 @@ float LoadHzb(int level, int2 p)
         p = clamp(p, int2(0, 0), (int2)_SSGI_FullSize.xy - 1);
         return EyeDepthFromRaw(_SSGI_Depth.Load(int3(p, 0)));
     }
-    int2 dims = max(((int2)_SSGI_FullSize.xy + ((1 << level) - 1)) >> level, int2(1, 1));
-    p = clamp(p, int2(0, 0), dims - 1);
-    if (level == 1) return _SSGI_Hzb1.Load(int3(p, 0));
-    if (level == 2) return _SSGI_Hzb2.Load(int3(p, 0));
-    if (level == 3) return _SSGI_Hzb3.Load(int3(p, 0));
-    if (level == 4) return _SSGI_Hzb4.Load(int3(p, 0));
-    return _SSGI_Hzb5.Load(int3(p, 0));
+    float4 rect = _SSGI_HzbRects[level];
+    p = clamp(p, int2(0, 0), (int2)rect.zw - 1);
+    return _SSGI_HzbAtlas.Load(int3((int2)rect.xy + p, 0));
 }
 
-// Geometry of a low-res pixel, taken from its representative full-res pixel.
+// Geometry of a low-res pixel (written once per frame by the Trace kernel).
 bool LoadLowGeo(int2 lp, out float eye, out float3 posVS, out float3 nVS)
 {
-    int2 fp = LowToFull(lp);
-    float raw = _SSGI_Depth.Load(int3(fp, 0));
+    float4 g = _SSGI_LowGeo.Load(int3(lp, 0));
     eye = 1e6;
     posVS = 0;
     nVS = float3(0, 0, 1);
-    if (IsSkyRaw(raw)) return false;
-    eye = EyeDepthFromRaw(raw);
-    posVS = ViewPosFromPixel(fp, eye);
-    nVS = LoadNormalVS(fp);
+    if (g.w <= 0.0) return false;
+    eye = g.w;
+    posVS = ViewPosFromPixel(LowToFull(lp), eye);
+    nVS = g.xyz;
     return true;
 }
+
+// x^8 and x^32 by repeated squaring (exact replacement for pow with those constant exponents).
+float Pow8(float x)  { x *= x; x *= x; return x * x; }
+float Pow32(float x) { x *= x; x *= x; x *= x; x *= x; return x * x; }
 
 #endif

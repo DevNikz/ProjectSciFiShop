@@ -17,6 +17,7 @@ Shader "Hidden/SSGICore/Composite"
         Texture2D<float>  _SSGICore_Depth;
         Texture2D<float4> _SSGICore_Raw;
         Texture2D<float4> _SSGICore_Age;
+        Texture2D<float4> _SSGICore_Normals;
         float4 _SSGICore_Params; // x intensity, y albedo level, z debug mode, w downsample
         float4 _SSGICore_Size;   // w, h, 1/w, 1/h
 
@@ -90,6 +91,14 @@ Shader "Hidden/SSGICore/Composite"
                     c = _SSGICore_Raw.Load(int3(px / ds, 0)).rgb * _SSGICore_Params.x;
                 else if (mode == 3)
                     c = saturate(_SSGICore_Age.Load(int3(px / ds, 0)).a / 32.0).xxx;
+                else if (mode == 4)
+                    c = _SSGICore_Normals.Load(int3(px, 0)).xyz; // stored packed as n * 0.5 + 0.5
+                else if (mode == 5)
+                {
+                    // red = reconstructed from depth, green = raw, blue = octahedral
+                    int src = (int)(_SSGICore_Normals.Load(int3(px, 0)).w * 3.0 + 0.5);
+                    c = src == 1 ? float3(0, 1, 0) : (src == 2 ? float3(0, 0.3, 1) : float3(1, 0, 0));
+                }
                 return float4(c, 1.0);
             }
             ENDHLSL

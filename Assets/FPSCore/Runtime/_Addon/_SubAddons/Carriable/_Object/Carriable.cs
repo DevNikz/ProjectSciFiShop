@@ -120,6 +120,7 @@ public class Carriable : MonoBehaviour
 
     public Carrier Holder { get; private set; }
     public bool IsHeld => _attached;
+    public bool IsLodFrozen { get; set; }
 
     /// <summary>Non-carry owner (e.g. Grabber dragging), null when not claimed.</summary>
     public ICarriableClaimant Claimant { get; private set; }

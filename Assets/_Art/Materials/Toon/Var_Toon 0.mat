@@ -33,6 +33,10 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _DisplaceEnabled: 0
+    - _DisplaceFrequency: 4
+    - _DisplaceSpeed: 0
+    - _DisplaceStrength: 0.05
     - _Metallic: 0
     - _RimEnabled: 1
     - _RimLightMask: 0.5
@@ -44,6 +48,9 @@ Material:
     - _ToonSteps: 4
     - _ToonStrength: 1
     - _ToonThreshold: 0
+    - _TriplanarEnabled: 0
+    - _TriplanarScale: 1.21
+    - _WindEnabled: 0
     m_Colors:
     - _BaseColor: {r: 0.76862746, g: 0.8862745, b: 0.47058824, a: 1}
     - _Color: {r: 0.76862746, g: 0.8862745, b: 0.47058815, a: 1}

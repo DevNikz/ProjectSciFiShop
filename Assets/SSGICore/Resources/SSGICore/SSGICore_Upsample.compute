@@ -44,7 +44,7 @@ void Upsample(uint3 id : SV_DispatchThreadID)
         if (!LoadLowGeo(q, eyeQ, posQ, nQ)) continue;
 
         float wZ = exp(-abs(eyeQ - eye) / (0.05 * eye + 1e-3));
-        float wN = pow(saturate(dot(nVS, nQ)), 8.0);
+        float wN = Pow8(saturate(dot(nVS, nQ)));
         float w = wb * wZ * wN;
 
         acc += w * _SSGI_FilterIn.Load(int3(q, 0)).rgb;

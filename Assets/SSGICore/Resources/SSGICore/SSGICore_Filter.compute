@@ -4,16 +4,31 @@
 
 Texture2D<float4>   _SSGI_FilterIn;
 RWTexture2D<float4> _SSGI_FilterOut;
+Texture2D<float4>   _SSGI_AgeIn;     // Enhanced: temporal history moments, z = age
+RWTexture2D<float4> _SSGI_HistFbOut;  // Enhanced, iteration 0 only: filtered colour written back into the history
 
 static const float kH[3] = { 0.375, 0.25, 0.0625 };
 
 // One iteration of an edge-stopping a-trous wavelet filter (5x5 B3-spline, stride = _SSGI_StepSize).
 // Weights: view-space plane distance, normal similarity, luminance guided by temporal variance.
+// 8x8 group + 1px halo of the variance channel for the centre-variance prefilter.
+groupshared float gsVariance[10 * 10];
+
 [numthreads(8, 8, 1)]
-void Atrous(uint3 id : SV_DispatchThreadID)
+void Atrous(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint gidx : SV_GroupIndex)
 {
     int2 lp = (int2)id.xy;
     int2 lowDim = (int2)_SSGI_LowSize.xy;
+    int2 lc = (int2)gtid.xy + 1;
+    int2 origin = (int2)gid.xy * 8 - 1;
+
+    for (uint i = gidx; i < 100; i += 64)
+    {
+        int2 q = clamp(origin + int2(i % 10, i / 10), int2(0, 0), lowDim - 1);
+        gsVariance[i] = _SSGI_FilterIn.Load(int3(q, 0)).a;
+    }
+    GroupMemoryBarrierWithGroupSync();
+
     if (any(lp >= lowDim)) return;
 
     float eyeC;
@@ -35,12 +50,18 @@ void Atrous(uint3 id : SV_DispatchThreadID)
         [unroll]
         for (int vx = -1; vx <= 1; vx++)
         {
-            int2 q = clamp(lp + int2(vx, vy), int2(0, 0), lowDim - 1);
             float w = (vx == 0 ? 0.5 : 0.25) * (vy == 0 ? 0.5 : 0.25);
-            varC += w * _SSGI_FilterIn.Load(int3(q, 0)).a;
+            varC += w * gsVariance[(lc.y + vy) * 10 + (lc.x + vx)];
         }
     }
     float sigmaL = 4.0 * sqrt(max(varC, 0.0)) + 1e-3;
+    float age = 0.0;
+    if (_SSGI_Enhanced != 0)
+    {
+        // young (recently disoccluded) pixels tolerate more luminance difference, so they are smoothed harder
+        age = _SSGI_AgeIn.Load(int3(lp, 0)).z;
+        sigmaL *= 1.0 + 1.5 * saturate((6.0 - age) / 6.0);
+    }
 
     float3 acc = 0;
     float varAcc = 0;
@@ -64,8 +85,8 @@ void Atrous(uint3 id : SV_DispatchThreadID)
                 if (!LoadLowGeo(q, eyeQ, posQ, nQ)) continue;
 
                 float plane = abs(dot(nC, posQ - posC)) / max(eyeC, 1e-3);
-                float wZ = exp(-plane / 0.02);
-                float wN = pow(saturate(dot(nC, nQ)), 32.0);
+                float wZ = exp2(-plane * 72.1347520444); // exp(-plane / 0.02)
+                float wN = Pow32(saturate(dot(nC, nQ)));
                 float wL = exp(-abs(lumC - SSGILuma(s.rgb)) / sigmaL);
                 w *= wZ * wN * wL;
             }
@@ -77,5 +98,9 @@ void Atrous(uint3 id : SV_DispatchThreadID)
     }
 
     float inv = rcp(max(wsum, 1e-5));
-    _SSGI_FilterOut[lp] = float4(acc * inv, varAcc * inv * inv);
+    float3 filteredColor = acc * inv;
+    _SSGI_FilterOut[lp] = float4(filteredColor, varAcc * inv * inv);
+
+    if (_SSGI_Enhanced != 0 && _SSGI_StepSize == 1)
+        _SSGI_HistFbOut[lp] = float4(filteredColor, age);
 }

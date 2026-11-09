@@ -1,11 +1,13 @@
 // StylizedLitShaderGUI.cs  (Phase 1)
 // Lives in Runtime/, so the whole file is wrapped in #if UNITY_EDITOR to keep player builds compiling.
 // Subclasses URP's public BaseShaderGUI and reuses the public LitGUI helpers, mirroring URP's internal LitShader GUI.
-// Phases 1-4 draw: Surface Options (+ Workflow Mode), Surface Inputs (base, metallic/specular, smoothness, normal,
+// Phases 1-6 draw: Surface Options (+ Workflow Mode), Surface Inputs (base, metallic/specular, smoothness, normal,
 //                height, occlusion, emission, tiling/offset) and Advanced Options (highlights, reflections, base advanced).
 // Phase 2 adds the Detail Inputs foldout; Clear Coat comes from LitGUI.Inputs once the shader declares its properties.
 // Phase 3 adds the Toon Lighting foldout and the _TOON_ON / _TOON_RAMPMAP keyword rules.
 // Phase 4 adds Rim Light, Matcap and Outline foldouts; Outline works by enabling/disabling the "SRPDefaultUnlit" pass.
+// Phase 5 adds Pixelation, Dither and Dissolve foldouts and their keyword rules.
+// Phase 6 adds Triplanar, Wind, Vertex Displacement and Hatching foldouts, and public UpdateKeywords for scripts.
 // Phase 3+ adds stylized foldouts through FillAdditionalFoldouts.
 #if UNITY_EDITOR
 using System;
@@ -27,6 +29,13 @@ namespace StylizedLit.Editor
         const uint RimFoldoutBit = 1u << 5;
         const uint MatcapFoldoutBit = 1u << 6;
         const uint OutlineFoldoutBit = 1u << 7;
+        const uint PixelateFoldoutBit = 1u << 8;
+        const uint DitherFoldoutBit = 1u << 9;
+        const uint DissolveFoldoutBit = 1u << 10;
+        const uint TriplanarFoldoutBit = 1u << 11;
+        const uint WindFoldoutBit = 1u << 12;
+        const uint DisplaceFoldoutBit = 1u << 13;
+        const uint HatchFoldoutBit = 1u << 14;
         const string OutlinePassName = "SRPDefaultUnlit";
 
         LitGUI.LitProperties _litProperties;
@@ -54,10 +63,26 @@ namespace StylizedLit.Editor
             materialScopesList.RegisterHeaderScope(new GUIContent("Rim Light"), RimFoldoutBit, _ => DrawRimInputs());
             materialScopesList.RegisterHeaderScope(new GUIContent("Matcap"), MatcapFoldoutBit, _ => DrawMatcapInputs());
             materialScopesList.RegisterHeaderScope(new GUIContent("Outline"), OutlineFoldoutBit, _ => DrawOutlineInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Pixelation"), PixelateFoldoutBit, _ => DrawPixelateInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Dither"), DitherFoldoutBit, _ => DrawDitherInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Dissolve"), DissolveFoldoutBit, _ => DrawDissolveInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Triplanar"), TriplanarFoldoutBit, _ => DrawTriplanarInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Wind"), WindFoldoutBit, _ => DrawWindInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Vertex Displacement"), DisplaceFoldoutBit, _ => DrawDisplaceInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Hatching / Halftone"), HatchFoldoutBit, _ => DrawHatchInputs());
         }
 
         // Material changed check. Keywords must stay in sync with the shader_feature list in StylizedLit.shader.
         public override void ValidateMaterial(Material material)
+        {
+            if (material == null)
+                throw new ArgumentNullException(nameof(material));
+
+            UpdateKeywords(material);
+        }
+
+        // Recomputes every keyword and the outline pass state. Use from scripts after changing properties.
+        public static void UpdateKeywords(Material material)
         {
             if (material == null)
                 throw new ArgumentNullException(nameof(material));
@@ -155,12 +180,83 @@ namespace StylizedLit.Editor
                 ("_MatcapBlend", "Blend Mode", "Additive, Multiply or Replace."));
         }
 
+        void DrawPixelateInputs()
+        {
+            DrawSection("_PixelateEnabled", "Enable Pixelation", "Snaps all texture lookups to a pixel grid for a pixel-art look.",
+                ("_PixelSize", "Pixel Grid Size", "Number of pixels across the UV 0-1 range (after tiling)."));
+        }
+
+        void DrawDitherInputs()
+        {
+            DrawSection("_DitherEnabled", "Enable Dither", "Ordered (Bayer) dithering: stippled fade-out and optional color quantizing.",
+                ("_DitherAmount", "Coverage", "1 = fully visible, 0 = fully hidden. Values in between stipple the surface."),
+                ("_DitherScale", "Pattern Scale", "Size of one dither cell in screen pixels."),
+                ("_DitherFadeNear", "Camera Fade Hidden Below", "Perspective cameras only. Closer than this distance the object is fully dithered away."),
+                ("_DitherFadeFar", "Camera Fade Visible Above", "Fully visible beyond this distance. Must be greater than the hidden distance to enable the fade."),
+                ("_DitherColorLevels", "Color Levels", "0 = off. 2-32 quantizes the final color with a Bayer pattern (clamps HDR to 0-1)."));
+        }
+
+        void DrawDissolveInputs()
+        {
+            DrawSection("_DissolveEnabled", "Enable Dissolve", "Noise-driven dissolve with a glowing edge. Clips shadows, depth and outline too.",
+                ("_DissolveAmount", "Amount", "0 = intact, 1 = fully dissolved."),
+                ("_DissolveNoiseMap", "Noise Map", "Optional. Without a map a procedural noise is used."),
+                ("_DissolveNoiseScale", "Noise Scale", "Tiling of the noise over the UVs."),
+                ("_DissolveEdgeWidth", "Edge Width", "Width of the glowing edge band."),
+                ("_DissolveEdgeColor", "Edge Color", "HDR emission color of the edge."),
+                ("_DissolveDirectional", "Directional", "Dissolve front moves along a world-space axis instead of pure noise."),
+                ("_DissolveAxis", "Direction (World)", "Axis the front travels along (xyz)."),
+                ("_DissolveStart", "Start Position", "Position along the axis where dissolving begins."),
+                ("_DissolveLength", "Length", "Distance along the axis the front covers."),
+                ("_DissolveNoiseStrength", "Noise Strength", "How much noise roughens the directional front."));
+        }
+
+        void DrawTriplanarInputs()
+        {
+            DrawSection("_TriplanarEnabled", "Enable Triplanar", "Projects the Base Map along three axes instead of using the mesh UVs. Albedo only; alpha still comes from the UVs.",
+                ("_TriplanarScale", "Scale", "Texture repeats per world or object unit."),
+                ("_TriplanarSharpness", "Blend Sharpness", "Higher values give tighter transitions between projections."),
+                ("_TriplanarSpace", "Projection Space", "World space keeps the texture fixed when the object moves; Object space moves with it."));
+        }
+
+        void DrawWindInputs()
+        {
+            DrawSection("_WindEnabled", "Enable Wind", "Vertex sway that grows with object-space height. Applies to shadows, depth and outline too.",
+                ("_WindDirection", "Direction (Object)", "Sway direction in object space (xyz)."),
+                ("_WindStrength", "Strength", "Maximum displacement in object units."),
+                ("_WindSpeed", "Speed", "Animation speed."),
+                ("_WindFrequency", "Frequency", "How quickly the wave changes along the mesh."),
+                ("_WindBaseHeight", "Base Height (Object Y)", "Vertices at or below this height stay still."),
+                ("_WindHeightRange", "Height Range", "Height above the base over which the sway ramps to full strength."));
+        }
+
+        void DrawDisplaceInputs()
+        {
+            DrawSection("_DisplaceEnabled", "Enable Vertex Displacement", "Animated procedural wobble along the vertex normal. Normals are not recomputed.",
+                ("_DisplaceStrength", "Strength", "Maximum displacement in object units."),
+                ("_DisplaceFrequency", "Frequency", "Spatial frequency of the wobble."),
+                ("_DisplaceSpeed", "Speed", "Animation speed."));
+        }
+
+        void DrawHatchInputs()
+        {
+            DrawSection("_HatchEnabled", "Enable Hatching / Halftone", "Screen-space dots or lines whose weight follows how dark the lit color is.",
+                ("_HatchMode", "Mode", "Halftone dots, hatching lines, or cross-hatching."),
+                ("_HatchScale", "Cell Size (pixels)", "Size of one dot cell or line period on screen."),
+                ("_HatchAngle", "Angle (degrees)", "Rotation of the pattern."),
+                ("_HatchColor", "Ink Color", "Color of the dots or lines."),
+                ("_HatchStrength", "Strength", "Blend amount of the ink."),
+                ("_HatchBias", "Darkness Bias", "Positive values add ink in lighter areas, negative values remove it."),
+                ("_HatchSoftness", "Edge Softness", "Anti-aliasing and softness of the pattern edges."));
+        }
+
         void DrawOutlineInputs()
         {
             DrawSection("_OutlineEnabled", "Enable Outline", "Draws an inverted-hull outline pass (SRPDefaultUnlit). Disabled materials skip the pass entirely.",
                 ("_OutlineColor", "Color", "Outline color. Fog is applied."),
                 ("_OutlineWidth", "Width", "Centimeters in world space, or pixels when Screen Space Width is 1."),
-                ("_OutlineDistanceScaling", "Screen Space Width", "0 = width fixed in world space, 1 = width fixed in screen pixels."));
+                ("_OutlineDistanceScaling", "Screen Space Width", "0 = width fixed in world space, 1 = width fixed in screen pixels."),
+                ("_OutlineSmoothing", "Smoothing", "Blends outline direction toward radial. Closes gaps on hard-edged convex meshes such as cubes."));
         }
 
         void DrawToonInputs()
@@ -209,7 +305,27 @@ namespace StylizedLit.Editor
             SetToonKeywords(material);
             SetToggleKeyword(material, "_RimEnabled", "_RIM_ON");
             SetToggleKeyword(material, "_MatcapEnabled", "_MATCAP_ON");
+            SetToggleKeyword(material, "_PixelateEnabled", "_PIXELATE_ON");
+            SetToggleKeyword(material, "_DitherEnabled", "_DITHER_ON");
+            SetToggleKeyword(material, "_TriplanarEnabled", "_TRIPLANAR_ON");
+            SetToggleKeyword(material, "_WindEnabled", "_WIND_ON");
+            SetToggleKeyword(material, "_DisplaceEnabled", "_VERTEX_DISPLACE_ON");
+            SetToggleKeyword(material, "_HatchEnabled", "_HATCH_ON");
+            SetDissolveKeywords(material);
             SetOutlinePass(material);
+        }
+
+        static void SetDissolveKeywords(Material material)
+        {
+            if (!material.HasProperty("_DissolveEnabled"))
+                return;
+
+            bool dissolve = material.GetFloat("_DissolveEnabled") > 0.5f;
+            bool directional = material.HasProperty("_DissolveDirectional") && material.GetFloat("_DissolveDirectional") > 0.5f;
+            bool hasNoiseMap = material.HasProperty("_DissolveNoiseMap") && material.GetTexture("_DissolveNoiseMap") != null;
+            CoreUtils.SetKeyword(material, "_DISSOLVE_ON", dissolve);
+            CoreUtils.SetKeyword(material, "_DISSOLVE_DIRECTIONAL", dissolve && directional);
+            CoreUtils.SetKeyword(material, "_DISSOLVE_NOISEMAP", dissolve && hasNoiseMap);
         }
 
         static void SetToggleKeyword(Material material, string toggleProperty, string keyword)

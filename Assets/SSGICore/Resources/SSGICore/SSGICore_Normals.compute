@@ -1,0 +1,130 @@
+#pragma kernel NormalsAndHzb1
+
+#include "SSGICore_Common.hlsl"
+
+RWTexture2D<float4> _SSGI_NormalsOut;
+RWTexture2D<float>  _SSGI_HzbOut;   // HZB atlas; this kernel writes level 1
+
+// 8x8 group + 1px halo of linear eye depth (clamped to the screen exactly like LoadHzb(0, ...)).
+groupshared float gsEye[10 * 10];
+
+int2 ClampPx(int2 p) { return clamp(p, int2(0, 0), (int2)_SSGI_FullSize.xy - 1); }
+
+float TileEye(int2 lc, int2 off) { return gsEye[(lc.y + off.y) * 10 + (lc.x + off.x)]; }
+
+float3 TileViewPos(int2 px, int2 lc, int2 off)
+{
+    return ViewPosFromPixel(ClampPx(px + off), TileEye(lc, off));
+}
+
+float3 ReconstructNormalTile(int2 px, int2 lc)
+{
+    float3 c = TileViewPos(px, lc, int2(0, 0));
+    float3 l = TileViewPos(px, lc, int2(-1, 0));
+    float3 r = TileViewPos(px, lc, int2(1, 0));
+    float3 u = TileViewPos(px, lc, int2(0, -1));
+    float3 d = TileViewPos(px, lc, int2(0, 1));
+    float3 dx = abs(r.z - c.z) < abs(c.z - l.z) ? r - c : c - l;
+    float3 dy = abs(d.z - c.z) < abs(c.z - u.z) ? d - c : c - u;
+    float3 n = cross(dx, dy);
+    float len = dot(n, n);
+    if (len < 1e-12) return float3(0, 0, 1);
+    n *= rsqrt(len);
+    return dot(n, c) > 0.0 ? -n : n; // face the camera
+}
+
+// 1) Builds HZB level 1 (2x2 min of linear eye depth) from the shared depth tile.
+// 2) Writes validated view-space normals (packed, see PackNormalVS); source id: 0 depth-reconstructed, 1 raw, 2 octahedral.
+//
+// Auto mode: objects may pack DepthNormals differently (URP Lit = plain signed normals, some custom shaders =
+// octahedral 8-8-8). Both decode to unit vectors, so the bytes alone are ambiguous. Where depth is locally planar
+// the depth-reconstructed normal is a trustworthy reference, so the candidate that agrees best with it wins.
+// The depth-reconstructed normal is only computed on the paths that use it.
+[numthreads(8, 8, 1)]
+void NormalsAndHzb1(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint gidx : SV_GroupIndex)
+{
+    int2 px = (int2)id.xy;
+    int2 lc = (int2)gtid.xy + 1;
+    int2 origin = (int2)gid.xy * 8 - 1;
+
+    for (uint i = gidx; i < 100; i += 64)
+    {
+        int2 q = ClampPx(origin + int2(i % 10, i / 10));
+        gsEye[i] = EyeDepthFromRaw(_SSGI_Depth.Load(int3(q, 0)));
+    }
+    GroupMemoryBarrierWithGroupSync();
+
+    // ---- HZB level 1: one thread per 2x2 block (groups start on even pixels, so blocks never straddle groups) ----
+    if (((gtid.x | gtid.y) & 1) == 0)
+    {
+        int2 p1 = px >> 1;
+        float4 r1 = _SSGI_HzbRects[1];
+        if (p1.x < (int)r1.z && p1.y < (int)r1.w)
+        {
+            float d = min(min(TileEye(lc, int2(0, 0)), TileEye(lc, int2(1, 0))),
+                          min(TileEye(lc, int2(0, 1)), TileEye(lc, int2(1, 1))));
+            _SSGI_HzbOut[(int2)r1.xy + p1] = d;
+        }
+    }
+
+    // ---- normals ---------------------------------------------------------------------------------------------
+    if (any(px >= (int2)_SSGI_FullSize.xy)) return;
+
+    float raw = _SSGI_Depth.Load(int3(px, 0));
+    if (IsSkyRaw(raw))
+    {
+        _SSGI_NormalsOut[px] = PackNormalVS(float3(0, 0, 1), 0);
+        return;
+    }
+
+    int mode = _SSGI_NormalMode; // 0 raw, 1 octahedral, 2 reconstruct, 3 auto
+
+    if (mode == 2)
+    {
+        _SSGI_NormalsOut[px] = PackNormalVS(ReconstructNormalTile(px, lc), 0);
+        return;
+    }
+
+    float3 packedN = _SSGI_Normals.Load(int3(px, 0)).xyz;
+
+    float rawLen = length(packedN);
+    bool rawValid = abs(rawLen - 1.0) < 0.1;
+    float3 rawVS = rawValid ? normalize(mul((float3x3)_SSGI_View, packedN / rawLen)) : float3(0, 0, 1);
+
+    if (mode == 0)
+    {
+        _SSGI_NormalsOut[px] = rawValid ? PackNormalVS(rawVS, 1) : PackNormalVS(ReconstructNormalTile(px, lc), 0);
+        return;
+    }
+
+    float3 octWS = SSGIDecodeOct(SSGIUnpack888ToFloat2(packedN) * 2.0 - 1.0);
+    float3 octVS = normalize(mul((float3x3)_SSGI_View, octWS));
+
+    if (mode == 1)
+    {
+        _SSGI_NormalsOut[px] = PackNormalVS(octVS, 2);
+        return;
+    }
+
+    // Auto: is depth locally planar (second difference small)?
+    float c = TileEye(lc, int2(0, 0));
+    float dx2 = abs(TileEye(lc, int2(-1, 0)) + TileEye(lc, int2(1, 0)) - 2.0 * c);
+    float dy2 = abs(TileEye(lc, int2(0, -1)) + TileEye(lc, int2(0, 1)) - 2.0 * c);
+    bool trusted = dx2 < 0.03 * c && dy2 < 0.03 * c;
+
+    if (trusted)
+    {
+        float3 rec = ReconstructNormalTile(px, lc);
+        float scoreRaw = rawValid ? dot(rawVS, rec) : -1.0;
+        float scoreOct = dot(octVS, rec);
+        float best = max(scoreRaw, scoreOct);
+        if (best > 0.5)
+            _SSGI_NormalsOut[px] = scoreRaw >= scoreOct ? PackNormalVS(rawVS, 1) : PackNormalVS(octVS, 2);
+        else
+            _SSGI_NormalsOut[px] = PackNormalVS(rec, 0);
+    }
+    else
+    {
+        _SSGI_NormalsOut[px] = rawValid ? PackNormalVS(rawVS, 1) : PackNormalVS(octVS, 2);
+    }
+}

@@ -3,6 +3,8 @@
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Shadows.hlsl"
+// Shadow maps have no camera: camera-distance dither fade is skipped.
+#define STYLIZED_IS_SHADOW_PASS 1
 #include "Assets/StylizedLit/Runtime/HLSL/StylizedCommon.hlsl"
 #if defined(LOD_FADE_CROSSFADE)
     #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/LODCrossFade.hlsl"
@@ -29,6 +31,9 @@ struct Varyings
     #endif
     float4 positionCS   : SV_POSITION;
     UNITY_VERTEX_INPUT_INSTANCE_ID
+#if defined(STYLIZED_CLIP_REQUIRES_POSITIONWS)
+    float3 positionWSClip : TEXCOORD1;
+#endif
 };
 
 float4 GetShadowPositionHClip(Attributes input)
@@ -49,6 +54,9 @@ float4 GetShadowPositionHClip(Attributes input)
 
 Varyings StylizedShadowPassVertex(Attributes input)
 {
+#if defined(STYLIZED_VERTEX_DEFORM)
+    input.positionOS.xyz = ApplyStylizedVertexDeformation(input.positionOS.xyz, input.normalOS);
+#endif
     Varyings output;
     UNITY_SETUP_INSTANCE_ID(input);
     UNITY_TRANSFER_INSTANCE_ID(input, output);
@@ -58,6 +66,9 @@ Varyings StylizedShadowPassVertex(Attributes input)
     #endif
 
     output.positionCS = GetShadowPositionHClip(input);
+    #if defined(STYLIZED_CLIP_REQUIRES_POSITIONWS)
+    output.positionWSClip = TransformObjectToWorld(input.positionOS.xyz);
+    #endif
     return output;
 }
 
@@ -65,8 +76,8 @@ half4 StylizedShadowPassFragment(Varyings input) : SV_TARGET
 {
     UNITY_SETUP_INSTANCE_ID(input);
 
-    #if defined(STYLIZED_CLIP_REQUIRES_UV)
-        ApplyStylizedClip(input.uv);
+    #if defined(STYLIZED_CLIP_ACTIVE)
+        ApplyStylizedClip(STYLIZED_CLIP_UV(input), input.positionCS, STYLIZED_CLIP_WS(input));
     #endif
 
     #if defined(LOD_FADE_CROSSFADE)

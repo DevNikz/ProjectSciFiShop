@@ -61,6 +61,9 @@ Material:
     m_Floats:
     - _BumpScale: 2
     - _ClearCoat: 0
+    - _DisplaceEnabled: 0
+    - _DisplaceSpeed: 1
+    - _DisplaceStrength: 0.05
     - _MatcapEnabled: 0
     - _OcclusionStrength: 1
     - _OutlineEnabled: 0
@@ -75,6 +78,8 @@ Material:
     - _ToonHalfLambert: 0
     - _ToonSteps: 3
     - _ToonStrength: 1
+    - _TriplanarEnabled: 0
+    - _WindEnabled: 0
     m_Colors:
     - _RimColor: {r: 0.76862746, g: 0.8862745, b: 0.47058824, a: 1}
   m_BuildTextureStacks: []

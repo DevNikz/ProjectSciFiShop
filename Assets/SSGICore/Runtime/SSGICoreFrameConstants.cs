@@ -9,10 +9,13 @@ namespace SSGICore
         public Matrix4x4 view, invView, prevView, proj, invProj, prevViewProj;
         public Vector4 zParams, fullSize, lowSize;
         public readonly Vector4[] ambient = new Vector4[6];
+        public Vector4 rayA, rayB;
+        public readonly Vector4[] hzbRects = new Vector4[SSGICoreUtil.HzbLevels + 1];
         public float near, thickness, maxDistance, edgeFade, prevWeight, firefly, motionReject,
                      fallbackIntensity, albedo, temporalClamp;
         public int downsample, rayCount, maxSteps, bounces, frame, normalMode,
-                   usePrevColor, historyValid, maxAge, hasMotion;
+                   usePrevColor, historyValid, maxAge, hasMotion, enhanced, resValid, resMaxM, resSpatial, cacheEnabled;
+        public Vector4 cacheBase, cacheDelta;
 
         public void Apply(ComputeCommandBuffer cmd, ComputeShader cs)
         {
@@ -26,6 +29,9 @@ namespace SSGICore
             cmd.SetComputeVectorParam(cs, SSGICoreIds.FullSize, fullSize);
             cmd.SetComputeVectorParam(cs, SSGICoreIds.LowSize, lowSize);
             cmd.SetComputeVectorArrayParam(cs, SSGICoreIds.AmbientCube, ambient);
+            cmd.SetComputeVectorParam(cs, SSGICoreIds.RayA, rayA);
+            cmd.SetComputeVectorParam(cs, SSGICoreIds.RayB, rayB);
+            cmd.SetComputeVectorArrayParam(cs, SSGICoreIds.HzbRects, hzbRects);
             cmd.SetComputeFloatParam(cs, SSGICoreIds.Near, near);
             cmd.SetComputeFloatParam(cs, SSGICoreIds.Thickness, thickness);
             cmd.SetComputeFloatParam(cs, SSGICoreIds.MaxDistance, maxDistance);
@@ -46,6 +52,13 @@ namespace SSGICore
             cmd.SetComputeIntParam(cs, SSGICoreIds.HistoryValid, historyValid);
             cmd.SetComputeIntParam(cs, SSGICoreIds.MaxAge, maxAge);
             cmd.SetComputeIntParam(cs, SSGICoreIds.HasMotion, hasMotion);
+            cmd.SetComputeIntParam(cs, SSGICoreIds.Enhanced, enhanced);
+            cmd.SetComputeIntParam(cs, SSGICoreIds.ResValid, resValid);
+            cmd.SetComputeIntParam(cs, SSGICoreIds.CacheEnabled, cacheEnabled);
+            cmd.SetComputeVectorParam(cs, SSGICoreIds.CacheBase, cacheBase);
+            cmd.SetComputeVectorParam(cs, SSGICoreIds.CacheDelta, cacheDelta);
+            cmd.SetComputeIntParam(cs, SSGICoreIds.ResMaxM, resMaxM);
+            cmd.SetComputeIntParam(cs, SSGICoreIds.ResSpatial, resSpatial);
         }
     }
 }
