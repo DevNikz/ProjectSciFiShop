@@ -14,7 +14,8 @@ namespace GTAO_URP
         Material m_Material;
         GTAOPass m_Pass;
         GTAOKeywordResetPass m_Reset;
-        bool m_WarnedShader;
+        bool m_WarnedShader, m_DeferredChecked;
+        readonly GTAOSettings m_Sanitized = new GTAOSettings(); // reused every frame, avoids a per-camera allocation
 
 #if UNITY_EDITOR
         void Reset() { AutoAssignShader(); }
@@ -41,6 +42,7 @@ namespace GTAO_URP
             if (m_Material == null && shader != null && shader.isSupported)
                 m_Material = CoreUtils.CreateEngineMaterial(shader);
 
+            m_DeferredChecked = false; // renderer may have changed; re-check on the next AddRenderPasses
             m_Pass ??= new GTAOPass();
             m_Reset ??= new GTAOKeywordResetPass();
         }
@@ -54,8 +56,12 @@ namespace GTAO_URP
             if (cam.cameraType == CameraType.Preview || cam.cameraType == CameraType.Reflection) return;
             if (UniversalRenderer.IsOffscreenDepthTexture(ref renderingData.cameraData)) return;
 
-            if (renderer is UniversalRenderer ur && IsDeferred(ur))
-                Debug.LogWarning($"[{name}] This feature is designed for Forward/Forward+. The attached renderer is Deferred; it will still run screen-space off camera depth, but a Deferred-aware G-Buffer path is not implemented here.");
+            if (!m_DeferredChecked && renderer is UniversalRenderer ur)
+            {
+                m_DeferredChecked = true; // once per Create(), not per camera per frame
+                if (IsDeferred(ur))
+                    Debug.LogWarning($"[{name}] This feature is designed for Forward/Forward+. The attached renderer is Deferred; it will still run screen-space off camera depth, but a Deferred-aware G-Buffer path is not implemented here.");
+            }
 
             if (m_Material == null || m_Pass == null)
             {
@@ -67,7 +73,8 @@ namespace GTAO_URP
                 return;
             }
 
-            var s = settings.Sanitized();
+            settings.SanitizeInto(m_Sanitized);
+            var s = m_Sanitized;
             if (!m_Pass.Setup(s, m_Material)) return;
             renderer.EnqueuePass(m_Pass);
 
@@ -75,11 +82,15 @@ namespace GTAO_URP
                 renderer.EnqueuePass(m_Reset); // clears _SCREEN_SPACE_OCCLUSION so it can't leak to other cameras
         }
 
+        // The rendering mode isn't public API in this URP version, so it's read through reflection. FieldInfo is cached
+        // and the lookup runs once per Create(), which keeps it off the per-frame path.
+        static System.Reflection.FieldInfo s_RenderingModeField;
+
         static bool IsDeferred(UniversalRenderer ur)
         {
-            var f = typeof(UniversalRenderer).GetField("m_RenderingMode",
+            s_RenderingModeField ??= typeof(UniversalRenderer).GetField("m_RenderingMode",
                 System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-            return f != null && f.GetValue(ur) is RenderingMode m && m == RenderingMode.Deferred;
+            return s_RenderingModeField != null && s_RenderingModeField.GetValue(ur) is RenderingMode m && m == RenderingMode.Deferred;
         }
 
         protected override void Dispose(bool disposing)

@@ -92,11 +92,11 @@ Shader "Hidden/SSGICore/Composite"
                 else if (mode == 3)
                     c = saturate(_SSGICore_Age.Load(int3(px / ds, 0)).a / 32.0).xxx;
                 else if (mode == 4)
-                    c = _SSGICore_Normals.Load(int3(px, 0)).xyz * 0.5 + 0.5;
+                    c = _SSGICore_Normals.Load(int3(px, 0)).xyz; // stored packed as n * 0.5 + 0.5
                 else if (mode == 5)
                 {
                     // red = reconstructed from depth, green = raw, blue = octahedral
-                    int src = (int)(_SSGICore_Normals.Load(int3(px, 0)).w + 0.5);
+                    int src = (int)(_SSGICore_Normals.Load(int3(px, 0)).w * 3.0 + 0.5);
                     c = src == 1 ? float3(0, 1, 0) : (src == 2 ? float3(0, 0.3, 1) : float3(1, 0, 0));
                 }
                 return float4(c, 1.0);

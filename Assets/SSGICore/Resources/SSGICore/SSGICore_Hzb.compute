@@ -1,41 +1,45 @@
-#pragma kernel HzbFromDepth
-#pragma kernel HzbDown
+#pragma kernel HzbDownMulti
 
 #include "SSGICore_Common.hlsl"
 
-Texture2D<float>   _SSGI_HzbIn;
+// HZB atlas. Level 1 is written by the NormalsAndHzb1 kernel; this kernel reads it and writes levels 2..5.
+// Level 1 is never written here, so reading and writing the same UAV in one dispatch is hazard free.
 RWTexture2D<float> _SSGI_HzbOut;
 
-// Level 1: 2x2 min of linear eye depth read straight from the depth buffer.
-[numthreads(8, 8, 1)]
-void HzbFromDepth(uint3 id : SV_DispatchThreadID)
+groupshared float gsHzb[16 * 16];
+
+// One 16x16 block of level-1 texels is reduced to 8x8 (level 2), 4x4 (3), 2x2 (4) and 1x1 (5) texels.
+// Texels outside a level count as +large so they never win the min (same result as clamping to the edge).
+[numthreads(16, 16, 1)]
+void HzbDownMulti(uint3 gtid : SV_GroupThreadID, uint3 gid : SV_GroupID)
 {
-    uint w, h;
-    _SSGI_HzbOut.GetDimensions(w, h);
-    if (id.x >= w || id.y >= h) return;
+    int2 t = (int2)gtid.xy;
+    uint idx = (uint)(t.y * 16 + t.x);
+    int2 p1 = (int2)gid.xy * 16 + t;
 
-    int2 p = (int2)id.xy * 2;
-    float d = LoadHzb(0, p);
-    d = min(d, LoadHzb(0, p + int2(1, 0)));
-    d = min(d, LoadHzb(0, p + int2(0, 1)));
-    d = min(d, LoadHzb(0, p + int2(1, 1)));
-    _SSGI_HzbOut[id.xy] = d;
-}
+    float4 r1 = _SSGI_HzbRects[1];
+    bool inside = p1.x < (int)r1.z && p1.y < (int)r1.w;
+    gsHzb[idx] = inside ? _SSGI_HzbOut[(int2)r1.xy + p1] : 1e30;
+    GroupMemoryBarrierWithGroupSync();
 
-// Levels 2..5: 2x2 min of the previous level.
-[numthreads(8, 8, 1)]
-void HzbDown(uint3 id : SV_DispatchThreadID)
-{
-    uint w, h, sw, sh;
-    _SSGI_HzbOut.GetDimensions(w, h);
-    _SSGI_HzbIn.GetDimensions(sw, sh);
-    if (id.x >= w || id.y >= h) return;
+    [unroll]
+    for (int level = 2; level <= 5; level++)
+    {
+        int step = 1 << (level - 2);
+        int mask = (1 << (level - 1)) - 1;
+        if (((t.x | t.y) & mask) == 0)
+        {
+            uint i0 = idx;
+            float m = min(min(gsHzb[i0], gsHzb[i0 + step]),
+                          min(gsHzb[i0 + step * 16], gsHzb[i0 + step * 16 + step]));
 
-    int2 maxP = int2((int)sw - 1, (int)sh - 1);
-    int2 p = (int2)id.xy * 2;
-    float d = _SSGI_HzbIn.Load(int3(min(p, maxP), 0));
-    d = min(d, _SSGI_HzbIn.Load(int3(min(p + int2(1, 0), maxP), 0)));
-    d = min(d, _SSGI_HzbIn.Load(int3(min(p + int2(0, 1), maxP), 0)));
-    d = min(d, _SSGI_HzbIn.Load(int3(min(p + int2(1, 1), maxP), 0)));
-    _SSGI_HzbOut[id.xy] = d;
+            int2 q = (int2)gid.xy * (16 >> (level - 1)) + (t >> (level - 1));
+            float4 rl = _SSGI_HzbRects[level];
+            if (q.x < (int)rl.z && q.y < (int)rl.w)
+                _SSGI_HzbOut[(int2)rl.xy + q] = m;
+
+            gsHzb[i0] = m; // active texels are only read by themselves at this level
+        }
+        GroupMemoryBarrierWithGroupSync();
+    }
 }

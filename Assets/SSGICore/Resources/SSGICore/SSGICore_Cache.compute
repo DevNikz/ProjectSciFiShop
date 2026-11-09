@@ -1,0 +1,88 @@
+#pragma kernel CacheInject
+#pragma kernel CacheResolve
+
+#include "SSGICore_Common.hlsl"
+
+// Camera-centred world-space radiance cache (a 32^3 grid of 'ambient cubes' of lit scene colour), fed from the screen.
+// Lets rays that leave the screen see surfaces that are off-screen but were visible recently.
+//
+//   CacheInject : a sparse set of screen pixels adds (colour * w, w) to the faces its normal points at (fixed-point atomics).
+//   CacheResolve: per cell and face, blends the accumulation into last frame's cache (shifted by the grid movement) with decay.
+//
+// Grid cell (i,j,k) covers world cell  _SSGI_CacheBase.xyz + (i,j,k)  of size _SSGI_CacheBase.w; there is no wrapping,
+// the grid is re-based on the camera and the history is shifted by whole cells in the resolve.
+
+#define SSGI_CACHE_N     32
+#define SSGI_CACHE_FIXED 1024.0   // fixed-point scale for the atomic accumulation
+#define SSGI_CACHE_DECAY 0.97     // per-frame history decay (weights and colour together)
+#define SSGI_CACHE_MAXW  32.0     // weight cap = history length
+
+RWStructuredBuffer<uint> _SSGI_CacheAcc;   // [cell][face][r,g,b,w]
+Texture3D<float4>        _SSGI_CachePrev;
+RWTexture3D<float4>      _SSGI_CacheCur;
+
+uint AccIndex(int3 cell, int face)
+{
+    return ((uint)((cell.z * SSGI_CACHE_N + cell.y) * SSGI_CACHE_N + cell.x) * 6u + (uint)face) * 4u;
+}
+
+[numthreads(8, 8, 1)]
+void CacheInject(uint3 id : SV_DispatchThreadID)
+{
+    // one sample per 8x8 screen block; the position inside the block rotates every frame
+    int2 fp = (int2)id.xy * 8 + int2(_SSGI_FrameIndex & 7, (_SSGI_FrameIndex >> 3) & 7);
+    if (any(fp >= (int2)_SSGI_FullSize.xy)) return;
+
+    float raw = _SSGI_Depth.Load(int3(fp, 0));
+    if (IsSkyRaw(raw)) return;
+
+    float eye = EyeDepthFromRaw(raw);
+    float3 posWS = mul(_SSGI_InvView, float4(ViewPosFromPixel(fp, eye), 1.0)).xyz;
+    float3 nWS = normalize(ViewToWorldDir(LoadNormalVS(fp)));
+    float3 color = ClampLuma(_SSGI_Color.Load(int3(fp, 0)).rgb);
+
+    int3 cell = (int3)floor(posWS / _SSGI_CacheBase.w) - (int3)_SSGI_CacheBase.xyz;
+    if (any(cell < 0) || any(cell >= SSGI_CACHE_N)) return;
+
+    float3 n2 = nWS * nWS;
+    [unroll]
+    for (int a = 0; a < 3; a++)
+    {
+        float w = n2[a];
+        if (w < 0.01) continue;
+
+        uint i0 = AccIndex(cell, a * 2 + (nWS[a] >= 0.0 ? 0 : 1));
+        uint4 add = (uint4)(float4(color * w, w) * SSGI_CACHE_FIXED + 0.5);
+        InterlockedAdd(_SSGI_CacheAcc[i0 + 0], add.x);
+        InterlockedAdd(_SSGI_CacheAcc[i0 + 1], add.y);
+        InterlockedAdd(_SSGI_CacheAcc[i0 + 2], add.z);
+        InterlockedAdd(_SSGI_CacheAcc[i0 + 3], add.w);
+    }
+}
+
+[numthreads(4, 4, 4)]
+void CacheResolve(uint3 id : SV_DispatchThreadID)
+{
+    int3 cell = (int3)id;
+    if (any(cell >= SSGI_CACHE_N)) return;
+
+    int3 pc = cell + (int3)_SSGI_CacheDelta.xyz; // same world cell in last frame's grid
+    bool prevOk = _SSGI_CacheDelta.w > 0.5 && all(pc >= 0) && all(pc < SSGI_CACHE_N);
+
+    [unroll]
+    for (int face = 0; face < 6; face++)
+    {
+        uint i0 = AccIndex(cell, face);
+        float4 acc = float4(_SSGI_CacheAcc[i0 + 0], _SSGI_CacheAcc[i0 + 1], _SSGI_CacheAcc[i0 + 2], _SSGI_CacheAcc[i0 + 3]) * (1.0 / SSGI_CACHE_FIXED);
+        _SSGI_CacheAcc[i0 + 0] = 0;
+        _SSGI_CacheAcc[i0 + 1] = 0;
+        _SSGI_CacheAcc[i0 + 2] = 0;
+        _SSGI_CacheAcc[i0 + 3] = 0;
+
+        float4 prev = prevOk ? _SSGI_CachePrev.Load(int4(face * SSGI_CACHE_N + pc.x, pc.y, pc.z, 0)) : 0;
+        float4 v = prev * SSGI_CACHE_DECAY + acc;
+        if (v.w > SSGI_CACHE_MAXW) v *= SSGI_CACHE_MAXW / v.w;
+
+        _SSGI_CacheCur[int3(face * SSGI_CACHE_N + cell.x, cell.y, cell.z)] = v;
+    }
+}

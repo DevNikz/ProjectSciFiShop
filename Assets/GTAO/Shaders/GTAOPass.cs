@@ -17,7 +17,11 @@ namespace GTAO_URP
             PassBlurH = 2,
             PassResolve = 3,
             PassComposite = 4,
-            PassDebug = 5;
+            PassDebug = 5,
+            PassPrefilterDepth = 6,
+            PassDepthMip = 7;
+
+        const int DepthMipCount = 5; // mip 0 (full res) .. mip 4
 
         static class IDs
         {
@@ -30,6 +34,16 @@ namespace GTAO_URP
             public static readonly int FullSize = Shader.PropertyToID("_GTAO_FullSize");
             public static readonly int Temporal = Shader.PropertyToID("_GTAO_Temporal");
             public static readonly int Blur = Shader.PropertyToID("_GTAO_Blur");
+            public static readonly int MipParams = Shader.PropertyToID("_GTAO_MipParams");
+            public static readonly int Tune = Shader.PropertyToID("_GTAO_Tune");
+            public static readonly int[] DepthMips =
+            {
+                Shader.PropertyToID("_GTAO_DepthMip0"),
+                Shader.PropertyToID("_GTAO_DepthMip1"),
+                Shader.PropertyToID("_GTAO_DepthMip2"),
+                Shader.PropertyToID("_GTAO_DepthMip3"),
+                Shader.PropertyToID("_GTAO_DepthMip4"),
+            };
             public static readonly int ViewToWorld = Shader.PropertyToID("_GTAO_ViewToWorld");
             public static readonly int WorldToView = Shader.PropertyToID("_GTAO_WorldToView");
             public static readonly int PrevViewProj = Shader.PropertyToID("_GTAO_PrevViewProj");
@@ -48,6 +62,37 @@ namespace GTAO_URP
             "_SCREEN_SPACE_OCCLUSION"
         );
 
+        // One sampler per stage so Profiler / Frame Debugger show per-pass GPU time. Indexed by Pass* const.
+        static readonly ProfilingSampler[] s_Samplers =
+        {
+            new ProfilingSampler("GTAO Estimate"),
+            new ProfilingSampler("GTAO Temporal"),
+            new ProfilingSampler("GTAO Blur H"),
+            new ProfilingSampler("GTAO Resolve"),
+            new ProfilingSampler("GTAO Composite"),
+            new ProfilingSampler("GTAO Debug"),
+            new ProfilingSampler("GTAO Prefilter Depth"),
+            new ProfilingSampler("GTAO Depth Mip"),
+        };
+
+        static readonly string[] s_DepthMipTexNames =
+        {
+            "_GTAO_DepthMip0",
+            "_GTAO_DepthMip1",
+            "_GTAO_DepthMip2",
+            "_GTAO_DepthMip3",
+            "_GTAO_DepthMip4",
+        };
+
+        static readonly string[] s_DepthMipPassNames =
+        {
+            "GTAO Prefilter Depth",
+            "GTAO Depth Mip 1",
+            "GTAO Depth Mip 2",
+            "GTAO Depth Mip 3",
+            "GTAO Depth Mip 4",
+        };
+
         sealed class PassData
         {
             internal Material material;
@@ -57,8 +102,33 @@ namespace GTAO_URP
                 normals,
                 history,
                 motion;
+            internal TextureHandle[] mips; // depth MIP chain; entries are null when unused
             internal bool applyGlobals;
             internal float directStrength;
+        }
+
+        // Inputs/outputs of one AddPass call; unset handles stay null.
+        struct PassInputs
+        {
+            internal TextureHandle src,
+                dst,
+                depth,
+                normals,
+                history,
+                motion;
+            internal TextureHandle[] depthMips; // null = pass doesn't read the depth MIP chain
+            internal bool publishGlobals,
+                readWriteDst,
+                srcIsDepth;
+
+            internal PassInputs(TextureHandle src, TextureHandle dst)
+            {
+                this.src = src;
+                this.dst = dst;
+                depth = normals = history = motion = TextureHandle.nullHandle;
+                depthMips = null;
+                publishGlobals = readWriteDst = srcIsDepth = false;
+            }
         }
 
         sealed class HistoryData
@@ -76,6 +146,8 @@ namespace GTAO_URP
 
         readonly Dictionary<int, HistoryData> m_History = new Dictionary<int, HistoryData>();
         readonly List<int> m_Stale = new List<int>();
+        readonly TextureHandle[] m_DepthMips = new TextureHandle[DepthMipCount];
+        readonly TextureHandle[] m_DepthMip0Only = new TextureHandle[DepthMipCount]; // resolve passes only need mip 0
 
         GTAOSettings m_S;
         Material m_Mat;
@@ -84,7 +156,9 @@ namespace GTAO_URP
         bool m_WarnedDepth;
 
         static GraphicsFormat s_FmtRG = GraphicsFormat.None,
-            s_FmtR = GraphicsFormat.None;
+            s_FmtR = GraphicsFormat.None,
+            s_FmtDepth16 = GraphicsFormat.None,
+            s_FmtDepth32 = GraphicsFormat.None;
 
         internal GTAOPass()
         {
@@ -126,6 +200,18 @@ namespace GTAO_URP
                 GraphicsFormat.R32G32B32A32_SFloat
             );
             s_FmtR = Pick(GraphicsFormat.R8_UNorm, GraphicsFormat.R8G8B8A8_UNorm);
+            s_FmtDepth16 = Pick(
+                GraphicsFormat.R16_SFloat,
+                GraphicsFormat.R32_SFloat,
+                GraphicsFormat.R16G16_SFloat,
+                GraphicsFormat.R32G32_SFloat
+            );
+            s_FmtDepth32 = Pick(
+                GraphicsFormat.R32_SFloat,
+                GraphicsFormat.R32G32_SFloat,
+                GraphicsFormat.R16_SFloat,
+                GraphicsFormat.R16G16_SFloat
+            );
         }
 
         static GraphicsFormat Pick(params GraphicsFormat[] candidates)
@@ -211,42 +297,57 @@ namespace GTAO_URP
             d.bindMS = false;
             d.useMipMap = false;
             d.autoGenerateMips = false;
-            d.width = aw;
-            d.height = ah;
-            d.graphicsFormat = s_FmtRG;
-            TextureHandle aoTex = UniversalRenderer.CreateRenderGraphTexture(
+
+            TextureHandle aoTex = CreateAOTexture(
                 renderGraph,
                 d,
+                aw,
+                ah,
+                s_FmtRG,
                 "_GTAO_Raw",
-                false,
                 FilterMode.Point
             );
 
             int blurR = s.GetBlurRadius();
             TextureHandle blurTex = TextureHandle.nullHandle;
             if (blurR > 0)
-                blurTex = UniversalRenderer.CreateRenderGraphTexture(
+                blurTex = CreateAOTexture(
                     renderGraph,
                     d,
+                    aw,
+                    ah,
+                    s_FmtRG,
                     "_GTAO_BlurTmp",
-                    false,
                     FilterMode.Point
                 );
 
             TextureHandle final = TextureHandle.nullHandle;
             if (!m_AfterOpaque)
-            {
-                var fd = d;
-                fd.width = fw;
-                fd.height = fh;
-                fd.graphicsFormat = s_FmtR;
-                final = UniversalRenderer.CreateRenderGraphTexture(
+                final = CreateAOTexture(
                     renderGraph,
-                    fd,
+                    d,
+                    fw,
+                    fh,
+                    s_FmtR,
                     "_ScreenSpaceOcclusionTexture",
-                    false,
                     FilterMode.Bilinear
                 );
+
+            // 0. Linear-depth MIP chain
+            TextureHandle[] mips = null,
+                mip0Only = null;
+            if (s.useDepthMips)
+            {
+                mips = AddDepthMipChain(
+                    renderGraph,
+                    d,
+                    depth,
+                    fw,
+                    fh,
+                    s.highPrecisionDepthMips ? s_FmtDepth32 : s_FmtDepth16
+                );
+                m_DepthMip0Only[0] = mips[0];
+                mip0Only = m_DepthMip0Only;
             }
 
             // 1. Estimate
@@ -254,14 +355,13 @@ namespace GTAO_URP
                 renderGraph,
                 "GTAO Estimate",
                 PassEstimate,
-                depth,
-                aoTex,
-                depth,
-                normals,
-                TextureHandle.nullHandle,
-                TextureHandle.nullHandle,
-                false,
-                srcIsDepth: true
+                new PassInputs(depth, aoTex)
+                {
+                    depth = depth,
+                    normals = normals,
+                    srcIsDepth = true,
+                    depthMips = mips,
+                }
             );
             TextureHandle chain = aoTex;
 
@@ -274,13 +374,7 @@ namespace GTAO_URP
                     renderGraph,
                     "GTAO Temporal",
                     PassTemporal,
-                    chain,
-                    hCur,
-                    TextureHandle.nullHandle,
-                    TextureHandle.nullHandle,
-                    hPrev,
-                    motion,
-                    false
+                    new PassInputs(chain, hCur) { history = hPrev, motion = motion }
                 );
                 chain = hCur;
 
@@ -302,13 +396,7 @@ namespace GTAO_URP
                     renderGraph,
                     "GTAO Blur H",
                     PassBlurH,
-                    chain,
-                    blurTex,
-                    TextureHandle.nullHandle,
-                    TextureHandle.nullHandle,
-                    TextureHandle.nullHandle,
-                    TextureHandle.nullHandle,
-                    false
+                    new PassInputs(chain, blurTex)
                 );
                 chain = blurTex;
             }
@@ -321,14 +409,12 @@ namespace GTAO_URP
                     renderGraph,
                     s.debugView ? "GTAO Debug" : "GTAO Composite",
                     p,
-                    chain,
-                    color,
-                    depth,
-                    TextureHandle.nullHandle,
-                    TextureHandle.nullHandle,
-                    TextureHandle.nullHandle,
-                    false,
-                    readWriteDst: !s.debugView
+                    new PassInputs(chain, color)
+                    {
+                        depth = depth,
+                        readWriteDst = !s.debugView,
+                        depthMips = mip0Only,
+                    }
                 );
             }
             else
@@ -337,13 +423,12 @@ namespace GTAO_URP
                     renderGraph,
                     "GTAO Resolve",
                     PassResolve,
-                    chain,
-                    final,
-                    depth,
-                    TextureHandle.nullHandle,
-                    TextureHandle.nullHandle,
-                    TextureHandle.nullHandle,
-                    true
+                    new PassInputs(chain, final)
+                    {
+                        depth = depth,
+                        publishGlobals = true,
+                        depthMips = mip0Only,
+                    }
                 );
                 // res.ssaoTexture has only an internal setter (URP-package-only); SetGlobalTextureAfterPass
                 // above already publishes _ScreenSpaceOcclusionTexture, which is all lit shaders read from.
@@ -352,54 +437,99 @@ namespace GTAO_URP
             CleanupStale();
         }
 
-        void AddPass(
+        // Linear-depth MIP chain: mip 0 = full-res linear eye depth, each next level a farthest-weighted 2x2 average.
+        // One transient RT per level (like URP's bloom chain): RenderGraph tracks a texture as one resource, so
+        // sampling mip N-1 while rendering mip N of the same texture would be a read/write hazard.
+        TextureHandle[] AddDepthMipChain(
             RenderGraph rg,
-            string name,
-            int pass,
-            TextureHandle src,
-            TextureHandle dst,
+            RenderTextureDescriptor desc,
             TextureHandle depth,
-            TextureHandle normals,
-            TextureHandle history,
-            TextureHandle motion,
-            bool publishGlobals,
-            bool readWriteDst = false,
-            bool srcIsDepth = false
+            int w,
+            int h,
+            GraphicsFormat fmt
         )
         {
-            using (var b = rg.AddRasterRenderPass<PassData>(name, out var pd, profilingSampler))
+            m_DepthMips[0] = CreateAOTexture(rg, desc, w, h, fmt, s_DepthMipTexNames[0], FilterMode.Point);
+            AddPass(
+                rg,
+                s_DepthMipPassNames[0],
+                PassPrefilterDepth,
+                new PassInputs(depth, m_DepthMips[0]) { depth = depth, srcIsDepth = true }
+            );
+
+            for (int i = 1; i < DepthMipCount; i++)
+            {
+                w = Mathf.Max(1, w / 2);
+                h = Mathf.Max(1, h / 2);
+                m_DepthMips[i] = CreateAOTexture(rg, desc, w, h, fmt, s_DepthMipTexNames[i], FilterMode.Point);
+                AddPass(
+                    rg,
+                    s_DepthMipPassNames[i],
+                    PassDepthMip,
+                    new PassInputs(m_DepthMips[i - 1], m_DepthMips[i])
+                );
+            }
+            return m_DepthMips;
+        }
+
+        // Transient AO-resolution (or full-res) RT; only size, format and filter differ between callers.
+        static TextureHandle CreateAOTexture(
+            RenderGraph rg,
+            RenderTextureDescriptor desc,
+            int w,
+            int h,
+            GraphicsFormat fmt,
+            string name,
+            FilterMode filter
+        )
+        {
+            desc.width = w;
+            desc.height = h;
+            desc.graphicsFormat = fmt;
+            return UniversalRenderer.CreateRenderGraphTexture(rg, desc, name, false, filter);
+        }
+
+        void AddPass(RenderGraph rg, string name, int pass, PassInputs io)
+        {
+            using (var b = rg.AddRasterRenderPass<PassData>(name, out var pd, s_Samplers[pass]))
             {
                 pd.material = m_Mat;
                 pd.pass = pass;
-                pd.src = src;
-                pd.depth = depth;
-                pd.normals = normals;
-                pd.history = history;
-                pd.motion = motion;
-                pd.applyGlobals = publishGlobals;
+                pd.src = io.src;
+                pd.depth = io.depth;
+                pd.normals = io.normals;
+                pd.history = io.history;
+                pd.motion = io.motion;
+                pd.applyGlobals = io.publishGlobals;
+                pd.mips ??= new TextureHandle[DepthMipCount]; // PassData is pooled: allocated once, then reused
+                for (int i = 0; i < DepthMipCount; i++)
+                    pd.mips[i] = io.depthMips != null ? io.depthMips[i] : TextureHandle.nullHandle;
                 pd.directStrength = m_S.directLightingStrength;
 
-                b.UseTexture(src, AccessFlags.Read);
-                if (depth.IsValid() && !srcIsDepth)
-                    b.UseTexture(depth, AccessFlags.Read); // estimate uses depth as its dummy src
-                if (normals.IsValid())
-                    b.UseTexture(normals, AccessFlags.Read);
-                if (history.IsValid())
-                    b.UseTexture(history, AccessFlags.Read);
-                if (motion.IsValid())
-                    b.UseTexture(motion, AccessFlags.Read);
+                b.UseTexture(io.src, AccessFlags.Read);
+                if (io.depth.IsValid() && !io.srcIsDepth)
+                    b.UseTexture(io.depth, AccessFlags.Read); // estimate uses depth as its dummy src
+                if (io.normals.IsValid())
+                    b.UseTexture(io.normals, AccessFlags.Read);
+                if (io.history.IsValid())
+                    b.UseTexture(io.history, AccessFlags.Read);
+                if (io.motion.IsValid())
+                    b.UseTexture(io.motion, AccessFlags.Read);
+                for (int i = 0; i < DepthMipCount; i++)
+                    if (pd.mips[i].IsValid())
+                        b.UseTexture(pd.mips[i], AccessFlags.Read);
 
                 b.SetRenderAttachment(
-                    dst,
+                    io.dst,
                     0,
-                    readWriteDst ? AccessFlags.ReadWrite : AccessFlags.Write
+                    io.readWriteDst ? AccessFlags.ReadWrite : AccessFlags.Write
                 );
                 b.AllowPassCulling(false);
 
-                if (publishGlobals)
+                if (io.publishGlobals)
                 {
                     b.AllowGlobalStateModification(true);
-                    b.SetGlobalTextureAfterPass(dst, IDs.SSAOTex);
+                    b.SetGlobalTextureAfterPass(io.dst, IDs.SSAOTex);
                 }
 
                 b.SetRenderFunc(
@@ -414,6 +544,9 @@ namespace GTAO_URP
                             m.SetTexture(IDs.History, data.history);
                         if (data.motion.IsValid())
                             m.SetTexture(IDs.Motion, data.motion);
+                        for (int i = 0; i < DepthMipCount; i++)
+                            if (data.mips[i].IsValid())
+                                m.SetTexture(IDs.DepthMips[i], data.mips[i]);
 
                         Blitter.BlitTexture(
                             ctx.cmd,
@@ -458,6 +591,7 @@ namespace GTAO_URP
             CoreUtils.SetKeyword(m, "_SOURCE_DEPTH_NORMALS", useNormals);
             CoreUtils.SetKeyword(m, "_ORTHOGRAPHIC", ortho);
             CoreUtils.SetKeyword(m, "_MOTION_VECTORS", useMotion);
+            CoreUtils.SetKeyword(m, "_GTAO_DEPTH_MIPS", s.useDepthMips);
 
             s.GetSampleCounts(out int slices, out int steps);
             uint frame = s.temporal ? (uint)(Time.frameCount & 63) : 0u;
@@ -479,6 +613,16 @@ namespace GTAO_URP
                 )
             );
             m.SetVector(IDs.Blur, new Vector4(s.GetBlurRadius(), s.blurDepthSharpness, 0, 0));
+            m.SetVector(IDs.MipParams, new Vector4(s.depthMipBias, DepthMipCount - 1, 0, 0));
+            m.SetVector(
+                IDs.Tune,
+                new Vector4(
+                    s.sampleDistributionPower,
+                    s.thinOccluderCompensation,
+                    s.noise == GTAONoise.Hilbert ? 1f : 0f,
+                    0f
+                )
+            );
             m.SetMatrix(IDs.ViewToWorld, view.inverse);
             m.SetMatrix(IDs.WorldToView, view);
 

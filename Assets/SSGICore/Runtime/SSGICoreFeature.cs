@@ -21,11 +21,16 @@ namespace SSGICore
         [Tooltip("Request the DepthNormals prepass for accurate normals. Off = reconstruct normals from depth.")]
         [SerializeField] bool m_UseNormalsTexture = true;
 
+        [Tooltip("Build normals + HZB right after the depth/normals prepass on the async compute queue (DX12/Vulkan) so they overlap opaque shading. Falls back to inline automatically.")]
+        [SerializeField] bool m_AsyncComputePrep = true;
+
         SSGICorePass m_Pass;
+        SSGICorePrepPass m_PrepPass;
 
         public override void Create()
         {
             m_Pass = new SSGICorePass { renderPassEvent = m_PassEvent };
+            m_PrepPass = new SSGICorePrepPass(m_Pass.Constants);
         }
 
         public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
@@ -54,6 +59,14 @@ namespace SSGICore
             m_Pass.renderPassEvent = m_PassEvent;
             m_Pass.ConfigureInput(inputs);
             m_Pass.Setup(volume);
+
+            if (m_AsyncComputePrep && m_PrepPass != null && (inputs & ScriptableRenderPassInput.Normal) != 0 &&
+                m_PassEvent > RenderPassEvent.AfterRenderingPrePasses)
+            {
+                m_PrepPass.Setup(volume, SystemInfo.supportsAsyncCompute);
+                renderer.EnqueuePass(m_PrepPass);
+            }
+
             renderer.EnqueuePass(m_Pass);
         }
     }

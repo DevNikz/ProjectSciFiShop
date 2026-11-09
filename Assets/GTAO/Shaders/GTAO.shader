@@ -13,6 +13,7 @@ Shader "Hidden/GTAO_URP/GTAO"
             #pragma exclude_renderers gles
             #pragma vertex Vert
             #pragma fragment FragEstimate
+            #pragma multi_compile_local_fragment _ _GTAO_DEPTH_MIPS
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile_local_fragment _ _SOURCE_DEPTH_NORMALS
             #pragma multi_compile_local_fragment _ _ORTHOGRAPHIC
@@ -54,6 +55,7 @@ Shader "Hidden/GTAO_URP/GTAO"
             #pragma exclude_renderers gles
             #pragma vertex Vert
             #pragma fragment FragResolve
+            #pragma multi_compile_local_fragment _ _GTAO_DEPTH_MIPS
             #pragma multi_compile_local_fragment _ _ORTHOGRAPHIC
             #include "GTAO.hlsl"
             ENDHLSL
@@ -68,6 +70,7 @@ Shader "Hidden/GTAO_URP/GTAO"
             #pragma exclude_renderers gles
             #pragma vertex Vert
             #pragma fragment FragComposite
+            #pragma multi_compile_local_fragment _ _GTAO_DEPTH_MIPS
             #pragma multi_compile_local_fragment _ _ORTHOGRAPHIC
             #include "GTAO.hlsl"
             ENDHLSL
@@ -81,7 +84,33 @@ Shader "Hidden/GTAO_URP/GTAO"
             #pragma exclude_renderers gles
             #pragma vertex Vert
             #pragma fragment FragDebug
+            #pragma multi_compile_local_fragment _ _GTAO_DEPTH_MIPS
             #pragma multi_compile_local_fragment _ _ORTHOGRAPHIC
+            #include "GTAO.hlsl"
+            ENDHLSL
+        }
+
+        Pass // 6
+        {
+            Name "GTAO_PrefilterDepth"
+            HLSLPROGRAM
+            #pragma target 3.5
+            #pragma exclude_renderers gles
+            #pragma vertex Vert
+            #pragma fragment FragPrefilterDepth
+            #pragma multi_compile_local_fragment _ _ORTHOGRAPHIC
+            #include "GTAO.hlsl"
+            ENDHLSL
+        }
+
+        Pass // 7
+        {
+            Name "GTAO_DepthMip"
+            HLSLPROGRAM
+            #pragma target 3.5
+            #pragma exclude_renderers gles
+            #pragma vertex Vert
+            #pragma fragment FragDepthMip
             #include "GTAO.hlsl"
             ENDHLSL
         }

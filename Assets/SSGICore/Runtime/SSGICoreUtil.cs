@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Experimental.Rendering;
 
 namespace SSGICore
 {
@@ -20,6 +21,71 @@ namespace SSGICore
 
         public static int GroupCount(int size) { return (size + 7) / 8; }
 
+        public static int GroupCount(int size, int groupSize) { return (size + groupSize - 1) / groupSize; }
+
+        /// <summary>
+        /// Packs HZB levels 1..HzbLevels into one atlas: level 1 at the origin, levels 2.. stacked to its right.
+        /// Fills rects[level] = (x offset, y offset, width, height); rects[0] is the full-resolution depth buffer.
+        /// rects must hold HzbLevels + 1 entries. Returns the atlas size.
+        /// </summary>
+        public static Vector2Int ComputeHzbAtlas(int fullW, int fullH, Vector4[] rects)
+        {
+            int w1 = HzbLevelSize(fullW, 1);
+            int h1 = HzbLevelSize(fullH, 1);
+            rects[0] = new Vector4(0f, 0f, fullW, fullH);
+            rects[1] = new Vector4(0f, 0f, w1, h1);
+
+            int stackedHeight = 0;
+            for (int level = 2; level <= HzbLevels; level++)
+            {
+                int w = HzbLevelSize(fullW, level);
+                int h = HzbLevelSize(fullH, level);
+                rects[level] = new Vector4(w1, stackedHeight, w, h);
+                stackedHeight += h;
+            }
+            return new Vector2Int(w1 + HzbLevelSize(fullW, 2), Mathf.Max(h1, stackedHeight));
+        }
+
+        /// <summary>
+        /// For a perspective projection the view ray through the z = -1 plane is affine in ndc. Returns it as
+        /// a = (origin.xy, perNdcX.xy) and b = (perNdcY.xy, 0, 0); see ViewPosFromPixel in SSGICore_Common.hlsl.
+        /// </summary>
+        public static void ComputeRayTerms(Matrix4x4 invProj, out Vector4 a, out Vector4 b)
+        {
+            Vector2 origin = RayAtNdc(invProj, 0f, 0f);
+            Vector2 dx = RayAtNdc(invProj, 1f, 0f) - origin;
+            Vector2 dy = RayAtNdc(invProj, 0f, 1f) - origin;
+            a = new Vector4(origin.x, origin.y, dx.x, dx.y);
+            b = new Vector4(dy.x, dy.y, 0f, 0f);
+        }
+
+        static Vector2 RayAtNdc(Matrix4x4 invProj, float ndcX, float ndcY)
+        {
+            Vector4 h = invProj * new Vector4(ndcX, ndcY, 0.5f, 1f);
+            Vector3 r = new Vector3(h.x, h.y, h.z) / h.w;
+            float s = 1f / -r.z;
+            return new Vector2(r.x * s, r.y * s);
+        }
+
+        static GraphicsFormat s_NormalsFormat;
+        static bool s_NormalsFormatResolved;
+
+        /// <summary>Packed resolved-normals format: R10G10B10A2 when it supports UAV stores, RGBA16F otherwise.</summary>
+        public static GraphicsFormat NormalsFormat
+        {
+            get
+            {
+                if (!s_NormalsFormatResolved)
+                {
+                    s_NormalsFormat = SystemInfo.IsFormatSupported(GraphicsFormat.A2B10G10R10_UNormPack32, GraphicsFormatUsage.LoadStore)
+                        ? GraphicsFormat.A2B10G10R10_UNormPack32
+                        : GraphicsFormat.R16G16B16A16_SFloat;
+                    s_NormalsFormatResolved = true;
+                }
+                return s_NormalsFormat;
+            }
+        }
+
         /// <summary>Same layout as Unity's _ZBufferParams.</summary>
         public static Vector4 ComputeZParams(float near, float far, bool reversedZ)
         {
@@ -35,6 +101,41 @@ namespace SSGICore
                 return new Vector4(x, y, x / far, y / far);
             }
         }
+    }
+
+    /// <summary>Hooks used by the parity tooling and tests.</summary>
+    public static class SSGICoreTestHooks
+    {
+        /// <summary>When >= 0, replaces Time.frameCount as the noise frame index so captures are deterministic.</summary>
+        public static int FrameOverride = -1;
+    }
+
+    /// <summary>Image comparison used by the parity gate.</summary>
+    public static class SSGICoreParity
+    {
+        public const float GateRelativeRmse = 0.01f;
+
+        /// <summary>RMSE of per-pixel luminance difference, divided by the mean luminance of the reference.</summary>
+        public static float RelativeRmse(Color[] reference, Color[] candidate)
+        {
+            if (reference == null || candidate == null || reference.Length != candidate.Length || reference.Length == 0)
+                return float.PositiveInfinity;
+
+            double sumSq = 0.0, sumRef = 0.0;
+            for (int i = 0; i < reference.Length; i++)
+            {
+                float lr = Luma(reference[i]);
+                float lc = Luma(candidate[i]);
+                double d = lr - lc;
+                sumSq += d * d;
+                sumRef += lr;
+            }
+            double meanRef = sumRef / reference.Length;
+            double rmse = System.Math.Sqrt(sumSq / reference.Length);
+            return (float)(rmse / System.Math.Max(meanRef, 1e-6));
+        }
+
+        static float Luma(Color c) { return 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b; }
     }
 
     internal static class SSGICoreLog
@@ -63,6 +164,31 @@ namespace SSGICore
         public static readonly int FullSize = ID("_SSGI_FullSize");
         public static readonly int LowSize = ID("_SSGI_LowSize");
         public static readonly int AmbientCube = ID("_SSGI_AmbientCube");
+        public static readonly int RayA = ID("_SSGI_RayA");
+        public static readonly int RayB = ID("_SSGI_RayB");
+        public static readonly int HzbRects = ID("_SSGI_HzbRects");
+        public static readonly int Enhanced = ID("_SSGI_Enhanced");
+        public static readonly int ResValid = ID("_SSGI_ResValid");
+        public static readonly int CacheEnabled = ID("_SSGI_CacheEnabled");
+        public static readonly int CacheBase = ID("_SSGI_CacheBase");
+        public static readonly int CacheDelta = ID("_SSGI_CacheDelta");
+        public static readonly int CacheTex = ID("_SSGI_CacheTex");
+        public static readonly int CachePrev = ID("_SSGI_CachePrev");
+        public static readonly int CacheCur = ID("_SSGI_CacheCur");
+        public static readonly int CacheAcc = ID("_SSGI_CacheAcc");
+        public static readonly int ResMaxM = ID("_SSGI_ResMaxM");
+        public static readonly int ResSpatial = ID("_SSGI_ResSpatial");
+        public static readonly int ResAPrev = ID("_SSGI_ResAPrev");
+        public static readonly int ResBPrev = ID("_SSGI_ResBPrev");
+        public static readonly int ResCPrev = ID("_SSGI_ResCPrev");
+        public static readonly int ResAOut = ID("_SSGI_ResAOut");
+        public static readonly int ResBOut = ID("_SSGI_ResBOut");
+        public static readonly int ResCOut = ID("_SSGI_ResCOut");
+        public static readonly int ResAIn = ID("_SSGI_ResAIn");
+        public static readonly int ResBIn = ID("_SSGI_ResBIn");
+        public static readonly int ResCIn = ID("_SSGI_ResCIn");
+        public static readonly int AgeIn = ID("_SSGI_AgeIn");
+        public static readonly int HistFbOut = ID("_SSGI_HistFbOut");
         public static readonly int Near = ID("_SSGI_Near");
         public static readonly int Thickness = ID("_SSGI_Thickness");
         public static readonly int MaxDistance = ID("_SSGI_MaxDistance");
@@ -93,14 +219,12 @@ namespace SSGICore
         public static readonly int Motion = ID("_SSGI_Motion");
         public static readonly int Color = ID("_SSGI_Color");
         public static readonly int PrevColor = ID("_SSGI_PrevColor");
-        public static readonly int[] Hzb =
-        {
-            0, ID("_SSGI_Hzb1"), ID("_SSGI_Hzb2"), ID("_SSGI_Hzb3"), ID("_SSGI_Hzb4"), ID("_SSGI_Hzb5")
-        };
-        public static readonly int HzbIn = ID("_SSGI_HzbIn");
+        public static readonly int HzbAtlas = ID("_SSGI_HzbAtlas");
         public static readonly int HzbOut = ID("_SSGI_HzbOut");
         public static readonly int TraceIn = ID("_SSGI_TraceIn");
         public static readonly int TraceOut = ID("_SSGI_TraceOut");
+        public static readonly int LowGeo = ID("_SSGI_LowGeo");
+        public static readonly int LowGeoOut = ID("_SSGI_LowGeoOut");
         public static readonly int HistColorPrev = ID("_SSGI_HistColorPrev");
         public static readonly int HistMomPrev = ID("_SSGI_HistMomPrev");
         public static readonly int HistGeoPrev = ID("_SSGI_HistGeoPrev");

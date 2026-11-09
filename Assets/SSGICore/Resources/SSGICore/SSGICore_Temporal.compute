@@ -11,11 +11,24 @@ RWTexture2D<float4> _SSGI_HistMomOut;
 RWTexture2D<float4> _SSGI_HistGeoOut;
 RWTexture2D<float4> _SSGI_FilterOut;
 
+// 8x8 group + 1px halo of firefly-clamped trace samples, shared by the 3x3 neighbourhood statistics.
+groupshared float3 gsTrace[10 * 10];
+
 [numthreads(8, 8, 1)]
-void Temporal(uint3 id : SV_DispatchThreadID)
+void Temporal(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 gtid : SV_GroupThreadID, uint gidx : SV_GroupIndex)
 {
     int2 lp = (int2)id.xy;
     int2 lowDim = (int2)_SSGI_LowSize.xy;
+    int2 lc = (int2)gtid.xy + 1;
+    int2 origin = (int2)gid.xy * 8 - 1;
+
+    for (uint i = gidx; i < 100; i += 64)
+    {
+        int2 q = clamp(origin + int2(i % 10, i / 10), int2(0, 0), lowDim - 1);
+        gsTrace[i] = ClampLuma(_SSGI_TraceIn.Load(int3(q, 0)).rgb);
+    }
+    GroupMemoryBarrierWithGroupSync();
+
     if (any(lp >= lowDim)) return;
 
     float eye;
@@ -32,7 +45,7 @@ void Temporal(uint3 id : SV_DispatchThreadID)
     int2 fp = LowToFull(lp);
     float3 nWS = normalize(mul(nVS, (float3x3)_SSGI_View));
 
-    float3 cur = ClampLuma(_SSGI_TraceIn.Load(int3(lp, 0)).rgb);
+    float3 cur = gsTrace[lc.y * 10 + lc.x];
 
     // 3x3 neighbourhood statistics (variance clipping + spatial variance fallback)
     float3 s1 = 0, s2 = 0;
@@ -43,8 +56,7 @@ void Temporal(uint3 id : SV_DispatchThreadID)
         [unroll]
         for (int x = -1; x <= 1; x++)
         {
-            int2 q = clamp(lp + int2(x, y), int2(0, 0), lowDim - 1);
-            float3 s = ClampLuma(_SSGI_TraceIn.Load(int3(q, 0)).rgb);
+            float3 s = gsTrace[(lc.y + y) * 10 + (lc.x + x)];
             float l = SSGILuma(s);
             s1 += s; s2 += s * s;
             l1 += l; l2 += l * l;
@@ -53,6 +65,15 @@ void Temporal(uint3 id : SV_DispatchThreadID)
     s1 /= 9.0; s2 /= 9.0; l1 /= 9.0; l2 /= 9.0;
     float3 sigma = sqrt(max(s2 - s1 * s1, 0.0));
     float spatialVar = max(l2 - l1 * l1, 0.0);
+
+    if (_SSGI_Enhanced != 0)
+    {
+        // Firefly rejection against the 8 neighbours (centre excluded): a lone outlier cannot exceed its own
+        // neighbourhood's mean + 4 sigma (+50% of the mean so flat dark regions are not over-clipped).
+        float3 m8 = (9.0 * s1 - cur) / 8.0;
+        float3 v8 = max((9.0 * s2 - cur * cur) / 8.0 - m8 * m8, 0.0);
+        cur = min(cur, m8 + 4.0 * sqrt(v8) + 0.5 * m8);
+    }
 
     float lumCur = SSGILuma(cur);
     float3 prevC = cur;
@@ -116,14 +137,31 @@ void Temporal(uint3 id : SV_DispatchThreadID)
         }
     }
 
+    if (_SSGI_Enhanced != 0)
+    {
+        // Luminance confidence: react faster when valid history disagrees with the neighbourhood beyond its own noise.
+        if (newAge > 1.0)
+        {
+            float lumPrev = SSGILuma(prevC);
+            float tolerance = 3.0 * sqrt(spatialVar) + 0.1 * lumPrev + 1e-3;
+            float conf = saturate(abs(lumPrev - lumCur) / tolerance - 1.0);
+            alpha = max(alpha, conf * 0.25);
+        }
+
+        // Disocclusion fill: young pixels lean on the neighbourhood mean until history builds up.
+        float fill = saturate((4.0 - newAge) * 0.25) * 0.5;
+        cur = lerp(cur, s1, fill);
+    }
+
     float3 result = lerp(prevC, cur, alpha);
     float m1 = lerp(prevM.x, lumCur, alpha);
     float m2 = lerp(prevM.y, lumCur * lumCur, alpha);
     float variance = max(m2 - m1 * m1, 0.0);
     if (newAge < 4.0) variance = max(variance, spatialVar);
+    if (_SSGI_Enhanced != 0 && newAge < 4.0) variance *= 1.0 + 0.5 * (4.0 - newAge);
 
     _SSGI_HistColorOut[lp] = float4(result, newAge);
-    _SSGI_HistMomOut[lp] = float4(m1, m2, 0, 0);
+    _SSGI_HistMomOut[lp] = float4(m1, m2, newAge, 0); // z = age, read by the filter in Enhanced mode
     _SSGI_HistGeoOut[lp] = float4(nWS, eye);
     _SSGI_FilterOut[lp] = float4(result, variance);
 }

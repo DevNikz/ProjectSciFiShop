@@ -157,7 +157,7 @@ MonoBehaviour:
     m_Value: 3
   resolution:
     m_OverrideState: 1
-    m_Value: 4
+    m_Value: 2
   rayCount:
     m_OverrideState: 1
     m_Value: 2
@@ -176,12 +176,27 @@ MonoBehaviour:
   filterIterations:
     m_OverrideState: 1
     m_Value: 4
+  denoiserMode:
+    m_OverrideState: 1
+    m_Value: 1
+  radianceCache:
+    m_OverrideState: 1
+    m_Value: 1
+  restir:
+    m_OverrideState: 1
+    m_Value: 1
+  restirSpatial:
+    m_OverrideState: 1
+    m_Value: 1
+  restirHistoryCap:
+    m_OverrideState: 1
+    m_Value: 20
   maxDistance:
     m_OverrideState: 1
     m_Value: 20
   thickness:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 2
   edgeFade:
     m_OverrideState: 1
     m_Value: 32
@@ -199,7 +214,7 @@ MonoBehaviour:
     m_Value: 0.5
   fireflyClamp:
     m_OverrideState: 1
-    m_Value: 100
+    m_Value: 25
   temporalClamp:
     m_OverrideState: 1
     m_Value: 2

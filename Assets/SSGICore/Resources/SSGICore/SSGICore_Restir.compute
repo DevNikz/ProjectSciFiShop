@@ -1,0 +1,83 @@
+#pragma kernel RestirSpatial
+
+#include "SSGICore_Restir.hlsl"
+
+Texture2D<float4>   _SSGI_ResAIn;
+Texture2D<float4>   _SSGI_ResBIn;
+Texture2D<float4>   _SSGI_ResCIn;
+RWTexture2D<float4> _SSGI_TraceOut;
+
+#define SSGI_SPATIAL_RADIUS 6.0
+
+// Spatial reuse (one neighbour) and resolve of the temporally reused reservoir into the radiance estimate that
+// the existing temporal accumulation + a-trous filter consume. The reservoirs stored in the history are NOT modified here.
+[numthreads(8, 8, 1)]
+void RestirSpatial(uint3 id : SV_DispatchThreadID)
+{
+    int2 lp = (int2)id.xy;
+    int2 lowDim = (int2)_SSGI_LowSize.xy;
+    if (any(lp >= lowDim)) return;
+
+    float eye;
+    float3 posVS, nVS;
+    if (!LoadLowGeo(lp, eye, posVS, nVS))
+    {
+        _SSGI_TraceOut[lp] = 0;
+        return;
+    }
+
+    float3 posWS = mul(_SSGI_InvView, float4(posVS, 1.0)).xyz;
+    float3 nWS = ViewToWorldDir(nVS);
+
+    SSGIReservoir own = ReadReservoir(_SSGI_ResAIn, _SSGI_ResBIn, _SSGI_ResCIn, lp);
+    SSGIResAcc acc = (SSGIResAcc)0;
+    if (own.M > 0.0 && own.W > 0.0)
+    {
+        float pHatO = ResTargetPdf(own.Lo, ResCos(posWS, nWS, own.xs));
+        ResAccUpdate(acc, own.xs, own.Lo, own.ns, pHatO, pHatO * own.W * own.M, own.M, ResRand(lp, 3));
+    }
+
+    if (_SSGI_ResSpatial != 0)
+    {
+        float2 u = Sample2D(lp, 11);
+        float ang = u.x * SSGI_TWO_PI;
+        float rad = 1.0 + sqrt(u.y) * SSGI_SPATIAL_RADIUS;
+        int2 q = lp + (int2)round(float2(cos(ang), sin(ang)) * rad);
+
+        if (all(q >= 0) && all(q < lowDim))
+        {
+            float eyeQ;
+            float3 posQ, nQ;
+            if (LoadLowGeo(q, eyeQ, posQ, nQ) &&
+                abs(eyeQ - eye) < 0.05 * eye && dot(nQ, nVS) > 0.9)
+            {
+                SSGIReservoir nb = ReadReservoir(_SSGI_ResAIn, _SSGI_ResBIn, _SSGI_ResCIn, q);
+                if (nb.M > 0.0 && nb.W > 0.0)
+                {
+                    float3 xqWS = mul(_SSGI_InvView, float4(posQ, 1.0)).xyz;
+
+                    // Jacobian of moving the sample from the neighbour's receiver to this one
+                    float3 vC = posWS - nb.xs;
+                    float3 vQ = xqWS - nb.xs;
+                    float dC2 = max(dot(vC, vC), 1e-8);
+                    float dQ2 = max(dot(vQ, vQ), 1e-8);
+                    float cosC = saturate(dot(nb.ns, vC * rsqrt(dC2)));
+                    float cosQ = saturate(dot(nb.ns, vQ * rsqrt(dQ2)));
+                    float J = (cosC / max(cosQ, 1e-4)) * (dQ2 / dC2);
+
+                    if (cosC > 0.0 && J > 0.1 && J < 10.0)
+                    {
+                        float pHatC = ResTargetPdf(nb.Lo, ResCos(posWS, nWS, nb.xs));
+                        float mQ = min(nb.M, (float)_SSGI_ResMaxM * max(own.M, 1.0));
+                        ResAccUpdate(acc, nb.xs, nb.Lo, nb.ns, pHatC, pHatC * nb.W * mQ * J, mQ, ResRand(lp, 5));
+                    }
+                }
+            }
+        }
+    }
+
+    float W = ResContributionWeight(acc);
+    float3 value = acc.Lo * (ResCos(posWS, nWS, acc.xs) * SSGI_INV_PI) * W;
+    if (!all(isfinite(value))) value = 0;
+    _SSGI_TraceOut[lp] = float4(ClampLuma(value), 1.0);
+}

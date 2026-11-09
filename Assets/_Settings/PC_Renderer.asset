@@ -73,6 +73,7 @@ MonoBehaviour:
   m_PassEvent: 450
   m_ShowInSceneView: 1
   m_UseNormalsTexture: 1
+  m_AsyncComputePrep: 1
 --- !u!114 &3622465286788718717
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -89,18 +90,24 @@ MonoBehaviour:
   settings:
     apply: 1
     normals: 0
-    radius: 0.75
+    radius: 2
     intensity: 1.5
     falloffRange: 0.1
     multiBounce: 0.5
     directLightingStrength: 0.25
-    quality: 4
+    quality: 1
     customSlices: 2
     customSteps: 4
     maxPixelRadius: 256
     downsample: 1
     fadeStart: 60
     fadeEnd: 100
+    useDepthMips: 1
+    depthMipBias: 3.3
+    highPrecisionDepthMips: 0
+    sampleDistributionPower: 2
+    thinOccluderCompensation: 0.7
+    noise: 1
     temporal: 1
     temporalWeight: 0.9
     velocityFadePixels: 20
