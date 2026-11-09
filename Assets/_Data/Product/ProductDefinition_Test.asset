@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f7d91d1dbd29b18468f67b4c0a8364f3, type: 3}
   m_Name: ProductDefinition_Test
   m_EditorClassIdentifier: Assembly-CSharp::ProductDefinition
-  id: 
+  id: ProductDefinition_Test
   displayName: 
   icon: {fileID: 0}
   category: 0

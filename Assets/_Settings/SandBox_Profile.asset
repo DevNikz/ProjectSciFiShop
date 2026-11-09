@@ -211,7 +211,7 @@ MonoBehaviour:
     m_Value: 0.5
   albedoLevel:
     m_OverrideState: 1
-    m_Value: 0.5
+    m_Value: 0.1
   fireflyClamp:
     m_OverrideState: 1
     m_Value: 50

@@ -94,7 +94,7 @@ MonoBehaviour:
     intensity: 1.5
     falloffRange: 0.1
     multiBounce: 0
-    directLightingStrength: 0.25
+    directLightingStrength: 1
     quality: 1
     customSlices: 2
     customSteps: 4

@@ -6,7 +6,7 @@ using Random = UnityEngine.Random;
 [InteractableAddon("Carriable (Addon)")]
 [RequireComponent(typeof(Rigidbody), typeof(Interactable))]
 [DisallowMultipleComponent]
-public class Carriable : MonoBehaviour
+public class Carriable : MonoBehaviour, ICarriablePoolable
 {
     [Tooltip("Carry follow strength.")]
     [SerializeField]
