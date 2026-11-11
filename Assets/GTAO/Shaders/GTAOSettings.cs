@@ -51,6 +51,10 @@ namespace GTAO_URP
         [Tooltip("Interleaved: IGN + R1 (original). Hilbert: XeGTAO's Hilbert-curve + R2 spatio-temporal noise, no texture needed.")]
         public GTAONoise noise = GTAONoise.Interleaved;
 
+        [Header("Directional (bent normals)")]
+        [Tooltip("Also compute a denoised bent normal and publish it as _GTAO_BentNormalsTexture (+ keyword _GTAO_BENT_NORMALS). Needs the Atrous denoiser. URP Lit does not read it: use GTAOBentNormals.hlsl in your own shaders. Costs roughly +25% estimate time and extra render targets.")]
+        public bool bentNormals = false;
+
         [Header("Temporal")]
         public bool temporal = true;
         [Range(0f, 0.98f)] public float temporalWeight = 0.9f;
@@ -94,6 +98,9 @@ namespace GTAO_URP
             return downsample ? Mathf.Max(r, 1) : r; // bilateral upsample needs at least one tap
         }
 
+        // Bent normals are only produced by the Atrous denoiser path.
+        public bool UsesBentNormals => bentNormals && denoiser == GTAODenoiser.Atrous;
+
         // Number of a-trous iterations (step 1, 2, 4). 0 when the legacy denoiser is selected.
         public int GetAtrousIterations()
         {
@@ -131,6 +138,7 @@ namespace GTAO_URP
             dst.noise = noise;
             dst.denoiser = denoiser;
             dst.upsample = upsample;
+            dst.bentNormals = bentNormals;
             dst.highPrecisionDepthMips = highPrecisionDepthMips;
 
             dst.radius = Mathf.Clamp(NanSafe(radius, 0.5f), 0.05f, 10f);

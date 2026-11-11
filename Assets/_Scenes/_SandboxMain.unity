@@ -37,7 +37,7 @@ RenderSettings:
   m_ReflectionBounces: 2
   m_ReflectionIntensity: 0.5
   m_CustomReflection: {fileID: 8900000, guid: 90378027bbfa934459304c02c24711f2, type: 3}
-  m_Sun: {fileID: 2341638579638360118}
+  m_Sun: {fileID: 0}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -5706,11 +5706,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 96af1945e8bda2947bf27902b1ad41fb, type: 3}
---- !u!108 &2341638579638360118 stripped
-Light:
-  m_CorrespondingSourceObject: {fileID: 4432301033068413673, guid: 96af1945e8bda2947bf27902b1ad41fb, type: 3}
-  m_PrefabInstance: {fileID: 2341638579638360117}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &3115842202476847979
 Transform:
   m_ObjectHideFlags: 0
@@ -6286,7 +6281,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5680945876946206047, guid: 26a325d83f916a2409264348fc59a048, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 1.4999999
+      value: 2.5
       objectReference: {fileID: 0}
     - target: {fileID: 5680945876946206047, guid: 26a325d83f916a2409264348fc59a048, type: 3}
       propertyPath: m_LocalRotation.w

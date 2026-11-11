@@ -78,8 +78,13 @@ namespace GTAO_URP
             if (!m_Pass.Setup(s, m_Material)) return;
             renderer.EnqueuePass(m_Pass);
 
-            if (s.apply == GTAOApply.Lighting && !s.debugView)
-                renderer.EnqueuePass(m_Reset); // clears _SCREEN_SPACE_OCCLUSION so it can't leak to other cameras
+            bool resetSSAO = s.apply == GTAOApply.Lighting && !s.debugView;
+            bool resetBent = s.UsesBentNormals;
+            if (resetSSAO || resetBent)
+            {
+                m_Reset.Configure(resetSSAO, resetBent);
+                renderer.EnqueuePass(m_Reset); // clears the AO / bent-normal keywords so they can't leak to other cameras
+            }
         }
 
         // The rendering mode isn't public API in this URP version, so it's read through reflection. FieldInfo is cached

@@ -90,24 +90,25 @@ MonoBehaviour:
   settings:
     apply: 1
     normals: 0
-    radius: 0.5
-    intensity: 3
+    radius: 1
+    intensity: 2
     falloffRange: 0.1
-    multiBounce: 0
+    multiBounce: 0.4
     directLightingStrength: 1
-    quality: 1
+    quality: 4
     customSlices: 2
-    customSteps: 4
-    maxPixelRadius: 256
+    customSteps: 2
+    maxPixelRadius: 128
     downsample: 0
     fadeStart: 60
     fadeEnd: 100
     useDepthMips: 1
     depthMipBias: 3.3
-    highPrecisionDepthMips: 0
+    highPrecisionDepthMips: 1
     sampleDistributionPower: 2
     thinOccluderCompensation: 0.5
     noise: 1
+    bentNormals: 1
     temporal: 1
     temporalWeight: 0.9
     velocityFadePixels: 20

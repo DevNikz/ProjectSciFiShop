@@ -13,6 +13,7 @@ Shader "Hidden/GTAO_URP/GTAO"
             #pragma exclude_renderers gles
             #pragma vertex Vert
             #pragma fragment FragEstimate
+            #pragma multi_compile_local_fragment _ _GTAO_BENT_ENABLED
             #pragma multi_compile_local_fragment _ _GTAO_DEPTH_MIPS
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile_local_fragment _ _SOURCE_DEPTH_NORMALS
@@ -29,6 +30,7 @@ Shader "Hidden/GTAO_URP/GTAO"
             #pragma exclude_renderers gles
             #pragma vertex Vert
             #pragma fragment FragTemporal
+            #pragma multi_compile_local_fragment _ _GTAO_BENT_ENABLED
             #pragma multi_compile_local_fragment _ _ORTHOGRAPHIC
             #pragma multi_compile_local_fragment _ _MOTION_VECTORS
             #include "GTAO.hlsl"
@@ -123,10 +125,25 @@ Shader "Hidden/GTAO_URP/GTAO"
             #pragma exclude_renderers gles
             #pragma vertex Vert
             #pragma fragment FragAtrous
+            #pragma multi_compile_local_fragment _ _GTAO_BENT_ENABLED
             #pragma multi_compile_local_fragment _ _GTAO_DEPTH_MIPS
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT
             #pragma multi_compile_local_fragment _ _SOURCE_DEPTH_NORMALS
             #pragma multi_compile_local_fragment _ _ORTHOGRAPHIC
+            #include "GTAO.hlsl"
+            ENDHLSL
+        }
+
+        Pass // 9
+        {
+            Name "GTAO_ResolveBent"
+            HLSLPROGRAM
+            #pragma target 3.5
+            #pragma exclude_renderers gles
+            #pragma vertex Vert
+            #pragma fragment FragResolveBent
+            #pragma multi_compile_local_fragment _ _GTAO_DEPTH_MIPS
+            #pragma multi_compile_local_fragment _ _GTAO_BENT_ENABLED
             #include "GTAO.hlsl"
             ENDHLSL
         }
