@@ -157,13 +157,13 @@ MonoBehaviour:
     m_Value: 3
   resolution:
     m_OverrideState: 1
-    m_Value: 2
+    m_Value: 4
   rayCount:
     m_OverrideState: 1
-    m_Value: 2
+    m_Value: 1
   maxSteps:
     m_OverrideState: 1
-    m_Value: 48
+    m_Value: 32
   bounces:
     m_OverrideState: 1
     m_Value: 2
@@ -211,7 +211,7 @@ MonoBehaviour:
     m_Value: 0.5
   albedoLevel:
     m_OverrideState: 1
-    m_Value: 0.1
+    m_Value: 0.25
   fireflyClamp:
     m_OverrideState: 1
     m_Value: 50

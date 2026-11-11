@@ -52,6 +52,13 @@ public class ProductDefinition : ScriptableObject
     [SerializeField]
     ProductCarriable prefab;
 
+    [Tooltip("Instances created at scene start. 0 = grow on demand.")]
+    [SerializeField, Min(0)]
+    int prewarmCount;
+
+    public Carriable CarriablePrefab => prefab.Carriable;
+    public int PrewarmCount => prewarmCount;
+
     public string Id => string.IsNullOrEmpty(id) ? name : id;
     public string DisplayName => string.IsNullOrEmpty(displayName) ? name : displayName;
     public Sprite Icon => icon;

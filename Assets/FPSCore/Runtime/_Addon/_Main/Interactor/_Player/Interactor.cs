@@ -33,6 +33,9 @@ public class Interactor : MonoBehaviour
     [SerializeField]
     private Interactable _targetDebug;
 
+    private Carrier _carrier;
+    public Carrier Carrier => _carrier;
+
     private CharacterController _body;
     private Interactable _target;
     private IHandsFull _handsFull;
@@ -77,6 +80,7 @@ public class Interactor : MonoBehaviour
             Debug.LogError($"{name}: no view origin. Assign CameraTarget.", this);
             enabled = false;
         }
+        _carrier = GetComponent<Carrier>();
     }
 
     private void OnDisable()

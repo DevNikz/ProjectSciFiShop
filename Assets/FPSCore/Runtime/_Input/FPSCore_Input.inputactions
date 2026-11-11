@@ -176,6 +176,96 @@
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false
+                },
+                {
+                    "name": "Scan",
+                    "type": "Button",
+                    "id": "53a196f1-7c27-4518-9eee-2278493996e0",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "BoxStore",
+                    "type": "Button",
+                    "id": "42ce780f-9821-4524-a781-5200173d57c5",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "BoxReturn",
+                    "type": "Button",
+                    "id": "95b9f073-bb01-4a93-b2d4-78bb837e91b8",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "BoxCycleNext",
+                    "type": "Button",
+                    "id": "0ea5b976-4111-46cf-a420-bab723b71508",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "BoxCyclePrev",
+                    "type": "Button",
+                    "id": "edd4b008-d98e-4244-a6c4-4b5ac78e4826",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "BoxCancel",
+                    "type": "Button",
+                    "id": "5757599c-605b-4a88-a8ac-0a376e3330d8",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "BoxRotate",
+                    "type": "Value",
+                    "id": "126b4bfc-537f-44b2-8d9c-5a2da63b1ed0",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "PriceAdjust",
+                    "type": "Value",
+                    "id": "a0bffe65-8bd1-4604-87fb-548f177181b9",
+                    "expectedControlType": "Vector2",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": true
+                },
+                {
+                    "name": "ScannerToggle",
+                    "type": "Button",
+                    "id": "82caedf4-17a9-4348-b3a3-7822ed3144c8",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
+                    "name": "FurnitureSellPressed",
+                    "type": "Button",
+                    "id": "9f119e0d-96a5-4def-8b66-95376cf43445",
+                    "expectedControlType": "",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
                 }
             ],
             "bindings": [
@@ -484,6 +574,116 @@
                     "processors": "",
                     "groups": "",
                     "action": "Hotbar9",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "06cb71e4-d09a-4ba2-8890-11c057a59646",
+                    "path": "<Mouse>/leftButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Scan",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "b028ea7a-a80d-4db4-869c-c60b20de5378",
+                    "path": "<Mouse>/leftButton",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "BoxStore",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "8b35e612-8966-45f5-b9b7-c0597d411bba",
+                    "path": "<Keyboard>/q",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "BoxReturn",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "541ca18d-6b1c-450d-8e81-3ca077f8a616",
+                    "path": "<Keyboard>/v",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "BoxCycleNext",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "3416deec-e4bb-4076-aa36-983df5be62fc",
+                    "path": "<Keyboard>/v",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "BoxCyclePrev",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "a3933de3-8cdd-4057-99ab-2afd1d5dd185",
+                    "path": "<Keyboard>/x",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "BoxCancel",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "53b3dc29-4c22-4ace-ae01-a154cae39a58",
+                    "path": "<Keyboard>/q",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "ScannerToggle",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "76894265-aae6-4f8d-aeb6-064b0339c98d",
+                    "path": "<Keyboard>/delete",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "FurnitureSellPressed",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "38df92bb-5929-44eb-bc7b-48284d77090c",
+                    "path": "<Mouse>/scroll",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "BoxRotate",
+                    "isComposite": false,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "",
+                    "id": "2836d3d7-765d-4914-9d97-3d5dae564c01",
+                    "path": "<Mouse>/scroll",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "PriceAdjust",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

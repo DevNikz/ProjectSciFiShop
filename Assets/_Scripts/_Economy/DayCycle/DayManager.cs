@@ -76,6 +76,8 @@ public class DayManager : MonoBehaviour
     public event Action<int> DayStarting; // day number
 
     public event Action<int> DayStarted; // day number
+    public event Action<int> DayChanged;
+    public event Action<StorePhase> PhaseChanged;
     public event Action StoreOpened;
     public event Action StoreClosed;
     public event Action<DaySummary> DayEnded;
@@ -111,9 +113,9 @@ public class DayManager : MonoBehaviour
         if (!isActiveAndEnabled || _phase != StorePhase.Waiting)
             return false;
 
-        _day++;
-        _phase = StorePhase.Open;
-        _timer = dayLengthSeconds;
+        _timer = dayLengthSeconds; // before the setters, so listeners see a ready clock
+        SetDay(_day + 1);
+        SetPhase(StorePhase.Open);
         DayStarting?.Invoke(_day);
         DayStarted?.Invoke(_day);
         StoreOpened?.Invoke();
@@ -151,15 +153,14 @@ public class DayManager : MonoBehaviour
     {
         if (_phase != StorePhase.Open)
             return;
-        _phase = StorePhase.Closing;
         _timer = 0f;
         nextClosingCheck = 0f;
+        SetPhase(StorePhase.Closing);
         StoreClosed?.Invoke();
     }
 
     private void EndDay()
     {
-        _phase = StorePhase.Waiting;
         var summary = new DaySummary
         {
             day = _day,
@@ -170,6 +171,7 @@ public class DayManager : MonoBehaviour
         };
         _sales = _items = _revenue = _cost = 0; // a late sale counts toward the next day
         _lastSummary = summary;
+        SetPhase(StorePhase.Waiting);
         DayEnded?.Invoke(summary);
     }
 
@@ -210,21 +212,27 @@ public class DayManager : MonoBehaviour
             lastSummary = _lastSummary,
         };
 
-    /// <summary>Restores the clock and counters. Raises no events (call Resume() after).</summary>
+    /// <summary>
+    /// Restores the clock and counters. Raises only DayChanged and PhaseChanged (when they
+    /// differ), so the HUD follows. Call Resume() after for the rest.
+    /// </summary>
     public void RestoreState(DayData state)
     {
         if (state == null)
             return;
-        _day = Mathf.Max(0, state.day);
-        _phase = Enum.IsDefined(typeof(StorePhase), state.phase)
-            ? (StorePhase)state.phase
-            : StorePhase.Waiting;
         _timer = Mathf.Max(0f, state.timer);
         _sales = Mathf.Max(0, state.sales);
         _items = Mathf.Max(0, state.items);
         _revenue = Mathf.Max(0, state.revenue);
         _cost = Mathf.Max(0, state.cost);
         _lastSummary = state.lastSummary;
+        // Last, so listeners reading the counters or timer see the restored values.
+        SetDay(Mathf.Max(0, state.day));
+        SetPhase(
+            Enum.IsDefined(typeof(StorePhase), state.phase)
+                ? (StorePhase)state.phase
+                : StorePhase.Waiting
+        );
     }
 
     /// <summary>
@@ -236,6 +244,23 @@ public class DayManager : MonoBehaviour
         StateRestored?.Invoke();
         if (_phase == StorePhase.Waiting && _day > 0)
             DayEnded?.Invoke(_lastSummary);
+    }
+
+    // Route every write to Day and Phase through these, including RestoreState.
+    void SetDay(int value)
+    {
+        if (Day == value)
+            return;
+        _day = value;
+        DayChanged?.Invoke(value);
+    }
+
+    void SetPhase(StorePhase value)
+    {
+        if (Phase == value)
+            return;
+        _phase = value;
+        PhaseChanged?.Invoke(value);
     }
 
     [ContextMenu("Debug: close the store now")]

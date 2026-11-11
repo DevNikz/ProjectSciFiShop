@@ -16,9 +16,9 @@ LightingSettings:
   m_IndirectOutputScale: 2
   m_UsingShadowmask: 1
   m_BakeBackend: 2
-  m_LightmapMaxSize: 512
+  m_LightmapMaxSize: 1024
   m_LightmapSizeFixed: 0
-  m_UseMipmapLimits: 0
+  m_UseMipmapLimits: 1
   m_BakeResolution: 40
   m_Padding: 2
   m_LightmapCompression: 3
@@ -29,7 +29,7 @@ LightingSettings:
   m_XAtlasBlockAlign: 0
   m_XAtlasRepackUnderutilizedLightmaps: 1
   m_AO: 1
-  m_AOMaxDistance: 1
+  m_AOMaxDistance: 0
   m_CompAOExponent: 2
   m_CompAOExponentDirect: 1
   m_ExtractAO: 0

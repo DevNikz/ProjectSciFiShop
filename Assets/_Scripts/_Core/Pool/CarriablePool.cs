@@ -58,11 +58,11 @@ public static class CarriablePool
             return true;
         if (s_skip.Contains(prefab))
             return false;
-        // if (prefab.GetComponent<CardboardBox>() != null)
-        // {
-        //     s_skip.Add(prefab);
-        //     return false;
-        // }
+        if (prefab.GetComponent<CardboardBox>() != null)
+        {
+            s_skip.Add(prefab);
+            return false;
+        }
         return true;
     }
 

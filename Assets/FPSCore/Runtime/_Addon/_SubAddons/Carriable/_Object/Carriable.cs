@@ -119,6 +119,9 @@ public class Carriable : MonoBehaviour, ICarriablePoolable
     public event System.Action<Carriable, Vector3> Thrown;
 
     public Carrier Holder { get; private set; }
+
+    /// <summary>The Interactor of the Carrier holding this, or null when not held.</summary>
+    public Interactor HolderInteractor => Holder != null ? Holder.Interactor : null;
     public bool IsHeld => _attached;
     public bool IsLodFrozen { get; set; }
 
@@ -431,7 +434,7 @@ public class Carriable : MonoBehaviour, ICarriablePoolable
             TickIndex = -1;
     }
 
-    void Detach()
+    public void Detach()
     {
         if (!_attached)
             return;

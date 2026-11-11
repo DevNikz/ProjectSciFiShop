@@ -90,8 +90,8 @@ MonoBehaviour:
   settings:
     apply: 1
     normals: 0
-    radius: 1
-    intensity: 1.5
+    radius: 0.5
+    intensity: 3
     falloffRange: 0.1
     multiBounce: 0
     directLightingStrength: 1
@@ -106,7 +106,7 @@ MonoBehaviour:
     depthMipBias: 3.3
     highPrecisionDepthMips: 0
     sampleDistributionPower: 2
-    thinOccluderCompensation: 0.7
+    thinOccluderCompensation: 0.5
     noise: 1
     temporal: 1
     temporalWeight: 0.9

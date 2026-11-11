@@ -6,7 +6,7 @@ using UnityEngine;
 /// The player collects it by walking into its trigger collider.
 /// </summary>
 [RequireComponent(typeof(Carriable))]
-public class Coin : MonoBehaviour, ICarriablePoolable
+public class Coin : MonoBehaviour, ICarriableInteractHandler, ICarriablePoolable, IHasCarriable
 {
     [Header("Currency")]
     [Tooltip("Coins added on collect (min 1).")]
@@ -17,6 +17,7 @@ public class Coin : MonoBehaviour, ICarriablePoolable
     private int _defaultValue; // prefab value, captured on the first pool spawn
 
     public int Value => value;
+    public Carriable Carriable => _carriable;
 
     public event Action<Coin> Collected;
 
@@ -24,11 +25,12 @@ public class Coin : MonoBehaviour, ICarriablePoolable
 
     public void SetValue(int coins) => value = Math.Max(1, coins);
 
-    // The trigger collider sits on a child; the root Rigidbody forwards its events here.
-    private void OnTriggerEnter(Collider other)
+    public bool TryHandleInteract(Carriable carriable, Interactor who)
     {
-        if (other.TryGetComponent<CharacterController>(out _))
-            TryCollect();
+        if (who == null)
+            return false;
+        TryCollect();
+        return true;
     }
 
     public bool TryCollect()

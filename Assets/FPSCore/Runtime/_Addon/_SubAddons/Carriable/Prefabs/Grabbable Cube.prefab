@@ -160,8 +160,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: FPSCore::Interactable
   interactable: 1
   interactWhen: -1
-  promptText: Grab Me
-  prompts: []
+  promptText: 
+  prompts:
+  - action: 0
+    text: Pickup Cube
+    when: 1
+  - action: 1
+    text: Drag Cube
+    when: 1
   IsDebugEnabled: 0
 --- !u!114 &8216715110582107569
 MonoBehaviour:

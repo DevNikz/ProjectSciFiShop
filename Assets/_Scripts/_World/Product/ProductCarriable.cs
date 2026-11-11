@@ -1,8 +1,9 @@
 using UnityEngine;
 
 /// <summary>A carryable product. Which product it is comes from its read-only definition.</summary>
-[CarriableAddon("Add as Product")]
-public class ProductCarriable : MonoBehaviour
+[CarriableAddon("As Product")]
+[RequireComponent(typeof(Carriable))]
+public class ProductCarriable : MonoBehaviour, IHasCarriable
 {
     [Header("Product")]
     [Tooltip("What this object is. Overrides the Hotbar icon and name below.")]
@@ -16,6 +17,10 @@ public class ProductCarriable : MonoBehaviour
     [Tooltip("Fallback Icon if there's no icon in product definition")]
     [SerializeField]
     Sprite icon;
+
+    Carriable _carriable;
+    public Carriable Carriable =>
+        _carriable != null ? _carriable : (_carriable = GetComponent<Carriable>());
 
     public ProductDefinition Definition => definition;
 

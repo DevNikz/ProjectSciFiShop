@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Serialization;
 
 public enum DayPhase
 {
@@ -54,6 +55,7 @@ public class DayPhaseSettings
 [ExecuteAlways]
 public class TimeOfDayCycle : MonoBehaviour
 {
+    public static TimeOfDayCycle Instance;
     static readonly int SkyTintId = Shader.PropertyToID("_SkyTint");
     static readonly int GroundColorId = Shader.PropertyToID("_GroundColor");
 
@@ -76,10 +78,18 @@ public class TimeOfDayCycle : MonoBehaviour
     [Range(0f, 24f)]
     public float timeOfDay = 8f;
 
-    [Tooltip("Real seconds for a full 24h loop.")]
+    [Tooltip(
+        "Real seconds for a full 24h loop. Used only when there is no DayManager (Edit Mode, test scenes). "
+            + "Otherwise DayManager.DayLength is used."
+    )]
     [Min(1f)]
-    public float dayLengthSeconds = 240f;
+    [FormerlySerializedAs("dayLengthSeconds")]
+    public float fallbackDayLengthSeconds = 240f;
     public bool autoAdvance = true;
+
+    /// <summary>Real seconds for a full 24h loop: DayManager's day length, else the fallback.</summary>
+    float LoopSeconds =>
+        DayManager.Instance != null ? DayManager.Instance.DayLength : fallbackDayLengthSeconds;
 
     [Header("Blending")]
     [Tooltip("Fraction of each phase spent holding its look before blending to the next.")]
@@ -114,6 +124,10 @@ public class TimeOfDayCycle : MonoBehaviour
 
     public DayPhase CurrentPhase { get; private set; }
     public event Action<DayPhase> PhaseChanged;
+    public event Action<int> MinuteChanged;
+    public int MinuteOfDay => Mathf.FloorToInt(timeOfDay * 60f) % 1440;
+
+    int _lastMinute = -1;
 
     // Play Mode uses a private instance so the DefaultSky asset is never modified.
     Material runtimeSky;
@@ -234,6 +248,8 @@ public class TimeOfDayCycle : MonoBehaviour
             atmosphereThickness = atmosphere,
         };
 
+    void Awake() => Instance = this;
+
     void OnEnable()
     {
         if (sun == null)
@@ -243,12 +259,18 @@ public class TimeOfDayCycle : MonoBehaviour
 
     void OnDisable() => ReleaseRuntimeSky();
 
+    void OnDestroy()
+    {
+        if (Instance == this)
+            Instance = null;
+    }
+
     void OnValidate() => Apply(); // scrub timeOfDay in the Inspector, even in Edit Mode
 
     void Update()
     {
         if (Application.isPlaying && autoAdvance)
-            timeOfDay = Mathf.Repeat(timeOfDay + Time.deltaTime * 24f / dayLengthSeconds, 24f);
+            timeOfDay = Mathf.Repeat(timeOfDay + Time.deltaTime * 24f / LoopSeconds, 24f);
         Apply();
 
         if (Application.isPlaying && driveSkybox && updateReflections)
@@ -264,6 +286,7 @@ public class TimeOfDayCycle : MonoBehaviour
 
     void Apply()
     {
+        NotifyMinute(); // before the sun checks: the clock label must tick even with no sun assigned
         if (sun == null || phases == null || phases.Length < 2)
             return;
         RenderSettings.sun = sun; // the procedural skybox reads this light for sun disk + scattering
@@ -389,5 +412,17 @@ public class TimeOfDayCycle : MonoBehaviour
             DestroyImmediate(runtimeSky);
         runtimeSky = null;
         originalSky = null;
+    }
+
+    // Raises MinuteChanged when the shown minute changes. Play Mode only, like PhaseChanged.
+    void NotifyMinute()
+    {
+        if (!Application.isPlaying)
+            return;
+        int minute = MinuteOfDay;
+        if (minute == _lastMinute)
+            return;
+        _lastMinute = minute;
+        MinuteChanged?.Invoke(minute);
     }
 }
