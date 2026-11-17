@@ -127,6 +127,7 @@ GameObject:
   - component: {fileID: 9090636476477449076}
   - component: {fileID: 1224218066066189260}
   - component: {fileID: 2905406474112133260}
+  - component: {fileID: 1420174920047334604}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -460,6 +461,38 @@ MonoBehaviour:
     heavyMoveScale: 0.6
     heavyLookScale: 0.35
     lookBlendSpeed: 8
+--- !u!114 &1420174920047334604
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3476640955920598647}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1d0512447b368c4c96e03ffb8c7dc2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FurniturePlacer
+  placeRange: 4
+  gridSize: 0.5
+  floorMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  minFloorUp: 0.9
+  blockMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  footprintLift: 0.05
+  footprintSkin: 0.01
+  validMaterial: {fileID: 2100000, guid: 5f6782545606fa94eb920ae158eeaca0, type: 2}
+  invalidMaterial: {fileID: 2100000, guid: 82d7bae41126ee9499d38f1d95be8349, type: 2}
+  rotateCooldown: 0.15
+  placeText: Place
+  rotateText: Rotate
+  cancelText: Cancel
+  sellText: Sell
+  messageLabel: {fileID: 0}
+  messageTime: 2
 --- !u!1 &3625307121856486961
 GameObject:
   m_ObjectHideFlags: 0

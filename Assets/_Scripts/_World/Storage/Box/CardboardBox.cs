@@ -389,7 +389,7 @@ public class CardboardBox : MonoBehaviour, IHeldInteract, ICarrierStorage, IProm
     public event System.Action<Carriable> Removed;
     public event System.Action<Carriable> Rejected;
 
-    private void Awake()
+    protected virtual void Awake()
     {
         _pickup = GetComponent<Carriable>();
         _rb = GetComponent<Rigidbody>();
@@ -568,7 +568,7 @@ public class CardboardBox : MonoBehaviour, IHeldInteract, ICarrierStorage, IProm
         return nearest;
     }
 
-    private void Update()
+    protected virtual void Update()
     {
         float dt = Time.deltaTime;
         TrackRelease();
@@ -1682,7 +1682,7 @@ public class CardboardBox : MonoBehaviour, IHeldInteract, ICarrierStorage, IProm
 
     private static float Inv(float v) => Mathf.Abs(v) > 1e-5f ? 1f / v : 1f;
 
-    private void OnValidate()
+    protected virtual void OnValidate()
     {
         autoWallThickness = Mathf.Max(0f, autoWallThickness);
         spacing = Vector3.Max(spacing, Vector3.zero);

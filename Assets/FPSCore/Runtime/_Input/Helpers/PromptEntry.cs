@@ -44,6 +44,7 @@ public enum PromptContext
     LookAtProductPickup = 256, // holding a box, aimed at a storable ProductPickup
     LookAtShelfStocked = 512, // LookAtShelf, and the shelf holds at least one item
     LookAtShelfEmpty = 1024, // LookAtShelf, and the shelf holds nothing
+    LookAtComputer = 2048,
     Any =
         EmptyHands
         | Holding

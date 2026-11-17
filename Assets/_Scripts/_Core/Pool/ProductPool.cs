@@ -62,6 +62,14 @@ public static class ProductPool
         }
     }
 
+    public static IEnumerator Prewarm(ProductDefinition definition, int amount)
+    {
+        if (definition == null || definition.PrewarmCount <= 0)
+            yield break;
+        if (TryGetPrefab(definition, out Carriable prefab))
+            yield return CarriablePool.Prewarm(prefab, definition.PrewarmCount);
+    }
+
     // Reports each bad definition once, so a broken one can't flood the console.
     private static bool TryGetPrefab(ProductDefinition definition, out Carriable prefab)
     {
