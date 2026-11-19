@@ -1,0 +1,109 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f5e6de13bedc89b4db1f37cd3a9ed99e, type: 3}
+  m_Name: Default_UIStyle
+  m_EditorClassIdentifier: Assembly-CSharp::UIStyle
+  window:
+    margin: 80
+    titleBarHeight: 44
+    titleBarColor: {r: 0.18, g: 0.22, b: 0.32, a: 1}
+    titleStyle:
+      font: {fileID: 0}
+      size: 22
+      color: {r: 1, g: 1, b: 1, a: 1}
+      fontStyle: 0
+      alignment: 4097
+      outlineWidth: 0
+      outlineColor: {r: 0, g: 0, b: 0, a: 1}
+    fillColor: {r: 0.12, g: 0.14, b: 0.2, a: 1}
+    borderColor: {r: 0.35, g: 0.4, b: 0.5, a: 1}
+    borderThickness: 3
+    closeHoverColor: {r: 1, g: 1, b: 1, a: 0.15}
+    closePressedColor: {r: 1, g: 1, b: 1, a: 0.3}
+  button:
+    normalColor: {r: 0.25, g: 0.35, b: 0.55, a: 1}
+    hoverColor: {r: 0.33, g: 0.45, b: 0.7, a: 1}
+    pressedColor: {r: 0.2, g: 0.28, b: 0.45, a: 1}
+    disabledColor: {r: 0.2, g: 0.22, b: 0.28, a: 0.7}
+    textStyle:
+      font: {fileID: 0}
+      size: 22
+      color: {r: 1, g: 1, b: 1, a: 1}
+      fontStyle: 0
+      alignment: 514
+      outlineWidth: 0
+      outlineColor: {r: 0, g: 0, b: 0, a: 1}
+    width: 140
+    height: 44
+    stepSize: 44
+  list:
+    backgroundColor: {r: 0.09, g: 0.11, b: 0.16, a: 1}
+    headerColor: {r: 0.16, g: 0.19, b: 0.28, a: 1}
+    rowColor: {r: 0.16, g: 0.19, b: 0.27, a: 1}
+    footerColor: {r: 0.1, g: 0.12, b: 0.17, a: 1}
+    scrollbarTrackColor: {r: 0.06, g: 0.07, b: 0.1, a: 1}
+    scrollbarHandleColor: {r: 0.35, g: 0.4, b: 0.5, a: 1}
+    padding: 12
+    headerHeight: 36
+    rowHeight: 72
+    footerHeight: 64
+    rowSpacing: 6
+    rowPadding: 10
+    cellSpacing: 10
+    iconSize: 56
+    iconColumnWidth: 72
+    nameMinWidth: 140
+    detailMinWidth: 200
+    qtyWidth: 64
+    unlockWidth: 150
+    scrollbarWidth: 14
+    scrollSensitivity: 30
+    headerText:
+      font: {fileID: 0}
+      size: 18
+      color: {r: 0.7, g: 0.75, b: 0.85, a: 1}
+      fontStyle: 1
+      alignment: 4097
+      outlineWidth: 0
+      outlineColor: {r: 0, g: 0, b: 0, a: 1}
+    nameText:
+      font: {fileID: 0}
+      size: 22
+      color: {r: 1, g: 1, b: 1, a: 1}
+      fontStyle: 0
+      alignment: 4097
+      outlineWidth: 0
+      outlineColor: {r: 0, g: 0, b: 0, a: 1}
+    detailText:
+      font: {fileID: 0}
+      size: 18
+      color: {r: 0.7, g: 0.75, b: 0.85, a: 1}
+      fontStyle: 0
+      alignment: 4097
+      outlineWidth: 0
+      outlineColor: {r: 0, g: 0, b: 0, a: 1}
+    qtyText:
+      font: {fileID: 0}
+      size: 22
+      color: {r: 1, g: 1, b: 1, a: 1}
+      fontStyle: 0
+      alignment: 514
+      outlineWidth: 0
+      outlineColor: {r: 0, g: 0, b: 0, a: 1}
+    footerText:
+      font: {fileID: 0}
+      size: 22
+      color: {r: 1, g: 1, b: 1, a: 1}
+      fontStyle: 0
+      alignment: 4097
+      outlineWidth: 0
+      outlineColor: {r: 0, g: 0, b: 0, a: 1}

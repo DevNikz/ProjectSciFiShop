@@ -88,7 +88,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GTAO_URP.GTAOFeature
   m_Active: 1
   settings:
-    apply: 1
+    apply: 0
     normals: 0
     radius: 1
     intensity: 2
@@ -106,7 +106,7 @@ MonoBehaviour:
     depthMipBias: 3.3
     highPrecisionDepthMips: 1
     sampleDistributionPower: 2
-    thinOccluderCompensation: 0.5
+    thinOccluderCompensation: 0
     noise: 1
     bentNormals: 1
     temporal: 1

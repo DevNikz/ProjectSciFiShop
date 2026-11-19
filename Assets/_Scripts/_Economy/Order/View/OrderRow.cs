@@ -37,6 +37,30 @@ public class OrderRow : MonoBehaviour
     Action<ProductDefinition, int> _onStep;
     Action<ProductDefinition> _onUnlock;
 
+    /// <summary>
+    /// Builds the default row layout on this object and fills the fields above. Used by the built-in screen,
+    /// so the scene prefab is not needed.
+    /// </summary>
+    public void BuildDefault(UIStyle style)
+    {
+        if (transform is not RectTransform rect)
+        {
+            Debug.LogError($"{name}: a row needs a RectTransform.", this);
+            return;
+        }
+        var parts = ShopPanelBuilder.BuildRowLayout(rect, style);
+        if (parts == null)
+            return;
+        icon = parts.icon;
+        nameLabel = parts.nameLabel;
+        detailLabel = parts.detailLabel;
+        qtyLabel = parts.qtyLabel;
+        plusButton = parts.plusButton;
+        minusButton = parts.minusButton;
+        unlockButton = parts.unlockButton;
+        unlockLabel = parts.unlockLabel;
+    }
+
     public ProductDefinition Definition { get; private set; }
 
     /// <summary>Set once. onStep gets +1 or -1 box. onUnlock (optional) is called by the unlock button.</summary>

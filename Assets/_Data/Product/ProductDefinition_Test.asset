@@ -13,11 +13,12 @@ MonoBehaviour:
   m_Name: ProductDefinition_Test
   m_EditorClassIdentifier: Assembly-CSharp::ProductDefinition
   id: ProductDefinition_Test
-  displayName: 
+  displayName: ProductDefinition_Test
   icon: {fileID: 0}
   category: 0
-  baseMarketPrice: 1
-  unitCost: 1
-  unitsPerBox: 1
+  baseMarketPrice: 5
+  unitCost: 2
+  unitsPerBox: 10
   unlockCost: 0
-  prefab: {fileID: 0}
+  prefab: {fileID: 1096332653333590833, guid: de4aa6eb70559034b8cf1c96e221a9e3, type: 3}
+  prewarmCount: 10

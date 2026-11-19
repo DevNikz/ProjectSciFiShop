@@ -2,21 +2,49 @@ using System;
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
+using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 /// <summary>
 /// The computer desktop: one icon per app (OrderScreen, FurnitureScreen...). An icon opens that app as a
 /// window, its close button returns here, and Esc closes the window first, then the desktop.
 /// BuiltIn makes the canvas, icon grid, taskbar and window frame in code. Custom uses the scene objects you assign.
-/// Needs an EventSystem in the scene.
+/// A UI Style asset (BuiltIn) replaces the window settings here. Needs an EventSystem in the scene.
 /// </summary>
 public class DesktopScreen : MonoBehaviour, IScreen
 {
-    enum LayoutMode
+    #region Inspector visibility rules
+
+    // Shorthands for VisibleWhen. Stack them on a field: all must hold.
+    sealed class BuiltInOnlyAttribute : VisibleWhenAttribute
     {
-        BuiltIn,
-        Custom,
+        public BuiltInOnlyAttribute()
+            : base(
+                nameof(DesktopScreen.layoutMode),
+                VisibleCondition.EnumEquals,
+                (int)UILayoutMode.BuiltIn
+            ) { }
     }
+
+    sealed class CustomOnlyAttribute : VisibleWhenAttribute
+    {
+        public CustomOnlyAttribute()
+            : base(
+                nameof(DesktopScreen.layoutMode),
+                VisibleCondition.EnumEquals,
+                (int)UILayoutMode.Custom
+            ) { }
+    }
+
+    sealed class WithoutStyleAttribute : VisibleWhenAttribute
+    {
+        public WithoutStyleAttribute()
+            : base(nameof(DesktopScreen.uiStyle), VisibleCondition.Null) { }
+    }
+
+    #endregion
+
+    #region Types and constants
 
     enum LabelPlacement
     {
@@ -39,171 +67,203 @@ public class DesktopScreen : MonoBehaviour, IScreen
         public GameObject screen;
     }
 
-    /// <summary>Text look used by the built-in icon labels, window title and clock.</summary>
-    [Serializable]
-    class TextStyle
-    {
-        [Tooltip("Empty = the TMP default font.")]
-        public TMP_FontAsset font;
-
-        [Min(1f)]
-        public float size = 24f;
-        public Color color = Color.white;
-
-        [Tooltip("Bold, Italic, Underline, UpperCase... can be combined.")]
-        public FontStyles fontStyle = FontStyles.Normal;
-        public TextAlignmentOptions alignment = TextAlignmentOptions.Center;
-
-        [Tooltip("0 = no outline.")]
-        [Min(0f)]
-        public float outlineWidth;
-        public Color outlineColor = Color.black;
-
-        public void Apply(TMP_Text text)
-        {
-            if (font != null)
-                text.font = font;
-            text.fontSize = size;
-            text.color = color;
-            text.fontStyle = fontStyle;
-            text.alignment = alignment;
-            if (outlineWidth > 0f)
-            {
-                text.outlineWidth = outlineWidth;
-                text.outlineColor = outlineColor;
-            }
-        }
-    }
-
     static readonly Color MissingIconColor = new(0.25f, 0.3f, 0.4f, 1f);
     const string GlyphName = "Glyph";
+    const int CanvasSortOrder = 100;
+    const int MinutesPerDay = 1440;
+    const float GridSpacing = 24f;
+    const int GridPadding = 48;
+    const float ClockInset = 16f;
+
+    #endregion
+
+    #region Serialized settings
+
+    // UI Style: the shared asset, and the window settings it replaces.
+    [Tooltip(
+        "Optional. A UI Style asset: its window look replaces the window settings below (they hide while it is assigned), and the order and furniture screens can use the same asset."
+    )]
+    [SerializeField]
+    [FormerlySerializedAs("style")]
+    [BuiltInOnly(Header = "UI Style")]
+    UIStyle uiStyle;
+
+    [Tooltip("Gap between the frame and the screen edge, in pixels.")]
+    [SerializeField]
+    [BuiltInOnly]
+    [WithoutStyle(
+        Note = "A UI Style is assigned. It replaces the window settings, so they are hidden."
+    )]
+    float windowMargin = 80f;
+
+    [SerializeField]
+    [FormerlySerializedAs("titleBarHeight")]
+    [BuiltInOnly]
+    [WithoutStyle]
+    float windowTitleBarHeight = 44f;
+
+    [SerializeField]
+    [FormerlySerializedAs("titleBarColor")]
+    [BuiltInOnly]
+    [WithoutStyle]
+    Color windowTitleBarColor = new(0.18f, 0.22f, 0.32f, 1f);
+
+    [SerializeField]
+    [FormerlySerializedAs("titleStyle")]
+    [BuiltInOnly]
+    [WithoutStyle]
+    UITextStyle windowTitleStyle = new()
+    {
+        size = 22f,
+        alignment = TextAlignmentOptions.MidlineLeft,
+    };
+
+    [SerializeField]
+    [BuiltInOnly]
+    [WithoutStyle]
+    Color windowFillColor = new(0.12f, 0.14f, 0.2f, 1f);
+
+    [SerializeField]
+    [BuiltInOnly]
+    [WithoutStyle]
+    Color windowBorderColor = new(0.35f, 0.4f, 0.5f, 1f);
+
+    [SerializeField]
+    [BuiltInOnly]
+    [WithoutStyle]
+    float windowBorderThickness = 3f;
 
     [Header("Layout")]
     [Tooltip(
         "BuiltIn: the canvas, icon grid and window layer are made in code. Custom: use the objects below."
     )]
     [SerializeField]
-    LayoutMode mode = LayoutMode.BuiltIn;
+    [FormerlySerializedAs("mode")]
+    UILayoutMode layoutMode = UILayoutMode.BuiltIn;
 
-    [Header("Custom layout (Custom mode only)")]
+    // Custom layout
     [Tooltip("Shown while open. Must be a child: this object has to stay active.")]
     [SerializeField]
+    [CustomOnly(Header = "Custom layout")]
     GameObject panel;
 
     [Tooltip("Icons are created here (a grid or layout group works well).")]
     [SerializeField]
+    [CustomOnly]
     Transform iconParent;
 
     [Tooltip("A Button. Its target graphic gets the icon sprite, a TMP_Text child gets the label.")]
     [SerializeField]
+    [CustomOnly]
     Button iconPrefab;
 
     [Tooltip("App windows are placed here. Keep it above the icons so windows draw on top.")]
     [SerializeField]
+    [CustomOnly]
     Transform windowLayer;
 
-    [Header("Built-in look (BuiltIn mode only)")]
+    // Built-in look
     [SerializeField]
+    [BuiltInOnly(Header = "Built-in look")]
     Color backgroundColor = new(0.08f, 0.1f, 0.14f, 1f);
 
     [SerializeField]
+    [BuiltInOnly]
     Vector2 cellSize = new(160f, 180f);
 
     [SerializeField]
+    [BuiltInOnly]
     int columns = 4;
 
-    [Header("Built-in icon labels (BuiltIn mode only)")]
+    // Built-in icon labels
     [SerializeField]
-    TextStyle labelStyle = new();
+    [BuiltInOnly(Header = "Built-in icon labels")]
+    UITextStyle labelStyle = new();
 
     [Tooltip("Where the label sits next to the icon. Use a left alignment in the style for Right.")]
     [SerializeField]
+    [BuiltInOnly]
     LabelPlacement labelPlacement = LabelPlacement.Below;
 
     [Tooltip("Icon image size in pixels.")]
     [SerializeField]
+    [BuiltInOnly]
     float iconSize = 96f;
 
     [Tooltip("Space between the icon and its label, in pixels.")]
     [SerializeField]
+    [BuiltInOnly]
     float labelGap = 8f;
 
     [Tooltip("Extra label shift in pixels, added after placement.")]
     [SerializeField]
+    [BuiltInOnly]
     Vector2 labelOffset = Vector2.zero;
 
     [Tooltip("Label height for Below and Above.")]
     [SerializeField]
+    [BuiltInOnly]
     float labelHeight = 40f;
 
     [Tooltip("Icon background while hovered.")]
     [SerializeField]
+    [BuiltInOnly]
     Color iconHoverColor = new(1f, 1f, 1f, 0.15f);
 
     [Tooltip("Icon background while pressed.")]
     [SerializeField]
+    [BuiltInOnly]
     Color iconPressedColor = new(1f, 1f, 1f, 0.3f);
 
-    [Header("Built-in desktop chrome (BuiltIn mode only)")]
+    // Built-in desktop chrome
     [SerializeField]
+    [BuiltInOnly(Header = "Built-in desktop chrome")]
     Color panelBorderColor = new(0.35f, 0.4f, 0.5f, 1f);
 
     [SerializeField]
+    [BuiltInOnly]
     float panelBorderThickness = 4f;
 
     [Tooltip("Optional. Drawn over the background color.")]
     [SerializeField]
+    [BuiltInOnly]
     Sprite wallpaper;
 
     [SerializeField]
+    [BuiltInOnly]
     Color wallpaperTint = Color.white;
 
-    [Header("Built-in taskbar (BuiltIn mode only)")]
+    // Built-in taskbar
     [SerializeField]
+    [BuiltInOnly(Header = "Built-in taskbar")]
     bool showTaskbar = true;
 
     [SerializeField]
+    [BuiltInOnly]
     float taskbarHeight = 56f;
 
     [SerializeField]
+    [BuiltInOnly]
     Color taskbarColor = new(0.05f, 0.06f, 0.09f, 1f);
 
     [SerializeField]
+    [BuiltInOnly]
     Color taskbarBorderColor = new(0.3f, 0.35f, 0.45f, 1f);
 
     [SerializeField]
+    [BuiltInOnly]
     float taskbarBorderThickness = 2f;
 
     [SerializeField]
-    TextStyle clockStyle = new() { size = 22f, alignment = TextAlignmentOptions.MidlineRight };
+    [BuiltInOnly]
+    UITextStyle clockStyle = new() { size = 22f, alignment = TextAlignmentOptions.MidlineRight };
 
     [Tooltip("{0} = day, {1} = hour, {2} = minute. Example: Day {0}  {1:00}:{2:00}")]
     [SerializeField]
+    [BuiltInOnly]
     string clockFormat = "Day {0}  {1:00}:{2:00}";
 
-    [Header("Built-in window frame (BuiltIn mode only)")]
-    [Tooltip("Gap between the frame and the screen edge, in pixels.")]
-    [SerializeField]
-    float windowMargin = 80f;
-
-    [SerializeField]
-    float titleBarHeight = 44f;
-
-    [SerializeField]
-    Color titleBarColor = new(0.18f, 0.22f, 0.32f, 1f);
-
-    [SerializeField]
-    TextStyle titleStyle = new() { size = 22f, alignment = TextAlignmentOptions.MidlineLeft };
-
-    [SerializeField]
-    Color windowFillColor = new(0.12f, 0.14f, 0.2f, 1f);
-
-    [SerializeField]
-    Color windowBorderColor = new(0.35f, 0.4f, 0.5f, 1f);
-
-    [SerializeField]
-    float windowBorderThickness = 3f;
-
+    // Apps
     [Header("Apps")]
     [Tooltip("One icon per entry, in this order.")]
     [SerializeField]
@@ -213,22 +273,29 @@ public class DesktopScreen : MonoBehaviour, IScreen
     [SerializeField]
     Interactable opener;
 
+    #endregion
+
+    #region Runtime state
+
     readonly List<IDesktopApp> _apps = new();
     GameObject _panel;
-    Transform _iconParent,
-        _windowLayer;
+    Transform _iconParent;
     GameObject _frame; // BuiltIn: the one shared window frame
     Transform _frameContent;
-    TMP_Text _frameTitle,
-        _clockText;
+    TMP_Text _frameTitle;
+    TMP_Text _clockText;
     IDesktopApp _current;
     int _lastClockKey = -1;
-    bool _open,
-        _built,
-        _clockWarned;
+    bool _open;
+    bool _built;
+    bool _clockWarned;
 
     public ScreenId Id => ScreenId.Desktop;
     public bool IsOpen => _open;
+
+    #endregion
+
+    #region Lifecycle
 
     void OnEnable()
     {
@@ -261,6 +328,24 @@ public class DesktopScreen : MonoBehaviour, IScreen
             app.WindowClosed -= HandleWindowClosed;
         _apps.Clear();
     }
+
+    void Update()
+    {
+        if (!_open)
+            return;
+        RefreshClock();
+        var input = InputManager.Instance;
+        if (input == null || !input.UICancelPressed)
+            return;
+        if (_current != null)
+            CloseCurrentWindow(); // first Esc: back to the desktop
+        else
+            Close(); // second Esc: leave the desktop
+    }
+
+    #endregion
+
+    #region Open and close
 
     /// <summary>Open the desktop. Does nothing if already open.</summary>
     public void Open()
@@ -295,21 +380,11 @@ public class DesktopScreen : MonoBehaviour, IScreen
             router.NotifyClosed(this);
     }
 
-    void Update()
-    {
-        if (!_open)
-            return;
-        RefreshClock();
-        var input = InputManager.Instance;
-        if (input == null || !input.UICancelPressed)
-            return;
-        if (_current != null)
-            CloseCurrentWindow(); // first Esc: back to the desktop
-        else
-            Close(); // second Esc: leave the desktop
-    }
-
     void HandleOpener(Interactor _) => Open();
+
+    #endregion
+
+    #region App windows
 
     void HandleIconClick(IDesktopApp app, string title)
     {
@@ -352,6 +427,10 @@ public class DesktopScreen : MonoBehaviour, IScreen
             _frame.SetActive(false);
     }
 
+    #endregion
+
+    #region Icons
+
     // One icon per entry, built the first time the desktop opens.
     void BuildIcons()
     {
@@ -359,18 +438,21 @@ public class DesktopScreen : MonoBehaviour, IScreen
             return;
         foreach (var entry in entries)
         {
-            var app = entry.screen.GetComponent<IDesktopApp>();
+            var app = entry.screen != null ? entry.screen.GetComponent<IDesktopApp>() : null;
             if (app == null)
             {
-                Debug.LogWarning($"{name}: entry '{entry.label}' has no screen, not listed.", this);
+                Debug.LogWarning(
+                    $"{name}: entry '{entry.label}' has no screen with an IDesktopApp, not listed.",
+                    this
+                );
                 continue;
             }
-            if (mode == LayoutMode.BuiltIn && app.WindowRoot != null)
+            if (layoutMode == UILayoutMode.BuiltIn && app.WindowRoot != null)
                 app.WindowRoot.SetParent(_frameContent, false);
 
             string title = string.IsNullOrEmpty(entry.label) ? entry.screen.name : entry.label;
             var button = CreateIconButton();
-            BindIcon(button, entry);
+            BindIcon(button, entry.icon, title);
             button.onClick.AddListener(() => HandleIconClick(app, title));
             app.WindowClosed += HandleWindowClosed;
             _apps.Add(app);
@@ -378,247 +460,27 @@ public class DesktopScreen : MonoBehaviour, IScreen
         _built = true;
     }
 
-    void BindIcon(Button button, Entry entry)
+    void BindIcon(Button button, Sprite icon, string title)
     {
         // BuiltIn: the sprite goes on the Glyph child (the button root is the hover background).
         Image image =
-            mode == LayoutMode.BuiltIn
+            layoutMode == UILayoutMode.BuiltIn
                 ? button.transform.Find(GlyphName).GetComponent<Image>()
                 : button.targetGraphic as Image;
         if (image != null)
         {
-            image.sprite = entry.icon;
-            image.color = entry.icon != null ? Color.white : MissingIconColor;
+            image.sprite = icon;
+            image.color = icon != null ? Color.white : MissingIconColor;
         }
         var label = button.GetComponentInChildren<TMP_Text>(true);
         if (label != null)
-            label.text = string.IsNullOrEmpty(entry.label) ? entry.screen.name : entry.label;
-    }
-
-    bool TryResolveLayout()
-    {
-        if (mode == LayoutMode.Custom)
-        {
-            if (panel == null || iconParent == null || iconPrefab == null || windowLayer == null)
-            {
-                Debug.LogError($"{name}: custom layout/icon prefab missing.", this);
-                return false;
-            }
-            _panel = panel;
-            _iconParent = iconParent;
-            _windowLayer = windowLayer;
-            return true;
-        }
-        if (_panel == null)
-            BuildDesktopUI();
-        return true;
-    }
-
-    // BuiltIn mode: Canvas > Panel (border + background + wallpaper) > Icons (grid) + Taskbar + Windows (on top).
-    void BuildDesktopUI()
-    {
-        var canvasObject = new GameObject(
-            "[DesktopCanvas]",
-            typeof(Canvas),
-            typeof(CanvasScaler),
-            typeof(GraphicRaycaster)
-        );
-        canvasObject.transform.SetParent(transform, false);
-        canvasObject.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
-        canvasObject.GetComponent<Canvas>().sortingOrder = 100;
-        var scaler = canvasObject.GetComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
-        scaler.matchWidthOrHeight = 0.5f;
-
-        var content = CreateFramedRect(
-            canvasObject.transform,
-            "Panel",
-            backgroundColor,
-            panelBorderColor,
-            panelBorderThickness,
-            out RectTransform panelRect
-        );
-
-        if (wallpaper != null)
-        {
-            var wallpaperImage = CreateStretched("Wallpaper", content)
-                .gameObject.AddComponent<Image>();
-            wallpaperImage.sprite = wallpaper;
-            wallpaperImage.color = wallpaperTint;
-            wallpaperImage.raycastTarget = false;
-        }
-
-        float barHeight = showTaskbar ? taskbarHeight : 0f;
-
-        var icons = CreateStretched("Icons", content);
-        icons.offsetMin = new Vector2(0f, barHeight); // keep icons above the taskbar
-        var grid = icons.gameObject.AddComponent<GridLayoutGroup>();
-        grid.cellSize = cellSize;
-        grid.spacing = new Vector2(24f, 24f);
-        grid.padding = new RectOffset(48, 48, 48, 48);
-        grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
-        grid.childAlignment = TextAnchor.UpperLeft;
-        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-        grid.constraintCount = Mathf.Max(1, columns);
-
-        if (showTaskbar)
-            BuildTaskbar(content);
-
-        _windowLayer = CreateStretched("Windows", content); // last child = drawn on top
-        ((RectTransform)_windowLayer).offsetMin = new Vector2(0f, barHeight);
-        BuildWindowFrame(_windowLayer);
-
-        _iconParent = icons;
-        _panel = panelRect.gameObject;
-    }
-
-    void BuildTaskbar(Transform parent)
-    {
-        var content = CreateFramedRect(
-            parent,
-            "Taskbar",
-            taskbarColor,
-            taskbarBorderColor,
-            taskbarBorderThickness,
-            out RectTransform bar
-        );
-        bar.anchorMin = Vector2.zero; // bottom strip
-        bar.anchorMax = new Vector2(1f, 0f);
-        bar.pivot = new Vector2(0.5f, 0f);
-        bar.anchoredPosition = Vector2.zero;
-        bar.sizeDelta = new Vector2(0f, taskbarHeight);
-
-        _clockText = CreateText(content, "Clock", clockStyle);
-        var clockRect = _clockText.rectTransform;
-        clockRect.anchorMin = Vector2.zero;
-        clockRect.anchorMax = Vector2.one;
-        clockRect.offsetMin = new Vector2(16f, 0f);
-        clockRect.offsetMax = new Vector2(-16f, 0f);
-    }
-
-    // One frame shared by every app window: border > title bar (title + close) + content.
-    void BuildWindowFrame(Transform parent)
-    {
-        var content = CreateFramedRect(
-            parent,
-            "WindowFrame",
-            windowFillColor,
-            windowBorderColor,
-            windowBorderThickness,
-            out RectTransform frame
-        );
-        frame.offsetMin = new Vector2(windowMargin, windowMargin);
-        frame.offsetMax = new Vector2(-windowMargin, -windowMargin);
-
-        var titleBar = CreateStretched("TitleBar", content);
-        titleBar.anchorMin = new Vector2(0f, 1f);
-        titleBar.anchorMax = Vector2.one;
-        titleBar.pivot = new Vector2(0.5f, 1f);
-        titleBar.anchoredPosition = Vector2.zero;
-        titleBar.sizeDelta = new Vector2(0f, titleBarHeight);
-        titleBar.gameObject.AddComponent<Image>().color = titleBarColor;
-
-        _frameTitle = CreateText(titleBar, "Title", titleStyle);
-        var titleRect = _frameTitle.rectTransform;
-        titleRect.anchorMin = Vector2.zero;
-        titleRect.anchorMax = Vector2.one;
-        titleRect.offsetMin = new Vector2(12f, 0f);
-        titleRect.offsetMax = new Vector2(-(titleBarHeight + 8f), 0f);
-
-        var closeObject = new GameObject(
-            "Close",
-            typeof(RectTransform),
-            typeof(Image),
-            typeof(Button)
-        );
-        var closeRect = (RectTransform)closeObject.transform;
-        closeRect.SetParent(titleBar, false);
-        closeRect.anchorMin = new Vector2(1f, 0f);
-        closeRect.anchorMax = Vector2.one;
-        closeRect.pivot = new Vector2(1f, 0.5f);
-        closeRect.anchoredPosition = Vector2.zero;
-        closeRect.sizeDelta = new Vector2(titleBarHeight, 0f);
-        var closeButton = closeObject.GetComponent<Button>();
-        closeButton.targetGraphic = closeObject.GetComponent<Image>();
-        ApplyHoverColors(closeButton);
-        closeButton.onClick.AddListener(CloseCurrentWindow);
-        var closeLabel = CreateText(closeRect, "X", titleStyle);
-        closeLabel.text = "X";
-        closeLabel.alignment = TextAlignmentOptions.Center;
-        var closeLabelRect = closeLabel.rectTransform;
-        closeLabelRect.anchorMin = Vector2.zero;
-        closeLabelRect.anchorMax = Vector2.one;
-        closeLabelRect.offsetMin = Vector2.zero;
-        closeLabelRect.offsetMax = Vector2.zero;
-
-        var body = CreateStretched("Content", content);
-        body.offsetMax = new Vector2(0f, -titleBarHeight);
-        _frameContent = body;
-
-        _frame = frame.gameObject;
-        _frame.SetActive(false);
-    }
-
-    static RectTransform CreateStretched(string objectName, Transform parent)
-    {
-        var rect = new GameObject(objectName, typeof(RectTransform)).GetComponent<RectTransform>();
-        rect.SetParent(parent, false);
-        rect.anchorMin = Vector2.zero;
-        rect.anchorMax = Vector2.one;
-        rect.offsetMin = Vector2.zero;
-        rect.offsetMax = Vector2.zero;
-        return rect;
-    }
-
-    // A border-colored rect with a fill-colored rect inset by the thickness. Returns the fill (put content there).
-    static RectTransform CreateFramedRect(
-        Transform parent,
-        string objectName,
-        Color fill,
-        Color border,
-        float thickness,
-        out RectTransform outer
-    )
-    {
-        outer = CreateStretched(objectName, parent);
-        outer.gameObject.AddComponent<Image>().color = border;
-        var inner = CreateStretched("Fill", outer);
-        inner.offsetMin = new Vector2(thickness, thickness);
-        inner.offsetMax = new Vector2(-thickness, -thickness);
-        inner.gameObject.AddComponent<Image>().color = fill;
-        return inner;
-    }
-
-    static TextMeshProUGUI CreateText(Transform parent, string objectName, TextStyle style)
-    {
-        var textObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI));
-        textObject.transform.SetParent(parent, false);
-        var text = textObject.GetComponent<TextMeshProUGUI>();
-        text.raycastTarget = false; // clicks reach the button
-        style.Apply(text);
-        return text;
-    }
-
-    // Transparent until hovered or pressed. The button graphic must be white so the tint shows as-is.
-    void ApplyHoverColors(Button button)
-    {
-        var colors = button.colors;
-        colors.normalColor = Color.clear;
-        colors.highlightedColor = iconHoverColor;
-        colors.pressedColor = iconPressedColor;
-        colors.selectedColor = Color.clear; // do not stay lit after a click
-        colors.disabledColor = Color.clear;
-        colors.colorMultiplier = 1f;
-        colors.fadeDuration = 0.08f;
-        button.colors = colors;
-        button.navigation = new Navigation { mode = Navigation.Mode.None };
+            label.text = title;
     }
 
     // Custom: the designer's prefab. BuiltIn: a hover background with a Glyph image and a Label placed per the settings.
     Button CreateIconButton()
     {
-        if (mode == LayoutMode.Custom)
+        if (layoutMode == UILayoutMode.Custom)
             return Instantiate(iconPrefab, _iconParent);
 
         var iconObject = new GameObject(
@@ -638,10 +500,20 @@ public class DesktopScreen : MonoBehaviour, IScreen
         glyph.preserveAspect = true;
         glyph.raycastTarget = false;
 
-        var label = CreateText(iconObject.transform, "Label", labelStyle);
+        var label = UIBuilder.CreateText(iconObject.transform, "Label", labelStyle);
         PlaceIconParts(glyph.rectTransform, label.rectTransform);
         return button;
     }
+
+    // Transparent until hovered or pressed. The button graphic must be white so the tint shows as-is.
+    void ApplyHoverColors(Button button) =>
+        UIBuilder.ApplyButtonColors(
+            button,
+            Color.clear,
+            iconHoverColor,
+            iconPressedColor,
+            Color.clear
+        );
 
     // Positions the glyph and label inside the cell from Label Placement, Icon Size, Gap, Height and Offset.
     void PlaceIconParts(RectTransform glyph, RectTransform label)
@@ -683,12 +555,144 @@ public class DesktopScreen : MonoBehaviour, IScreen
         }
     }
 
+    #endregion
+
+    #region Layout and built-in UI
+
+    bool TryResolveLayout()
+    {
+        if (layoutMode == UILayoutMode.Custom)
+        {
+            if (panel == null || iconParent == null || iconPrefab == null || windowLayer == null)
+            {
+                Debug.LogError($"{name}: custom layout/icon prefab missing.", this);
+                return false;
+            }
+            _panel = panel;
+            _iconParent = iconParent;
+            return true;
+        }
+        if (_panel == null)
+            BuildDesktopUI();
+        return true;
+    }
+
+    // BuiltIn mode: Canvas > Panel (border + background + wallpaper) > Icons (grid) + Taskbar + Windows (on top).
+    void BuildDesktopUI()
+    {
+        var canvasObject = UIBuilder
+            .CreateOverlayCanvas("[DesktopCanvas]", transform, CanvasSortOrder)
+            .gameObject;
+
+        var content = UIBuilder.CreateFramedRect(
+            canvasObject.transform,
+            "Panel",
+            backgroundColor,
+            panelBorderColor,
+            panelBorderThickness,
+            out RectTransform panelRect
+        );
+
+        if (wallpaper != null)
+        {
+            var wallpaperImage = UIBuilder
+                .CreateStretched("Wallpaper", content)
+                .gameObject.AddComponent<Image>();
+            wallpaperImage.sprite = wallpaper;
+            wallpaperImage.color = wallpaperTint;
+            wallpaperImage.raycastTarget = false;
+        }
+
+        float barHeight = showTaskbar ? taskbarHeight : 0f;
+
+        var icons = UIBuilder.CreateStretched("Icons", content);
+        icons.offsetMin = new Vector2(0f, barHeight); // keep icons above the taskbar
+        var grid = icons.gameObject.AddComponent<GridLayoutGroup>();
+        grid.cellSize = cellSize;
+        grid.spacing = new Vector2(GridSpacing, GridSpacing);
+        grid.padding = new RectOffset(GridPadding, GridPadding, GridPadding, GridPadding);
+        grid.startCorner = GridLayoutGroup.Corner.UpperLeft;
+        grid.childAlignment = TextAnchor.UpperLeft;
+        grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+        grid.constraintCount = Mathf.Max(1, columns);
+
+        if (showTaskbar)
+            BuildTaskbar(content);
+
+        var windows = UIBuilder.CreateStretched("Windows", content); // last child = drawn on top
+        windows.offsetMin = new Vector2(0f, barHeight);
+        BuildWindowFrame(windows);
+
+        _iconParent = icons;
+        _panel = panelRect.gameObject;
+    }
+
+    void BuildTaskbar(Transform parent)
+    {
+        var content = UIBuilder.CreateFramedRect(
+            parent,
+            "Taskbar",
+            taskbarColor,
+            taskbarBorderColor,
+            taskbarBorderThickness,
+            out RectTransform bar
+        );
+        bar.anchorMin = Vector2.zero; // bottom strip
+        bar.anchorMax = new Vector2(1f, 0f);
+        bar.pivot = new Vector2(0.5f, 0f);
+        bar.anchoredPosition = Vector2.zero;
+        bar.sizeDelta = new Vector2(0f, taskbarHeight);
+
+        _clockText = UIBuilder.CreateText(content, "Clock", clockStyle);
+        var clockRect = _clockText.rectTransform;
+        clockRect.anchorMin = Vector2.zero;
+        clockRect.anchorMax = Vector2.one;
+        clockRect.offsetMin = new Vector2(ClockInset, 0f);
+        clockRect.offsetMax = new Vector2(-ClockInset, 0f);
+    }
+
+    // One frame shared by every app window: border > title bar (title + close) + content.
+    void BuildWindowFrame(Transform parent)
+    {
+        _frameContent = UIBuilder.BuildWindowFrame(
+            parent,
+            ResolveWindowStyle(),
+            CloseCurrentWindow,
+            out _frame,
+            out _frameTitle
+        );
+        _frame.SetActive(false);
+    }
+
+    // The shared UI Style wins when assigned; otherwise the window fields on this component.
+    WindowStyle ResolveWindowStyle()
+    {
+        if (uiStyle != null)
+            return uiStyle.Window;
+        return new WindowStyle
+        {
+            margin = windowMargin,
+            titleBarHeight = windowTitleBarHeight,
+            titleBarColor = windowTitleBarColor,
+            titleStyle = windowTitleStyle,
+            fillColor = windowFillColor,
+            borderColor = windowBorderColor,
+            borderThickness = windowBorderThickness,
+            closeHoverColor = iconHoverColor,
+            closePressedColor = iconPressedColor,
+        };
+    }
+
+    #endregion
+
+    #region Taskbar clock
+
     // Rebuilds the text only when the in-game minute changes.
     void RefreshClock()
     {
         if (_clockText == null || !TryReadClock(out int day, out int minuteOfDay))
             return;
-        int key = day * 1440 + minuteOfDay;
+        int key = day * MinutesPerDay + minuteOfDay;
         if (key == _lastClockKey)
             return;
         _lastClockKey = key;
@@ -732,6 +736,11 @@ public class DesktopScreen : MonoBehaviour, IScreen
         Debug.LogWarning($"{name}: {message}", this);
     }
 
+    #endregion
+
+    #region Validation
+
+    // Clamps live here, not in [Min]: Unity runs one property drawer per field and VisibleWhen needs it.
     void OnValidate()
     {
         columns = Mathf.Max(1, columns);
@@ -741,7 +750,7 @@ public class DesktopScreen : MonoBehaviour, IScreen
         panelBorderThickness = Mathf.Max(0f, panelBorderThickness);
         taskbarHeight = Mathf.Max(0f, taskbarHeight);
         taskbarBorderThickness = Mathf.Max(0f, taskbarBorderThickness);
-        titleBarHeight = Mathf.Max(0f, titleBarHeight);
+        windowTitleBarHeight = Mathf.Max(0f, windowTitleBarHeight);
         windowBorderThickness = Mathf.Max(0f, windowBorderThickness);
         windowMargin = Mathf.Max(0f, windowMargin);
         if (entries == null)
@@ -753,4 +762,6 @@ public class DesktopScreen : MonoBehaviour, IScreen
                     this
                 );
     }
+
+    #endregion
 }

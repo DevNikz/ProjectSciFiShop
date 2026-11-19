@@ -131,7 +131,10 @@ MonoBehaviour:
   interactable: 1
   interactWhen: 511
   promptText: 
-  prompts: []
+  prompts:
+  - action: 0
+    text: Open Computer
+    when: 1
   IsDebugEnabled: 0
 --- !u!114 &4679100224431236612
 MonoBehaviour:
@@ -460,134 +463,115 @@ MonoBehaviour:
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.ContentSizeFitter
   m_HorizontalFit: 0
   m_VerticalFit: 2
---- !u!1001 &6944391363450769891
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 2835768652666374024}
-    m_Modifications:
-    - target: {fileID: 4073499837683940995, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_Name
-      value: DesktopScreen
-      objectReference: {fileID: 0}
-    - target: {fileID: 8071459094270103204, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: labelGap
-      value: 12
-      objectReference: {fileID: 0}
-    - target: {fileID: 8071459094270103204, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: backgroundColor.b
-      value: 0.14
-      objectReference: {fileID: 0}
-    - target: {fileID: 8071459094270103204, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: backgroundColor.g
-      value: 0.1
-      objectReference: {fileID: 0}
-    - target: {fileID: 8071459094270103204, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: backgroundColor.r
-      value: 0.08
-      objectReference: {fileID: 0}
-    - target: {fileID: 8071459094270103204, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: entries.Array.data[0].icon
-      value: 
-      objectReference: {fileID: 21300000, guid: 5fcf5d820fd40514a9b1e012c845eae6, type: 3}
-    - target: {fileID: 8071459094270103204, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: entries.Array.data[1].icon
-      value: 
-      objectReference: {fileID: 21300000, guid: 985780aef30771d4bbeab322624de8c9, type: 3}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_Pivot.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_Pivot.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_AnchorMax.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_AnchorMax.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_AnchorMin.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_AnchorMin.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_SizeDelta.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_SizeDelta.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_AnchoredPosition.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_AnchoredPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
---- !u!224 &1836494152267621171 stripped
-RectTransform:
-  m_CorrespondingSourceObject: {fileID: 8729074032113644240, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-  m_PrefabInstance: {fileID: 6944391363450769891}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &6402031401075814240 stripped
+--- !u!1 &6402031401075814240
 GameObject:
-  m_CorrespondingSourceObject: {fileID: 4073499837683940995, guid: dd94f84445b47c24d82098d012e5f6dc, type: 3}
-  m_PrefabInstance: {fileID: 6944391363450769891}
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1836494152267621171}
+  - component: {fileID: 1179092556220653383}
+  m_Layer: 5
+  m_Name: DesktopScreen
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!224 &1836494152267621171
+RectTransform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6402031401075814240}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 2835768652666374024}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 0, y: 0}
+  m_SizeDelta: {x: 0, y: 0}
+  m_Pivot: {x: 0, y: 0}
+--- !u!114 &1179092556220653383
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6402031401075814240}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7ad236eefd02a14469e7cff1541ff23b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::DesktopScreen
+  uiStyle: {fileID: 11400000, guid: 10542b72d7f7f524fb85f57ae937a01a, type: 2}
+  windowMargin: 80
+  windowTitleBarHeight: 44
+  windowTitleBarColor: {r: 0.18, g: 0.22, b: 0.32, a: 1}
+  windowTitleStyle:
+    font: {fileID: 0}
+    size: 22
+    color: {r: 1, g: 1, b: 1, a: 1}
+    fontStyle: 0
+    alignment: 4097
+    outlineWidth: 0
+    outlineColor: {r: 0, g: 0, b: 0, a: 1}
+  windowFillColor: {r: 0.12, g: 0.14, b: 0.2, a: 1}
+  windowBorderColor: {r: 0.35, g: 0.4, b: 0.5, a: 1}
+  windowBorderThickness: 3
+  layoutMode: 0
+  panel: {fileID: 0}
+  iconParent: {fileID: 0}
+  iconPrefab: {fileID: 0}
+  windowLayer: {fileID: 0}
+  backgroundColor: {r: 0.08, g: 0.1, b: 0.14, a: 1}
+  cellSize: {x: 160, y: 180}
+  columns: 4
+  labelStyle:
+    font: {fileID: 0}
+    size: 24
+    color: {r: 1, g: 1, b: 1, a: 1}
+    fontStyle: 0
+    alignment: 514
+    outlineWidth: 0
+    outlineColor: {r: 0, g: 0, b: 0, a: 1}
+  labelPlacement: 0
+  iconSize: 96
+  labelGap: 12
+  labelOffset: {x: 0, y: 0}
+  labelHeight: 40
+  iconHoverColor: {r: 1, g: 1, b: 1, a: 0.15}
+  iconPressedColor: {r: 1, g: 1, b: 1, a: 0.3}
+  panelBorderColor: {r: 0.35, g: 0.4, b: 0.5, a: 1}
+  panelBorderThickness: 8
+  wallpaper: {fileID: 21300000, guid: 4cf1421355f62e247b4109dc6718d38f, type: 3}
+  wallpaperTint: {r: 1, g: 1, b: 1, a: 1}
+  showTaskbar: 1
+  taskbarHeight: 56
+  taskbarColor: {r: 0.05, g: 0.06, b: 0.09, a: 1}
+  taskbarBorderColor: {r: 0.3, g: 0.35, b: 0.45, a: 1}
+  taskbarBorderThickness: 2
+  clockStyle:
+    font: {fileID: 11400000, guid: 8f586378b4e144a9851e7b34d9b748ee, type: 2}
+    size: 22
+    color: {r: 1, g: 1, b: 1, a: 1}
+    fontStyle: 0
+    alignment: 4100
+    outlineWidth: 0
+    outlineColor: {r: 0, g: 0, b: 0, a: 1}
+  clockFormat: Day {0}  {1:00}:{2:00}
+  entries:
+  - label: Product Store
+    icon: {fileID: 21300000, guid: 5fcf5d820fd40514a9b1e012c845eae6, type: 3}
+    screen: {fileID: 0}
+  - label: Furniture Store
+    icon: {fileID: 21300000, guid: 985780aef30771d4bbeab322624de8c9, type: 3}
+    screen: {fileID: 0}
+  opener: {fileID: 0}

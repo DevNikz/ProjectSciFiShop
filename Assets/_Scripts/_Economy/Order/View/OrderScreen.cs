@@ -7,7 +7,22 @@ using UnityEngine.UI;
 /// <summary>The order screen: pick boxes, see the total, buy. Needs an EventSystem in the scene.</summary>
 public class OrderScreen : MonoBehaviour, IScreen, IDesktopApp
 {
-    [Header("Layout")]
+    [Header("Layout mode")]
+    [Tooltip(
+        "BuiltIn: the window, list and buttons are made in code. Custom: use the scene objects below."
+    )]
+    [SerializeField]
+    UILayoutMode mode = UILayoutMode.BuiltIn;
+
+    [Tooltip("Look of the built-in layout. Empty = the default look (same as the desktop window).")]
+    [SerializeField]
+    UIStyle style;
+
+    [Tooltip("Built-in window title when opened on its own. Empty = this object's name.")]
+    [SerializeField]
+    string windowTitle;
+
+    [Header("Custom layout (Custom mode only)")]
     [Tooltip("Shown while open. Must be a child: this object has to stay active.")]
     [SerializeField]
     GameObject panel;
@@ -55,6 +70,7 @@ public class OrderScreen : MonoBehaviour, IScreen, IDesktopApp
     string _message,
         _lastStatus;
     float _messageUntil;
+    GameObject _canvasRoot; // BuiltIn: this screen's own canvas, shown only when not inside the desktop
 
     public ScreenId Id => ScreenId.Orders;
     public bool IsOpen => _open;
@@ -65,6 +81,11 @@ public class OrderScreen : MonoBehaviour, IScreen, IDesktopApp
 
     void OnEnable()
     {
+        if (mode == UILayoutMode.BuiltIn && !TryBuildLayout())
+        {
+            enabled = false;
+            return;
+        }
         if (
             panel == null
             || rowParent == null
@@ -110,6 +131,66 @@ public class OrderScreen : MonoBehaviour, IScreen, IDesktopApp
         }
     }
 
+    // BuiltIn: makes this screen's own canvas, window frame and panel, and puts them in the layout fields
+    // below (in memory only, the scene is not changed). The scene panel is hidden and not used.
+    bool TryBuildLayout()
+    {
+        if (_canvasRoot != null)
+            return true; // built before: OnEnable can run again
+        if (style == null)
+            Debug.LogWarning($"{name}: no UI Style, using the default look.", this);
+        var look = style != null ? style : UIStyle.Fallback;
+
+        var canvas = UIBuilder.CreateOverlayCanvas("[OrdersCanvas]", transform, 100);
+        var content = UIBuilder.BuildWindowFrame(
+            canvas.transform,
+            look.Window,
+            Close,
+            out _,
+            out TMP_Text title
+        );
+        var parts = ShopPanelBuilder.BuildPanel(content, look, "Product", "Details", "Boxes", true);
+        if (parts == null)
+        {
+            Destroy(canvas.gameObject);
+            return false;
+        }
+        title.text = string.IsNullOrEmpty(windowTitle) ? name : windowTitle;
+
+        var template = new GameObject(
+            "OrderRowTemplate",
+            typeof(RectTransform),
+            typeof(OrderRow)
+        ).GetComponent<OrderRow>();
+        template.transform.SetParent(parts.templateHolder, false);
+        template.BuildDefault(look);
+
+        if (panel != null)
+            panel.SetActive(false); // the scene (Custom) panel is not used in BuiltIn
+        panel = parts.panel.gameObject;
+        rowParent = parts.rowParent;
+        rowPrefab = template;
+        totalLabel = parts.totalLabel;
+        coinsLabel = parts.coinsLabel;
+        statusLabel = parts.statusLabel;
+        buyButton = parts.buyButton;
+        closeButton = parts.closeButton;
+        upgradesButton = parts.upgradesButton;
+
+        _canvasRoot = canvas.gameObject;
+        _canvasRoot.SetActive(false);
+        return true;
+    }
+
+    bool IsPanelInOwnCanvas() =>
+        _canvasRoot != null && panel != null && panel.transform.IsChildOf(_canvasRoot.transform);
+
+    void ShowOwnCanvas(bool visible)
+    {
+        if (_canvasRoot != null)
+            _canvasRoot.SetActive(visible);
+    }
+
     /// <summary>Open the screen. Does nothing if already open.</summary>
     public void Open()
     {
@@ -121,6 +202,7 @@ public class OrderScreen : MonoBehaviour, IScreen, IDesktopApp
 
         input.EnterUIMode(this);
         BeginSession();
+        ShowOwnCanvas(true);
     }
 
     public void Close()
@@ -133,6 +215,7 @@ public class OrderScreen : MonoBehaviour, IScreen, IDesktopApp
             return;
         }
         EndSession();
+        ShowOwnCanvas(false);
         var input = InputManager.Instance; // null only while quitting
         if (input != null)
             input.ExitUIMode(this);
@@ -148,6 +231,7 @@ public class OrderScreen : MonoBehaviour, IScreen, IDesktopApp
             return;
         _hosted = true;
         BeginSession();
+        ShowOwnCanvas(IsPanelInOwnCanvas()); // a BuiltIn desktop takes the panel; otherwise it stays here
         UpdateUpgradesButton(); // hidden while a window
     }
 
@@ -158,6 +242,7 @@ public class OrderScreen : MonoBehaviour, IScreen, IDesktopApp
             return;
         _hosted = false;
         EndSession();
+        ShowOwnCanvas(false);
         UpdateUpgradesButton();
         WindowClosed?.Invoke();
     }
@@ -244,7 +329,7 @@ public class OrderScreen : MonoBehaviour, IScreen, IDesktopApp
                 continue;
             if (def.Prefab == null)
             {
-                    Debug.LogWarning($"{name}: '{def.name}' has no prefab, not listed.", this);
+                Debug.LogWarning($"{name}: '{def.name}' has no prefab, not listed.", this);
                 continue;
             }
             var row = Instantiate(rowPrefab, rowParent);

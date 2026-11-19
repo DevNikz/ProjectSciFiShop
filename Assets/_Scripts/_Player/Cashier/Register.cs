@@ -201,8 +201,10 @@ public class Register : MonoBehaviour
 
         _lockedTotal = _runningTotal; // prices are locked from here
         _lockedCost = 0;
+
+        //Get Sale Price from Pricebook instead
         foreach (var p in _basket)
-            _lockedCost += p.Definition.UnitCost;
+            _lockedCost += PriceBook.Instance.GetSellPrice(p.Definition);
 
         _cashPaid = Math.Max(_lockedTotal, customer.ChooseCash(_lockedTotal));
         _changeDue = _cashPaid - _lockedTotal;

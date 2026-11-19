@@ -1,0 +1,12 @@
+{
+  "name": "Studio.PlanarReflections.Runtime",
+  "rootNamespace": "Studio.PlanarReflections",
+  "references": [
+    "Unity.RenderPipelines.Core.Runtime",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "autoReferenced": true
+}

@@ -1,0 +1,14 @@
+{
+  "name": "Studio.PlanarReflections.Editor",
+  "rootNamespace": "Studio.PlanarReflections.Editor",
+  "references": [
+    "Studio.PlanarReflections.Runtime",
+    "Unity.RenderPipelines.Core.Runtime",
+    "Unity.RenderPipelines.Universal.Runtime"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "excludePlatforms": [],
+  "autoReferenced": true
+}
