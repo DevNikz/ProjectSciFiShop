@@ -81,7 +81,7 @@ public static class PickupOutlineRegistry
         PlacementPreviewBus.PreviewRequested += DrawGhost;
     }
 
-    static void DrawGhost(
+    public static void DrawGhost(
         Mesh mesh,
         Matrix4x4 localToWorld,
         int subMeshCount,

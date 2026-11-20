@@ -20,7 +20,8 @@ namespace GTAO_URP
             PassDebug = 5,
             PassPrefilterDepth = 6,
             PassDepthMip = 7,
-            PassAtrous = 8;
+            PassAtrous = 8,
+            PassResolveBent = 9;
 
         const int DepthMipCount = 5; // mip 0 (full res) .. mip 4
 
@@ -38,6 +39,9 @@ namespace GTAO_URP
             public static readonly int MipParams = Shader.PropertyToID("_GTAO_MipParams");
             public static readonly int Tune = Shader.PropertyToID("_GTAO_Tune");
             public static readonly int Denoise = Shader.PropertyToID("_GTAO_Denoise");
+            public static readonly int BentIn = Shader.PropertyToID("_GTAO_BentIn");
+            public static readonly int BentHistory = Shader.PropertyToID("_GTAO_BentHistory");
+            public static readonly int BentTex = Shader.PropertyToID("_GTAO_BentNormalsTexture");
             public static readonly int AtrousStep = Shader.PropertyToID("_GTAO_AtrousStep");
             public static readonly int[] DepthMips =
             {
@@ -64,6 +68,9 @@ namespace GTAO_URP
         internal static readonly GlobalKeyword SSAOKeyword = GlobalKeyword.Create(
             "_SCREEN_SPACE_OCCLUSION"
         );
+        internal static readonly GlobalKeyword BentKeyword = GlobalKeyword.Create(
+            "_GTAO_BENT_NORMALS"
+        ); // global flag for consumer shaders; the material-local keyword is _GTAO_BENT_ENABLED
 
         // One sampler per stage so Profiler / Frame Debugger show per-pass GPU time. Indexed by Pass* const.
         static readonly ProfilingSampler[] s_Samplers =
@@ -77,6 +84,7 @@ namespace GTAO_URP
             new ProfilingSampler("GTAO Prefilter Depth"),
             new ProfilingSampler("GTAO Depth Mip"),
             new ProfilingSampler("GTAO Atrous"),
+            new ProfilingSampler("GTAO Resolve Bent"),
         };
 
         // a-trous iterations are capped at 3 by GTAOSettings.GetAtrousIterations (steps 1, 2, 4)
@@ -113,6 +121,9 @@ namespace GTAO_URP
             internal bool applyGlobals;
             internal float directStrength;
             internal float atrousStep;
+            internal TextureHandle bentIn,
+                bentHistory;
+            internal bool applyBent;
         }
 
         // Inputs/outputs of one AddPass call; unset handles stay null.
@@ -126,6 +137,10 @@ namespace GTAO_URP
                 motion;
             internal TextureHandle[] depthMips; // null = pass doesn't read the depth MIP chain
             internal float atrousStep; // pixel step for PassAtrous
+            internal TextureHandle dst2, // second render target (bent normal), or null
+                bentIn, // bent normal from the previous stage
+                bentHistory; // previous-frame bent normal (temporal pass)
+            internal bool publishBent; // export dst as _GTAO_BentNormalsTexture
             internal bool publishGlobals,
                 readWriteDst,
                 srcIsDepth;
@@ -137,6 +152,8 @@ namespace GTAO_URP
                 depth = normals = history = motion = TextureHandle.nullHandle;
                 depthMips = null;
                 atrousStep = 0f;
+                dst2 = bentIn = bentHistory = TextureHandle.nullHandle;
+                publishBent = false;
                 publishGlobals = readWriteDst = srcIsDepth = false;
             }
         }
@@ -144,6 +161,8 @@ namespace GTAO_URP
         sealed class HistoryData
         {
             internal readonly RTHandle[] rt = new RTHandle[2];
+            internal readonly RTHandle[] bentRt = new RTHandle[2]; // only allocated while bent normals are on
+            internal bool bent;
             internal int w,
                 h,
                 cur,
@@ -168,6 +187,7 @@ namespace GTAO_URP
         static GraphicsFormat s_FmtRG = GraphicsFormat.None,
             s_FmtR = GraphicsFormat.None,
             s_FmtHist = GraphicsFormat.None,
+            s_FmtRGBA8 = GraphicsFormat.None,
             s_FmtDepth16 = GraphicsFormat.None,
             s_FmtDepth32 = GraphicsFormat.None;
 
@@ -211,6 +231,7 @@ namespace GTAO_URP
                 GraphicsFormat.R32G32B32A32_SFloat
             );
             s_FmtR = Pick(GraphicsFormat.R8_UNorm, GraphicsFormat.R8G8B8A8_UNorm);
+            s_FmtRGBA8 = Pick(GraphicsFormat.R8G8B8A8_UNorm);
             s_FmtHist = Pick( // (ao, depth, age, -): age drives the Atrous temporal path
                 GraphicsFormat.R16G16B16A16_SFloat,
                 GraphicsFormat.R32G32B32A32_SFloat
@@ -285,6 +306,7 @@ namespace GTAO_URP
                 cam.cameraType == CameraType.Game || cam.cameraType == CameraType.SceneView;
             bool wantTemporal = s.temporal && camOk && s.temporalWeight > 0f;
             bool atrous = s.denoiser == GTAODenoiser.Atrous;
+            bool bent = s.UsesBentNormals;
             // Half-res AO published as-is (bilinear) instead of a full-res resolve pass. Lighting mode + Atrous only.
             bool publishLowRes =
                 s.downsample && !m_AfterOpaque && atrous && s.upsample == GTAOUpsample.Bilinear;
@@ -300,6 +322,7 @@ namespace GTAO_URP
                     aw,
                     ah,
                     atrous ? s_FmtHist : s_FmtRG,
+                    bent,
                     out histValid
                 );
                 if (hist == null)
@@ -347,6 +370,19 @@ namespace GTAO_URP
                     "_GTAO_BlurTmp",
                     FilterMode.Point
                 );
+
+            // Bent normals (view space, AO resolution): raw from Estimate, then filtered alongside the AO.
+            TextureHandle bentChain = TextureHandle.nullHandle,
+                bentA = TextureHandle.nullHandle,
+                bentB = TextureHandle.nullHandle;
+            if (bent)
+            {
+                bentChain = CreateAOTexture(renderGraph, d, aw, ah, s_FmtHist, "_GTAO_BentRaw", FilterMode.Point);
+                if (atrousIters > 0)
+                    bentA = CreateAOTexture(renderGraph, d, aw, ah, s_FmtHist, "_GTAO_BentAtrousA", FilterMode.Point);
+                if (atrousIters > 1)
+                    bentB = CreateAOTexture(renderGraph, d, aw, ah, s_FmtHist, "_GTAO_BentAtrousB", FilterMode.Point);
+            }
 
             // a-trous ping-pong targets (iteration 1 -> A, 2 -> B, 3 -> A)
             TextureHandle atrousA = TextureHandle.nullHandle,
@@ -397,6 +433,7 @@ namespace GTAO_URP
                     srcIsDepth = true,
                     depthMips = mips,
                     publishGlobals = publishLowRes && !wantTemporal && atrousIters == 0,
+                    dst2 = bentChain, // second render target: raw bent normal (null when bent normals are off)
                 }
             );
             TextureHandle chain = aoTex;
@@ -406,6 +443,13 @@ namespace GTAO_URP
             {
                 TextureHandle hPrev = renderGraph.ImportTexture(hist.rt[prevIdx]);
                 TextureHandle hCur = renderGraph.ImportTexture(hist.rt[curIdx]);
+                TextureHandle bPrev = TextureHandle.nullHandle,
+                    bCur = TextureHandle.nullHandle;
+                if (bent)
+                {
+                    bPrev = renderGraph.ImportTexture(hist.bentRt[prevIdx]);
+                    bCur = renderGraph.ImportTexture(hist.bentRt[curIdx]);
+                }
                 AddPass(
                     renderGraph,
                     "GTAO Temporal",
@@ -415,9 +459,14 @@ namespace GTAO_URP
                         history = hPrev,
                         motion = motion,
                         publishGlobals = publishLowRes && atrousIters == 0,
+                        bentIn = bentChain,
+                        bentHistory = bPrev,
+                        dst2 = bCur,
                     }
                 );
                 chain = hCur;
+                if (bent)
+                    bentChain = bCur;
 
                 hist.cur = curIdx;
                 hist.hasPrev = true;
@@ -446,6 +495,7 @@ namespace GTAO_URP
                 for (int it = 0; it < atrousIters; it++)
                 {
                     TextureHandle dst = (it & 1) == 0 ? atrousA : atrousB;
+                    TextureHandle bDst = (it & 1) == 0 ? bentA : bentB; // null when bent normals are off
                     AddPass(
                         renderGraph,
                         s_AtrousPassNames[it],
@@ -457,9 +507,13 @@ namespace GTAO_URP
                             depthMips = mip0Only,
                             atrousStep = 1 << it,
                             publishGlobals = publishLowRes && it == atrousIters - 1,
+                            bentIn = bentChain,
+                            dst2 = bDst,
                         }
                     );
                     chain = dst;
+                    if (bent)
+                        bentChain = bDst;
                 }
             }
 
@@ -494,6 +548,32 @@ namespace GTAO_URP
                 );
                 // res.ssaoTexture has only an internal setter (URP-package-only); SetGlobalTextureAfterPass
                 // above already publishes _ScreenSpaceOcclusionTexture, which is all lit shaders read from.
+            }
+
+            // 5. Full-res world-space bent normal, exported for consumer shaders
+            if (bent)
+            {
+                TextureHandle bentFinal = CreateAOTexture(
+                    renderGraph,
+                    d,
+                    fw,
+                    fh,
+                    s_FmtRGBA8,
+                    "_GTAO_BentNormals",
+                    FilterMode.Point
+                );
+                AddPass(
+                    renderGraph,
+                    "GTAO Resolve Bent",
+                    PassResolveBent,
+                    new PassInputs(chain, bentFinal)
+                    {
+                        depth = depth,
+                        depthMips = mip0Only,
+                        bentIn = bentChain,
+                        publishBent = true,
+                    }
+                );
             }
 
             CleanupStale();
@@ -564,6 +644,9 @@ namespace GTAO_URP
                 pd.motion = io.motion;
                 pd.applyGlobals = io.publishGlobals;
                 pd.atrousStep = io.atrousStep;
+                pd.bentIn = io.bentIn;
+                pd.bentHistory = io.bentHistory;
+                pd.applyBent = io.publishBent;
                 pd.mips ??= new TextureHandle[DepthMipCount]; // PassData is pooled: allocated once, then reused
                 for (int i = 0; i < DepthMipCount; i++)
                     pd.mips[i] = io.depthMips != null ? io.depthMips[i] : TextureHandle.nullHandle;
@@ -578,6 +661,10 @@ namespace GTAO_URP
                     b.UseTexture(io.history, AccessFlags.Read);
                 if (io.motion.IsValid())
                     b.UseTexture(io.motion, AccessFlags.Read);
+                if (io.bentIn.IsValid())
+                    b.UseTexture(io.bentIn, AccessFlags.Read);
+                if (io.bentHistory.IsValid())
+                    b.UseTexture(io.bentHistory, AccessFlags.Read);
                 for (int i = 0; i < DepthMipCount; i++)
                     if (pd.mips[i].IsValid())
                         b.UseTexture(pd.mips[i], AccessFlags.Read);
@@ -587,13 +674,16 @@ namespace GTAO_URP
                     0,
                     io.readWriteDst ? AccessFlags.ReadWrite : AccessFlags.Write
                 );
+                if (io.dst2.IsValid())
+                    b.SetRenderAttachment(io.dst2, 1, AccessFlags.Write); // MRT: bent normal
                 b.AllowPassCulling(false);
 
-                if (io.publishGlobals)
-                {
+                if (io.publishGlobals || io.publishBent)
                     b.AllowGlobalStateModification(true);
+                if (io.publishGlobals)
                     b.SetGlobalTextureAfterPass(io.dst, IDs.SSAOTex);
-                }
+                if (io.publishBent)
+                    b.SetGlobalTextureAfterPass(io.dst, IDs.BentTex);
 
                 b.SetRenderFunc(
                     static (PassData data, RasterGraphContext ctx) =>
@@ -607,6 +697,10 @@ namespace GTAO_URP
                             m.SetTexture(IDs.History, data.history);
                         if (data.motion.IsValid())
                             m.SetTexture(IDs.Motion, data.motion);
+                        if (data.bentIn.IsValid())
+                            m.SetTexture(IDs.BentIn, data.bentIn);
+                        if (data.bentHistory.IsValid())
+                            m.SetTexture(IDs.BentHistory, data.bentHistory);
                         for (int i = 0; i < DepthMipCount; i++)
                             if (data.mips[i].IsValid())
                                 m.SetTexture(IDs.DepthMips[i], data.mips[i]);
@@ -621,6 +715,8 @@ namespace GTAO_URP
                             data.pass
                         );
 
+                        if (data.applyBent)
+                            ctx.cmd.SetKeyword(BentKeyword, true);
                         if (data.applyGlobals)
                         {
                             ctx.cmd.SetKeyword(SSAOKeyword, true);
@@ -657,6 +753,7 @@ namespace GTAO_URP
             CoreUtils.SetKeyword(m, "_ORTHOGRAPHIC", ortho);
             CoreUtils.SetKeyword(m, "_MOTION_VECTORS", useMotion);
             CoreUtils.SetKeyword(m, "_GTAO_DEPTH_MIPS", s.useDepthMips);
+            CoreUtils.SetKeyword(m, "_GTAO_BENT_ENABLED", s.UsesBentNormals);
 
             s.GetSampleCounts(out int slices, out int steps);
             uint frame = s.temporal ? (uint)(Time.frameCount & 63) : 0u;
@@ -706,7 +803,14 @@ namespace GTAO_URP
             m.SetMatrix(IDs.PrevView, pv);
         }
 
-        HistoryData AcquireHistory(int camId, int w, int h, GraphicsFormat fmt, out bool valid)
+        HistoryData AcquireHistory(
+            int camId,
+            int w,
+            int h,
+            GraphicsFormat fmt,
+            bool bent,
+            out bool valid
+        )
         {
             valid = false;
             if (!m_History.TryGetValue(camId, out var hd))
@@ -716,7 +820,12 @@ namespace GTAO_URP
             }
 
             bool realloc =
-                hd.rt[0] == null || hd.rt[1] == null || hd.w != w || hd.h != h || hd.fmt != fmt;
+                hd.rt[0] == null
+                || hd.rt[1] == null
+                || hd.w != w
+                || hd.h != h
+                || hd.fmt != fmt
+                || hd.bent != bent;
             if (realloc)
             {
                 Release(hd);
@@ -730,13 +839,23 @@ namespace GTAO_URP
                         wrapMode: TextureWrapMode.Clamp,
                         name: "_GTAO_History" + i
                     );
-                    if (hd.rt[i] == null)
+                    if (bent)
+                        hd.bentRt[i] = RTHandles.Alloc(
+                            w,
+                            h,
+                            colorFormat: fmt, // bent normals use the same RGBA16F as the Atrous history
+                            filterMode: FilterMode.Point,
+                            wrapMode: TextureWrapMode.Clamp,
+                            name: "_GTAO_BentHistory" + i
+                        );
+                    if (hd.rt[i] == null || (bent && hd.bentRt[i] == null))
                     {
                         Release(hd);
                         m_History.Remove(camId);
                         return null;
                     }
                 }
+                hd.bent = bent;
                 hd.w = w;
                 hd.h = h;
                 hd.fmt = fmt;
@@ -766,6 +885,8 @@ namespace GTAO_URP
             {
                 hd.rt[i]?.Release();
                 hd.rt[i] = null;
+                hd.bentRt[i]?.Release();
+                hd.bentRt[i] = null;
             }
             hd.hasPrev = false;
         }
@@ -778,25 +899,45 @@ namespace GTAO_URP
         }
     }
 
-    // Disables the AO keyword after opaque lighting so stale state can't leak to other cameras.
+    // Disables the AO / bent-normal keywords after opaque lighting so stale state can't leak to other cameras.
     internal sealed class GTAOKeywordResetPass : ScriptableRenderPass
     {
-        sealed class Empty { }
+        sealed class ResetData
+        {
+            internal bool ssao,
+                bent;
+        }
+
+        bool m_ResetSSAO,
+            m_ResetBent;
 
         internal GTAOKeywordResetPass()
         {
             renderPassEvent = RenderPassEvent.AfterRenderingTransparents;
         }
 
+        internal void Configure(bool resetSSAO, bool resetBent)
+        {
+            m_ResetSSAO = resetSSAO;
+            m_ResetBent = resetBent;
+        }
+
         public override void RecordRenderGraph(RenderGraph renderGraph, ContextContainer frameData)
         {
-            using (var b = renderGraph.AddUnsafePass<Empty>("GTAO Keyword Reset", out _))
+            using (var b = renderGraph.AddUnsafePass<ResetData>("GTAO Keyword Reset", out var rd))
             {
+                rd.ssao = m_ResetSSAO;
+                rd.bent = m_ResetBent;
                 b.AllowPassCulling(false);
                 b.AllowGlobalStateModification(true);
                 b.SetRenderFunc(
-                    static (Empty _, UnsafeGraphContext ctx) =>
-                        ctx.cmd.SetKeyword(GTAOPass.SSAOKeyword, false)
+                    static (ResetData data, UnsafeGraphContext ctx) =>
+                    {
+                        if (data.ssao)
+                            ctx.cmd.SetKeyword(GTAOPass.SSAOKeyword, false);
+                        if (data.bent)
+                            ctx.cmd.SetKeyword(GTAOPass.BentKeyword, false);
+                    }
                 );
             }
         }

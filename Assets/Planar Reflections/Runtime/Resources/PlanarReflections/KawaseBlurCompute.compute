@@ -1,0 +1,27 @@
+#pragma kernel KawaseIteration
+
+Texture2D<float4> _BlurSrc;
+RWTexture2D<float4> _BlurDst;
+SamplerState sampler_LinearClamp;
+
+// xy: size in pixels, zw: 1 / size.
+float4 _BlurSrcSize;
+float4 _BlurDstSize;
+float _BlurOffset;
+
+[numthreads(8, 8, 1)]
+void KawaseIteration(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)_BlurDstSize.x || id.y >= (uint)_BlurDstSize.y)
+        return;
+
+    float2 uv = (id.xy + 0.5) * _BlurDstSize.zw;
+    float2 o = (_BlurOffset + 0.5) * _BlurSrcSize.zw;
+
+    float4 color = _BlurSrc.SampleLevel(sampler_LinearClamp, uv + float2(-o.x, -o.y), 0);
+    color += _BlurSrc.SampleLevel(sampler_LinearClamp, uv + float2( o.x, -o.y), 0);
+    color += _BlurSrc.SampleLevel(sampler_LinearClamp, uv + float2(-o.x,  o.y), 0);
+    color += _BlurSrc.SampleLevel(sampler_LinearClamp, uv + float2( o.x,  o.y), 0);
+
+    _BlurDst[id.xy] = color * 0.25;
+}

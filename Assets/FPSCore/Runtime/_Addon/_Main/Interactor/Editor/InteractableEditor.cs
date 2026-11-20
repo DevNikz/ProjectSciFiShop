@@ -17,7 +17,13 @@ using UnityEngine;
 [CanEditMultipleObjects]
 public class InteractableEditor : Editor
 {
-    private const string AddonFolder = "Assets/FPSCore/Runtime/_Addon"; //"Assets/FPSCore/Runtime/_Addon/_SubAddons"
+    private static readonly string[] AddonFolders =
+    {
+        "Assets/FPSCore/Runtime/_Addon", //"Assets/FPSCore/Runtime/_Addon/_SubAddons/Carriable/_Object";
+        "Assets/_Scripts",
+    };
+
+    //private const string AddonFolder = "Assets/FPSCore/Runtime/_Addon"; //"Assets/FPSCore/Runtime/_Addon/_SubAddons"
     private const string FoldoutKey = "FPSCore.InteractableEditor.AddonsFoldout";
 
     private static readonly HashSet<Type> _warned = new HashSet<Type>();
@@ -139,10 +145,11 @@ public class InteractableEditor : Editor
     private static HashSet<Type> GetTypesInAddonFolder()
     {
         var types = new HashSet<Type>();
-        if (!AssetDatabase.IsValidFolder(AddonFolder))
+        var validFolders = AddonFolders.Where(AssetDatabase.IsValidFolder).ToArray();
+        if (validFolders.Length == 0)
             return types;
 
-        foreach (var guid in AssetDatabase.FindAssets("t:MonoScript", new[] { AddonFolder }))
+        foreach (var guid in AssetDatabase.FindAssets("t:MonoScript", validFolders))
         {
             var path = AssetDatabase.GUIDToAssetPath(guid);
             var type = AssetDatabase.LoadAssetAtPath<MonoScript>(path)?.GetClass();

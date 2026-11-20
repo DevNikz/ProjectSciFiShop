@@ -154,6 +154,8 @@ public class Carrier : MonoBehaviour, IHandsFull
     private float _swingSpeed,
         _swingTimer;
 
+    public Interactor Interactor => _interactor;
+
     /// <summary>Raised after an object is picked up.</summary>
     public event System.Action<Carriable> Grabbed;
 
@@ -410,8 +412,12 @@ public class Carrier : MonoBehaviour, IHandsFull
             return false;
         if (p.Body == null || p.Body.mass > maxMass)
             return false;
-        if (_held != null) // hands full: a storage (e.g. a hotbar) may take it
+        if (_held != null) // hands full: the held object (e.g. a box) or else a storage (e.g. a hotbar) may take it
+        {
+            if (_held.TryGetComponent<ICarrierStorage>(out var heldStorage))
+                return heldStorage.TryStore(this, p);
             return _storage != null && _storage.TryStore(this, p);
+        }
         if (!p.Attach(this))
             return false;
         _held = p;

@@ -144,6 +144,16 @@ Shader "Stylized/Master Lit"
         _HatchBias("Darkness Bias", Range(-0.5, 0.5)) = 0.0
         _HatchSoftness("Edge Softness", Range(0.0, 1.0)) = 0.1
 
+        // Planar reflection (Phase 7, ForwardLit). _PlanarReflectionEnabled drives _PLANAR_REFLECTION_ON.
+        // Needs the "Planar Reflections" asset folder: a PlanarReflector on this object (or a parent) binds the reflection texture.
+        [ToggleUI] _PlanarReflectionEnabled("Enable Planar Reflection", Float) = 0.0
+        _PlanarReflectionStrength("Strength", Range(0.0, 1.0)) = 1.0
+        _PlanarReflectionMin("Min Reflectance", Range(0.0, 1.0)) = 0.2
+        _PlanarReflectionFresnelPower("Fresnel Power", Range(0.5, 8.0)) = 3.0
+        _PlanarReflectionTint("Tint", Color) = (1, 1, 1, 1)
+        _PlanarReflectionDistortion("Distortion", Range(0.0, 0.2)) = 0.03
+        _PlanarReflectionShadow("Shadow On Reflection", Range(0.0, 1.0)) = 0.5
+
         // Blending state
         _Surface("__surface", Float) = 0.0
         _Blend("__blend", Float) = 0.0
@@ -234,6 +244,7 @@ Shader "Stylized/Master Lit"
             #pragma shader_feature_local_fragment _MATCAP_ON
             #pragma shader_feature_local_fragment _TRIPLANAR_ON
             #pragma shader_feature_local_fragment _HATCH_ON
+            #pragma shader_feature_local_fragment _PLANAR_REFLECTION_ON
 
             // -------------------------------------
             // Universal Pipeline keywords
@@ -481,6 +492,7 @@ Shader "Stylized/Master Lit"
             #pragma shader_feature_local_vertex _VERTEX_DISPLACE_ON
             #pragma multi_compile _ LOD_FADE_CROSSFADE
             #pragma shader_feature_local_vertex _ADD_PRECOMPUTED_VELOCITY
+            #pragma shader_feature_local_fragment _PLANAR_REFLECTION_ON
 
             #pragma multi_compile_instancing
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/DOTS.hlsl"

@@ -109,7 +109,10 @@ float4 StylizedMotionVectorsFragment(Varyings input) : SV_Target
         LODFadeCrossFade(input.positionCS);
     #endif
 
-    #if defined(APPLICATION_SPACE_WARP_MOTION)
+    #if defined(_PLANAR_REFLECTION_ON)
+        // Zero motion keeps TAA/STP from reprojecting the mirrored image along the plane (same as PlanarReflectionLit.shader).
+        return float4(0.0, 0.0, 0.0, 0.0);
+    #elif defined(APPLICATION_SPACE_WARP_MOTION)
         return float4(CalcAswNdcMotionVectorFromCsPositions(input.positionCSNoJitter, input.previousPositionCSNoJitter), 1);
     #else
         return float4(CalcNdcMotionVectorFromCsPositions(input.positionCSNoJitter, input.previousPositionCSNoJitter), 0, 0);

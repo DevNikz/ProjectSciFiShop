@@ -65,6 +65,21 @@ MonoBehaviour:
   filterIterations:
     m_OverrideState: 1
     m_Value: 3
+  denoiserMode:
+    m_OverrideState: 1
+    m_Value: 0
+  radianceCache:
+    m_OverrideState: 1
+    m_Value: 0
+  restir:
+    m_OverrideState: 1
+    m_Value: 0
+  restirSpatial:
+    m_OverrideState: 1
+    m_Value: 1
+  restirHistoryCap:
+    m_OverrideState: 1
+    m_Value: 20
   maxDistance:
     m_OverrideState: 1
     m_Value: 20

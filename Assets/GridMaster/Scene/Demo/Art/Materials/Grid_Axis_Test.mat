@@ -141,7 +141,7 @@ Material:
     - _MajorFadeMultiplier: 3
     - _MajorInterval: 5
     - _MajorLineWidth: 0.05
-    - _Metallic: 0
+    - _Metallic: 0.5
     - _MinorDotSize: 0.12
     - _MinorLineWidth: 0.05
     - _ObjectUVTiling: 2
@@ -151,7 +151,7 @@ Material:
     - _Projection: 1
     - _QueueOffset: 0
     - _ReceiveShadows: 1
-    - _Smoothness: 1
+    - _Smoothness: 0.5
     - _SmoothnessTextureChannel: 0
     - _SpecularHighlights: 1
     - _SrcBlend: 1

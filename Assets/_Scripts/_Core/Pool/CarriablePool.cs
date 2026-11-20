@@ -30,7 +30,7 @@ public static class CarriablePool
         public Carriable Pickup;
         public Transform Tr;
         public Rigidbody Rb;
-        public IPoolable[] Poolables;
+        public ICarriablePoolable[] Poolables;
         public Pool Owner;
         public bool InUse;
     }
@@ -58,11 +58,11 @@ public static class CarriablePool
             return true;
         if (s_skip.Contains(prefab))
             return false;
-        // if (prefab.GetComponent<CardboardBox>() != null)
-        // {
-        //     s_skip.Add(prefab);
-        //     return false;
-        // }
+        if (prefab.GetComponent<CardboardBox>() != null)
+        {
+            s_skip.Add(prefab);
+            return false;
+        }
         return true;
     }
 
@@ -227,7 +227,7 @@ public static class CarriablePool
             Pickup = pickup,
             Tr = pickup.transform,
             Rb = pickup.GetComponent<Rigidbody>(),
-            Poolables = pickup.GetComponentsInChildren<IPoolable>(true),
+            Poolables = pickup.GetComponentsInChildren<ICarriablePoolable>(true),
             Owner = pool,
         };
         s_items[pickup] = item;

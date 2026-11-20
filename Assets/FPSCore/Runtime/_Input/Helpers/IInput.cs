@@ -15,22 +15,17 @@ public static class IInput
     private const string HOTBAR_PREFIX = "Hotbar",
         GRAB_PREFIX = "Grab";
 
-    private static InputAction _grab;
-
-    //Add more here
-    //_rotate,
-    //_store,
-    //...
-
-    // Shop Keeper Input Actions
-    // _scan;
-    // _boxStore,
-    // _boxNext,
-    // _boxPrev,
-    // _boxCancel,
-    // _boxRotate,
-    // _priceAdjust;
-    //...
+    private static InputAction _grab,
+        _scan,
+        _boxStore,
+        _boxNext,
+        _boxPrev,
+        _boxCancel,
+        _boxRotate,
+        _priceAdjust,
+        _scannerToggle,
+        _furnitureSellPressed,
+        _boxReturn;
     static readonly InputAction[] _hotbar = new InputAction[HOTBAR_KEYS];
 
     // Reset statics for "Enter Play Mode without Domain Reload".
@@ -52,17 +47,17 @@ public static class IInput
 
         // Left click is shared by Grab, Scan and BoxStore: only one of them is active per held item.
         _grab = im.GetExtraAction(GRAB_PREFIX, "<Mouse>/leftButton", "<Gamepad>/rightTrigger");
+        _scan = im.GetExtraAction("Scan", "<Mouse>/leftButton", "<Gamepad>/rightTrigger");
+        _boxStore = im.GetExtraAction("BoxStore", "<Mouse>/leftButton", "<Gamepad>/rightTrigger");
+        _boxNext = im.GetExtraAction("BoxCycleNext", "<Keyboard>/v", "<Gamepad>/rightShoulder");
+        _boxPrev = im.GetExtraAction("BoxCyclePrev", "<Keyboard>/v", "<Gamepad>/leftShoulder");
+        _boxCancel = im.GetExtraAction("BoxCancel", "<Keyboard>/x", "<Gamepad>/buttonNorth");
+        _boxRotate = im.GetExtraVector2Action("BoxRotate", "<Mouse>/scroll");
+        _priceAdjust = im.GetExtraVector2Action("PriceAdjust", "<Mouse>/scroll");
+        _scannerToggle = im.GetExtraAction("ScannerToggle", "<Keyboard>/q");
+        _furnitureSellPressed = im.GetExtraAction("FurnitureSellPressed", "<Keyboard>/delete");
+        _boxReturn = im.GetExtraAction("BoxReturn", "<Keyboard>/q");
         // Add your custom Resolve Action Mappings here
-        // ...
-
-        // Shop Keeper Resolve Action Mappings
-        // _scan = im.GetExtraAction("Scan", "<Mouse>/leftButton", "<Gamepad>/rightTrigger");
-        // _boxStore = im.GetExtraAction("BoxStore", "<Mouse>/leftButton", "<Gamepad>/rightTrigger");
-        // _boxNext = im.GetExtraAction("BoxCycleNext", "<Keyboard>/q", "<Gamepad>/rightShoulder");
-        // _boxPrev = im.GetExtraAction("BoxCyclePrev", "<Keyboard>/z", "<Gamepad>/leftShoulder");
-        // _boxCancel = im.GetExtraAction("BoxCancel", "<Keyboard>/x", "<Gamepad>/buttonNorth");
-        // _boxRotate = im.GetExtraVector2Action("BoxRotate", "<Mouse>/scroll");
-        // _priceAdjust = im.GetExtraVector2Action("PriceAdjust", "<Mouse>/scroll");
         // ...
 
         for (int i = 0; i < _hotbar.Length; i++)
@@ -98,31 +93,43 @@ public static class IInput
 
     // Shop Keeper Encapsulators Functions
     // Scanner shares left click with Grab (the grabber is idle while something is held).
-    // public static bool ScanPressed =>
-    //     CanRead && _scan.WasPressedThisFrame() && !_owner.WasRelockFrame;
+    public static bool ScanPressed =>
+        CanRead && _scan.WasPressedThisFrame() && !_owner.WasRelockFrame;
 
-    // // Store the aimed item in the held box: left click, same guard as Grab.
-    // public static bool BoxStorePressed =>
-    //     CanRead && _boxStore.WasPressedThisFrame() && !_owner.WasRelockFrame;
+    // Store the aimed item in the held box: left click, same guard as Grab.
+    public static bool BoxStorePressed =>
+        CanRead && _boxStore.WasPressedThisFrame() && !_owner.WasRelockFrame;
 
-    // public static bool BoxCycleNextPressed => CanRead && _boxNext.WasPressedThisFrame();
+    public static bool BoxCycleNextPressed => CanRead && _boxNext.WasPressedThisFrame();
 
-    // public static bool BoxCyclePrevPressed => CanRead && _boxPrev.WasPressedThisFrame();
+    public static bool BoxCyclePrevPressed => CanRead && _boxPrev.WasPressedThisFrame();
 
-    // public static bool BoxCancelPressed => CanRead && _boxCancel.WasPressedThisFrame();
+    public static bool BoxCancelPressed => CanRead && _boxCancel.WasPressedThisFrame();
 
-    // /// <summary>Scroll Y this frame (0 when unavailable).</summary>
-    // public static float BoxRotate => CanRead ? _boxRotate.ReadValue<Vector2>().y : 0f;
+    /// <summary>Scroll Y this frame (0 when unavailable).</summary>
+    public static float BoxRotate => CanRead ? _boxRotate.ReadValue<Vector2>().y : 0f;
 
-    // /// <summary>Scanner price change this frame: +1 or -1 per scroll step, else 0.</summary>
-    // public static int PriceAdjustDelta
-    // {
-    //     get
-    //     {
-    //         if (!CanRead)
-    //             return 0;
-    //         float y = _priceAdjust.ReadValue<Vector2>().y;
-    //         return y > 0f ? 1 : (y < 0f ? -1 : 0);
-    //     }
-    // }
+    /// <summary>Scanner price change this frame: +1 or -1 per scroll step, else 0.</summary>
+    public static int PriceAdjustDelta
+    {
+        get
+        {
+            if (!CanRead)
+                return 0;
+            float y = _priceAdjust.ReadValue<Vector2>().y;
+            return y > 0f ? 1 : (y < 0f ? -1 : 0);
+        }
+    }
+
+    public static bool ScannerTogglePressed =>
+        CanRead && _scannerToggle.WasPressedThisFrame() && !_owner.WasRelockFrame;
+
+    public static bool FurnitureSellPressed =>
+        CanRead && _furnitureSellPressed.WasPressedThisFrame();
+
+    /// <summary>Left click still held (box shelf stocking repeats while held).</summary>
+    public static bool BoxStoreHeld => CanRead && _boxStore.IsPressed() && _owner.WasRelockFrame;
+
+    public static bool BoxReturnPressed =>
+        CanRead && _boxReturn.WasPressedThisFrame() && !_owner.WasRelockFrame;
 }

@@ -19,6 +19,9 @@ TEXTURE2D_X(_GTAO_DepthMip1);
 TEXTURE2D_X(_GTAO_DepthMip2);
 TEXTURE2D_X(_GTAO_DepthMip3);
 TEXTURE2D_X(_GTAO_DepthMip4);
+// View-space bent normals (xyz, not normalised) at AO resolution. Bound only when _GTAO_BENT_ENABLED is on.
+TEXTURE2D_X(_GTAO_BentIn);      // current frame (output of the previous stage)
+TEXTURE2D_X(_GTAO_BentHistory); // previous frame, temporal pass only
 
 float4 _GTAO_Params;    // x radius, y power, z falloffRange, w unused
 float4 _GTAO_Params2;   // x slices, y steps, z maxPixelRadius, w multiBounceAlbedo
@@ -170,8 +173,9 @@ void ScreenRadius(float3 P, out float2 uvR, out float pxR)
 }
 
 // GTAO (Jimenez et al. 2016), following the public XeGTAO reference implementation.
-float GTAO(float2 uv, float3 P, float3 N, float2 nz)
+float GTAO(float2 uv, float3 P, float3 N, float2 nz, out float3 bent)
 {
+    bent = float3(0.0, 0.0, 0.0); // stays zero if the pixel is skipped; the caller falls back to the normal
     float3 V = normalize(-P);
     float2 uvR; float pxR;
     ScreenRadius(P, uvR, pxR);
@@ -237,6 +241,20 @@ float GTAO(float2 uv, float3 P, float3 N, float2 nz)
         float ia0 = (cosN + 2.0 * h0 * sinN - cos(2.0 * h0 - n)) * 0.25;
         float ia1 = (cosN + 2.0 * h1 * sinN - cos(2.0 * h1 - n)) * 0.25;
         vis += pl * (ia0 + ia1);
+
+#if defined(_GTAO_BENT_ENABLED)
+        {
+            // Bent normal of this slice (Jimenez 2016 "Algorithm 2", as in XeGTAO), expressed in the slice plane
+            // spanned by the view vector V and the tangent on the +omega side (the same plane n is measured in).
+            // XeGTAO rotates (dir.xy, 0) into view alignment instead, which only approximates this tangent.
+            float3 tang = ortho * rsqrt(max(dot(ortho, ortho), 1e-10));
+            float t0 = (6.0 * sin(h0 - n) - sin(3.0 * h0 - n) + 6.0 * sin(h1 - n) - sin(3.0 * h1 - n)
+                        + 16.0 * sinN - 3.0 * (sin(h0 + n) + sin(h1 + n))) * (1.0 / 12.0);
+            float t1 = (-cos(3.0 * h0 - n) - cos(3.0 * h1 - n) + 8.0 * cosN
+                        - 3.0 * (cos(h0 + n) + cos(h1 + n))) * (1.0 / 12.0);
+            bent += pl * (t0 * tang + t1 * V);
+        }
+#endif
     }
     return saturate(vis * invSlices);
 }
@@ -250,9 +268,11 @@ float MultiBounce(float x, float albedo)
     return max(x, ((x * a + b) * x + c) * x);
 }
 
-// Pass 0: estimate AO + store linear eye depth for later reprojection/blur.
-float2 FragEstimate(Varyings i) : SV_Target
+// Pass 0: estimate AO + store linear eye depth for later reprojection/blur. bentView is the view-space bent
+// normal (unit length, or zero when the pixel is skipped); it is only written out when _GTAO_BENT_ENABLED is on.
+float2 EstimateCore(Varyings i, out float3 bentView)
 {
+    bentView = float3(0.0, 0.0, 0.0);
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
     float2 uv = i.texcoord;
     int2 ap = (int2)floor(uv * _GTAO_Size.xy);
@@ -270,26 +290,50 @@ float2 FragEstimate(Varyings i) : SV_Target
     float3 N = GetNormal(uvC, P, d);
     float2 nz = Noise(ap, f);
 
-    float ao = GTAO(uvC, P, N, nz);
+    float3 bent;
+    float ao = GTAO(uvC, P, N, nz, bent);
+    float bl = dot(bent, bent);
+    bent = bl > 1e-6 ? bent * rsqrt(bl) : N; // degenerate (e.g. pixel too small on screen): geometric normal
+    bentView = bent;
     ao = pow(saturate(ao), _GTAO_Params.y);
     if (_GTAO_Params2.w > 0.0) ao = MultiBounce(ao, saturate(_GTAO_Params2.w));
     if (_GTAO_Fade.y > 0.0)
     {
         float fade = saturate((_GTAO_Fade.y - d) / max(_GTAO_Fade.y - _GTAO_Fade.x, 1e-3));
         ao = lerp(1.0, ao, fade);
+        bentView = lerp(N, bent, fade);
     }
     return float2(ao, d);
 }
+
+#if defined(_GTAO_BENT_ENABLED)
+struct EstimateOut { float2 ao : SV_Target0; float4 bent : SV_Target1; };
+EstimateOut FragEstimate(Varyings i)
+{
+    EstimateOut o;
+    float3 b;
+    o.ao = EstimateCore(i, b);
+    o.bent = float4(b, 0.0);
+    return o;
+}
+#else
+float2 FragEstimate(Varyings i) : SV_Target { float3 b; return EstimateCore(i, b); }
+#endif
 
 // Pass 1: temporal resolve. Variance-clamped 3x3 neighbourhood, reprojected by motion vectors when available,
 // else by camera matrices. Legacy: one bilinear history tap with a fixed weight. v2 (Atrous denoiser): four
 // depth-validated history taps (bilinear weights) plus a per-pixel history age in .z, so history rebuilds quickly
 // after disocclusion instead of blending against a stale value.
-float4 FragTemporal(Varyings i) : SV_Target
+float4 TemporalCore(Varyings i, out float3 bentOut)
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
     float2 uv = i.texcoord;
     float2 cur = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, uv, 0).xy;
+    float3 curB = float3(0.0, 0.0, 0.0);
+#if defined(_GTAO_BENT_ENABLED)
+    curB = SAMPLE_TEXTURE2D_X_LOD(_GTAO_BentIn, sampler_PointClamp, uv, 0).xyz;
+#endif
+    bentOut = curB;
     if (_GTAO_Temporal.x <= 0.0) return float4(cur, 1.0, 0.0); // no history yet: never sample uninitialised texture
 
     float2 t = _GTAO_Size.zw;
@@ -324,6 +368,7 @@ float4 FragTemporal(Varyings i) : SV_Target
         float2 fl = floor(pt);
         float2 fr = pt - fl;
         float aoSum = 0.0, ageSum = 0.0, wSum = 0.0;
+        float3 bentSum = float3(0.0, 0.0, 0.0);
         [unroll] for (int k = 0; k < 4; k++)
         {
             float2 o = float2(k & 1, k >> 1);
@@ -334,12 +379,18 @@ float4 FragTemporal(Varyings i) : SV_Target
             float dv = saturate(1.0 - abs(hk.y - expected) / max(expected * _GTAO_Temporal.z, 1e-4)); // disocclusion rejection
             float wk = finiteTap ? bw * dv : 0.0;
             aoSum += hk.x * wk; ageSum += hk.z * wk; wSum += wk;
+#if defined(_GTAO_BENT_ENABLED)
+            bentSum += SAMPLE_TEXTURE2D_X_LOD(_GTAO_BentHistory, sampler_PointClamp, tuv, 0).xyz * wk; // same weights as AO
+#endif
         }
         float invW = wSum > 1e-5 ? 1.0 / wSum : 0.0;
         float valid = ok ? saturate(wSum) * velFade : 0.0;
         float effAge = ageSum * invW * valid;           // confidence-weighted history age
         float wv = min(effAge / (effAge + 1.0), _GTAO_Temporal.x); // 0 on the first frame, rises towards temporalWeight
         float aoOut = lerp(cur.x, clamp(aoSum * invW, lo, hi), wv);
+#if defined(_GTAO_BENT_ENABLED)
+        bentOut = lerp(curB, bentSum * invW, wv); // not clamped; a bent normal has no neighbourhood-variance equivalent here
+#endif
         return float4(aoOut, cur.y, min(effAge + 1.0, 128.0), 0.0);
     }
 
@@ -352,6 +403,20 @@ float4 FragTemporal(Varyings i) : SV_Target
     return float4(lerp(cur.x, clamp(h.x, lo, hi), w), cur.y, 0.0, 0.0);
 }
 
+#if defined(_GTAO_BENT_ENABLED)
+struct TemporalOut { float4 ao : SV_Target0; float4 bent : SV_Target1; };
+TemporalOut FragTemporal(Varyings i)
+{
+    TemporalOut o;
+    float3 b;
+    o.ao = TemporalCore(i, b);
+    o.bent = float4(b, 0.0);
+    return o;
+}
+#else
+float4 FragTemporal(Varyings i) : SV_Target { float3 b; return TemporalCore(i, b); }
+#endif
+
 // Weight of a neighbour by its distance from the centre pixel's tangent plane: 1 on the plane, 0 beyond 1/invTol.
 float DepthPlaneWeight(float3 N, float3 P, float3 Pq, float invTol)
 {
@@ -359,11 +424,17 @@ float DepthPlaneWeight(float3 N, float3 P, float3 Pq, float invTol)
 }
 
 // Pass 8: one a-trous iteration. 3x3 binomial kernel dilated by _GTAO_AtrousStep, each tap weighted by plane distance.
-float2 FragAtrous(Varyings i) : SV_Target
+// The bent normal (when enabled) is filtered with the same weights; it is renormalised only at the final resolve.
+float2 AtrousCore(Varyings i, out float3 bentOut)
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
     float2 uv = i.texcoord;
     float2 c = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, uv, 0).xy;
+    float3 cb = float3(0.0, 0.0, 0.0);
+#if defined(_GTAO_BENT_ENABLED)
+    cb = SAMPLE_TEXTURE2D_X_LOD(_GTAO_BentIn, sampler_PointClamp, uv, 0).xyz;
+#endif
+    bentOut = cb;
     float dc = c.y;
     if (dc >= _ProjectionParams.z * 0.99) return c; // sky / beyond far plane: AO is 1, nothing to filter
 
@@ -373,6 +444,7 @@ float2 FragAtrous(Varyings i) : SV_Target
     float2 stp = _GTAO_Size.zw * _GTAO_AtrousStep;
 
     float sum = 0.0, wsum = 0.0;
+    float3 bsum = float3(0.0, 0.0, 0.0);
     [unroll] for (int y = -1; y <= 1; y++)
     [unroll] for (int x = -1; x <= 1; x++)
     {
@@ -380,9 +452,29 @@ float2 FragAtrous(Varyings i) : SV_Target
         float2 s = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, suv, 0).xy;
         float w = (float)((2 - abs(x)) * (2 - abs(y))) * DepthPlaneWeight(N, P, ViewPos(suv, s.y), invTol); // [1 2 1] x [1 2 1]
         sum += s.x * w; wsum += w;
+#if defined(_GTAO_BENT_ENABLED)
+        bsum += SAMPLE_TEXTURE2D_X_LOD(_GTAO_BentIn, sampler_PointClamp, suv, 0).xyz * w;
+#endif
     }
+#if defined(_GTAO_BENT_ENABLED)
+    bentOut = bsum / wsum;
+#endif
     return float2(sum / wsum, c.y); // centre tap has weight 4, so wsum >= 4
 }
+
+#if defined(_GTAO_BENT_ENABLED)
+struct AtrousOut { float2 ao : SV_Target0; float4 bent : SV_Target1; };
+AtrousOut FragAtrous(Varyings i)
+{
+    AtrousOut o;
+    float3 b;
+    o.ao = AtrousCore(i, b);
+    o.bent = float4(b, 0.0);
+    return o;
+}
+#else
+float2 FragAtrous(Varyings i) : SV_Target { float3 b; return AtrousCore(i, b); }
+#endif
 
 // Depth-aware separable blur, shared by the H and V+upsample passes.
 float2 DoBlur(float2 uv, float2 dir, bool fullResDepth)
@@ -409,32 +501,41 @@ float2 FragBlurH(Varyings i) : SV_Target
 
 // Depth-aware 2x2 upsample from AO resolution to full resolution: the four nearest AO texels, each weighted by
 // bilinear coverage x similarity of its stored depth to the full-res pixel's depth. If every tap is rejected,
-// the tap closest in depth wins instead of a blind bilinear blend.
-float UpsampleAO(float2 uv)
+// the tap closest in depth wins instead of a blind bilinear blend. bentOut gets the same filtering (zero unless
+// _GTAO_BENT_ENABLED is on).
+float UpsampleAO(float2 uv, out float3 bentOut)
 {
     float dF = SampleViewDepth(uv, 0.0);
     float2 pt = uv * _GTAO_Size.xy - 0.5;
     float2 fl = floor(pt);
     float2 fr = pt - fl;
     float sum = 0.0, wsum = 0.0, bestAO = 1.0, bestErr = 1e30;
+    float3 bsum = float3(0.0, 0.0, 0.0), bestB = float3(0.0, 0.0, 0.0);
     [unroll] for (int k = 0; k < 4; k++)
     {
         float2 o = float2(k & 1, k >> 1);
         float bw = (o.x > 0.5 ? fr.x : 1.0 - fr.x) * (o.y > 0.5 ? fr.y : 1.0 - fr.y);
         float2 tuv = (fl + o + 0.5) * _GTAO_Size.zw;
         float2 s = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, tuv, 0).xy;
+        float3 sb = float3(0.0, 0.0, 0.0);
+#if defined(_GTAO_BENT_ENABLED)
+        sb = SAMPLE_TEXTURE2D_X_LOD(_GTAO_BentIn, sampler_PointClamp, tuv, 0).xyz;
+#endif
         float err = abs(s.y - dF) / max(dF, 1e-3);
         float w = bw * exp(-err * _GTAO_Blur.y);
-        sum += s.x * w; wsum += w;
-        if (err < bestErr) { bestErr = err; bestAO = s.x; }
+        sum += s.x * w; bsum += sb * w; wsum += w;
+        if (err < bestErr) { bestErr = err; bestAO = s.x; bestB = sb; }
     }
-    return wsum > 1e-4 ? sum / wsum : bestAO;
+    bool ok = wsum > 1e-4;
+    bentOut = ok ? bsum / max(wsum, 1e-4) : bestB;
+    return ok ? sum / wsum : bestAO;
 }
 
 float ResolveAO(Varyings i)
 {
     UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
-    [branch] if (_GTAO_Denoise.z > 0.5) return UpsampleAO(i.texcoord); // Atrous + downsample
+    float3 unusedBent;
+    [branch] if (_GTAO_Denoise.z > 0.5) return UpsampleAO(i.texcoord, unusedBent); // Atrous + downsample
     return DoBlur(i.texcoord, float2(0, 1), true).x; // legacy: vertical blur doubles as bilateral upsample
 }
 
@@ -471,6 +572,27 @@ float FragDepthMip(Varyings i) : SV_Target
     float w2 = saturate((dMax - d2) * fMul + fAdd);
     float w3 = saturate((dMax - d3) * fMul + fAdd);
     return (w0 * d0 + w1 * d1 + w2 * d2 + w3 * d3) / max(w0 + w1 + w2 + w3, 1e-5);
+}
+
+// Pass 9: full-resolution world-space bent normal (rgb = n * 0.5 + 0.5, a = 1 if valid, 0 if the pixel has no
+// usable bent normal and the consumer should use its geometric normal). Upsampled like the AO when downsampled.
+float4 FragResolveBent(Varyings i) : SV_Target
+{
+    UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(i);
+    float2 uv = i.texcoord;
+    float3 bent = float3(0.0, 0.0, 0.0);
+    [branch] if (_GTAO_Denoise.z > 0.5)
+        UpsampleAO(uv, bent);
+    else
+    {
+#if defined(_GTAO_BENT_ENABLED)
+        bent = SAMPLE_TEXTURE2D_X_LOD(_GTAO_BentIn, sampler_PointClamp, uv, 0).xyz;
+#endif
+    }
+    float l2 = dot(bent, bent);
+    if (l2 < 1e-6) return float4(0.5, 0.5, 0.5, 0.0);
+    float3 bw = normalize(mul((float3x3)_GTAO_ViewToWorld, bent * rsqrt(l2)));
+    return float4(bw * 0.5 + 0.5, 1.0);
 }
 
 #endif

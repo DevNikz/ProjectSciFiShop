@@ -93,6 +93,12 @@ half _HatchStrength;
 half _HatchBias;
 half _HatchSoftness;
 half _OutlineSmoothing;
+half4 _PlanarReflectionTint;
+half _PlanarReflectionStrength;
+half _PlanarReflectionMin;
+half _PlanarReflectionFresnelPower;
+half _PlanarReflectionDistortion;
+half _PlanarReflectionShadow;
 UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 CBUFFER_END
 
@@ -173,6 +179,12 @@ UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
     UNITY_DOTS_INSTANCED_PROP(float , _HatchBias)
     UNITY_DOTS_INSTANCED_PROP(float , _HatchSoftness)
     UNITY_DOTS_INSTANCED_PROP(float , _OutlineSmoothing)
+    UNITY_DOTS_INSTANCED_PROP(float4, _PlanarReflectionTint)
+    UNITY_DOTS_INSTANCED_PROP(float , _PlanarReflectionStrength)
+    UNITY_DOTS_INSTANCED_PROP(float , _PlanarReflectionMin)
+    UNITY_DOTS_INSTANCED_PROP(float , _PlanarReflectionFresnelPower)
+    UNITY_DOTS_INSTANCED_PROP(float , _PlanarReflectionDistortion)
+    UNITY_DOTS_INSTANCED_PROP(float , _PlanarReflectionShadow)
 UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 
 // Here, we want to avoid overriding a property like e.g. _BaseColor with something like this:
@@ -256,6 +268,12 @@ static float  unity_DOTS_Sampled_HatchStrength;
 static float  unity_DOTS_Sampled_HatchBias;
 static float  unity_DOTS_Sampled_HatchSoftness;
 static float  unity_DOTS_Sampled_OutlineSmoothing;
+static float4 unity_DOTS_Sampled_PlanarReflectionTint;
+static float  unity_DOTS_Sampled_PlanarReflectionStrength;
+static float  unity_DOTS_Sampled_PlanarReflectionMin;
+static float  unity_DOTS_Sampled_PlanarReflectionFresnelPower;
+static float  unity_DOTS_Sampled_PlanarReflectionDistortion;
+static float  unity_DOTS_Sampled_PlanarReflectionShadow;
 
 void SetupDOTSStylizedMaterialPropertyCaches()
 {
@@ -330,6 +348,12 @@ void SetupDOTSStylizedMaterialPropertyCaches()
     unity_DOTS_Sampled_HatchBias = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _HatchBias);
     unity_DOTS_Sampled_HatchSoftness = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _HatchSoftness);
     unity_DOTS_Sampled_OutlineSmoothing = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _OutlineSmoothing);
+    unity_DOTS_Sampled_PlanarReflectionTint = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float4, _PlanarReflectionTint);
+    unity_DOTS_Sampled_PlanarReflectionStrength = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _PlanarReflectionStrength);
+    unity_DOTS_Sampled_PlanarReflectionMin = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _PlanarReflectionMin);
+    unity_DOTS_Sampled_PlanarReflectionFresnelPower = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _PlanarReflectionFresnelPower);
+    unity_DOTS_Sampled_PlanarReflectionDistortion = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _PlanarReflectionDistortion);
+    unity_DOTS_Sampled_PlanarReflectionShadow = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _PlanarReflectionShadow);
 }
 
 #undef UNITY_SETUP_DOTS_MATERIAL_PROPERTY_CACHES
@@ -406,6 +430,12 @@ void SetupDOTSStylizedMaterialPropertyCaches()
 #define _HatchBias              unity_DOTS_Sampled_HatchBias
 #define _HatchSoftness          unity_DOTS_Sampled_HatchSoftness
 #define _OutlineSmoothing       unity_DOTS_Sampled_OutlineSmoothing
+#define _PlanarReflectionTint           unity_DOTS_Sampled_PlanarReflectionTint
+#define _PlanarReflectionStrength       unity_DOTS_Sampled_PlanarReflectionStrength
+#define _PlanarReflectionMin            unity_DOTS_Sampled_PlanarReflectionMin
+#define _PlanarReflectionFresnelPower   unity_DOTS_Sampled_PlanarReflectionFresnelPower
+#define _PlanarReflectionDistortion     unity_DOTS_Sampled_PlanarReflectionDistortion
+#define _PlanarReflectionShadow         unity_DOTS_Sampled_PlanarReflectionShadow
 
 #endif
 
