@@ -60,7 +60,7 @@ public class PickupZone : MonoBehaviour
         return rb == null || rb.linearVelocity.sqrMagnitude <= settleSpeed * settleSpeed;
     }
 
-    void OnDrawGizmosSelected()
+    void OnDrawGizmos()
     {
         Gizmos.color = Color.yellow;
         Gizmos.matrix = Matrix4x4.TRS(transform.position, transform.rotation, Vector3.one);

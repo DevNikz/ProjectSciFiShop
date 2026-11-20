@@ -96,6 +96,22 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
     [SerializeField, Min(1f)]
     float shelfTravelTimeout = 25f;
 
+    [SerializeField, Min(0f)]
+    float shelfLeaveDelay = 0.6f;
+
+    [Header("Counter Placement")]
+    [Tooltip("Seconds one item takes to arc from the customer onto the counter.")]
+    [SerializeField, Min(0.05f)]
+    float flightDuration = 0.3f;
+
+    [Tooltip("Pause between one item landing and the next leaving (seconds).")]
+    [SerializeField, Min(0f)]
+    float placeInterval = 0.05f;
+
+    [Tooltip("How far above the straight line an item rises on its way to the counter (metres).")]
+    [SerializeField, Min(0f)]
+    float arcHeight = 0.25f;
+
     sealed class ShoppingItem
     {
         public ShelfInventory shelf;
@@ -107,6 +123,7 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
     readonly List<ShoppingItem> shoppingItems = new();
     Transform shoppingMarker;
     Coroutine shoppingRoutine;
+    Coroutine deliveryRoutine;
 
     NavMeshAgent agent;
     Transform destination;
@@ -222,7 +239,12 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
     public void JoinCheckoutQueue()
     {
         if (registered || checkoutQueue == null || !HasOrder)
+        {
+            Debug.LogWarning(
+                $"Registered: {registered} | Queue: {checkoutQueue} | HasOrder: {HasOrder}"
+            );
             return;
+        }
 
         registered = checkoutQueue.Join(this);
     }
@@ -238,7 +260,13 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
         foreach (var item in shoppingItems)
         {
             if (item.shelf == null || item.product == null)
+            {
+                Debug.LogWarning(
+                    $"{name}: skipped a reserved item, its shelf or product no longer exists.",
+                    this
+                );
                 continue;
+            }
             var position = item.shelf.CustomerPickupPosition;
             position.y = transform.position.y;
             shoppingMarker.position = position;
@@ -247,19 +275,32 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
             while (!IsAtDestination() && Time.time < timeout)
                 yield return null;
             if (!IsAtDestination())
+            {
+                Debug.LogWarning(
+                    $"{name}: could not reach the shelf for '{item.product.Definition.DisplayName}' within {shelfTravelTimeout}s.",
+                    this
+                );
                 continue;
+            }
             yield return new WaitForSeconds(shelfPickupDelay);
             if (
                 item.shelf == null
                 || item.product == null
                 || !item.shelf.TryCollectProduct(item.product, this)
             )
+            {
+                Debug.LogWarning(
+                    $"{name}: could not collect a reserved item from its shelf.",
+                    this
+                );
                 continue;
+            }
             item.collected = true;
             item.product.transform.SetParent(transform, true);
             item.product.Carriable.Body.isKinematic = true;
             item.product.Carriable.Body.useGravity = false;
             item.product.gameObject.SetActive(false); // carried in the customer's basket
+            yield return new WaitForSeconds(shelfLeaveDelay);
         }
         ReleaseReservations();
         RebuildCollectedOrder();
@@ -269,6 +310,10 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
         shoppingRoutine = null;
         if (!HasOrder)
         {
+            Debug.LogWarning(
+                $"{name}: nothing collected ({shoppingItems.Count} item(s) were reserved).",
+                this
+            );
             CustomerNotificationUI.Show("Customer left — desired items were unavailable");
             LeaveStore();
         }
@@ -304,6 +349,9 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
         if (shoppingRoutine != null)
             StopCoroutine(shoppingRoutine);
         shoppingRoutine = null;
+        if (deliveryRoutine != null)
+            StopCoroutine(deliveryRoutine);
+        deliveryRoutine = null;
         ReleaseReservations();
         ReturnUndeliveredItems();
         registered = false;
@@ -352,7 +400,7 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
         {
             CustomerNotificationUI.Show("Customer is ready to be served");
             CustomerOrderUI.Show(this);
-            DeliverBasket(register);
+            deliveryRoutine = StartCoroutine(DeliverBasketRoutine(register));
         }
         return checkoutStarted;
     }
@@ -463,7 +511,10 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
             if (!available.Contains(product.Definition))
                 available.Add(product.Definition);
         if (available.Count == 0)
+        {
+            Debug.LogWarning("Items Run out!");
             return;
+        }
         int min = Mathf.Clamp(minimumProductTypes, 1, available.Count);
         int max = Mathf.Clamp(maximumProductTypes, min, available.Count);
         int lineCount = UnityEngine.Random.Range(min, max + 1);
@@ -487,6 +538,11 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
                     reservedCount++;
                 }
             }
+            if (reservedCount == 0)
+                Debug.LogWarning(
+                    $"{name}: could not reserve '{product.DisplayName}' on any shelf.",
+                    this
+                );
         }
     }
 
@@ -511,29 +567,65 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
                 item.shelf.ReleaseCustomerReservations(this);
     }
 
-    void DeliverBasket(Register register)
+    // Items leave the customer one at a time, arc onto their slot in the register's lanes, and wait there,
+    // frozen, for the player to pick up and scan. An item that has not landed yet stays undelivered, so
+    // leaving mid-way sends it back to its shelf.
+    IEnumerator DeliverBasketRoutine(Register register)
     {
-        int index = 0;
+        var pending = new List<ShoppingItem>();
+        var products = new List<ProductCarriable>();
         foreach (var item in shoppingItems)
         {
             if (!item.collected || item.delivered || item.product == null)
                 continue;
-            var product = item.product;
-            product.transform.SetParent(null, true);
-            product.transform.rotation = Quaternion.identity;
-            product.gameObject.SetActive(true);
-            product.transform.position = register.CustomerBasketPosition(
-                product,
-                index++,
-                shoppingItems.Count
-            );
-            // Products wait beside the scanner for the player to scan them.
-            product.Carriable.Body.isKinematic = false;
-            product.Carriable.Body.useGravity = true;
-            product.Carriable.Body.linearVelocity = Vector3.zero;
-            product.Carriable.Body.angularVelocity = Vector3.zero;
-            item.delivered = true;
+            pending.Add(item);
+            products.Add(item.product);
         }
+
+        var slots = register.PlanCustomerBasket(products, transform.position);
+        for (int i = 0; i < pending.Count; i++)
+        {
+            var product = pending[i].product;
+            if (product == null)
+                continue;
+            yield return FlyToSlot(product, slots[i]);
+            if (product == null)
+                continue;
+            pending[i].delivered = true;
+            if (placeInterval > 0f)
+                yield return new WaitForSeconds(placeInterval);
+        }
+        deliveryRoutine = null;
+    }
+
+    IEnumerator FlyToSlot(ProductCarriable product, BasketSlot slot)
+    {
+        product.transform.SetParent(null, true);
+        product.transform.position = transform.position + Vector3.up;
+        product.gameObject.SetActive(true);
+
+        var start = product.transform.position;
+        var startRotation = product.transform.rotation;
+        float elapsed = 0f;
+        while (elapsed < flightDuration)
+        {
+            if (product == null)
+                yield break;
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / flightDuration);
+            var point = Vector3.Lerp(start, slot.position, t);
+            point.y += Mathf.Sin(t * Mathf.PI) * arcHeight;
+            product.transform.SetPositionAndRotation(
+                point,
+                Quaternion.Slerp(startRotation, slot.rotation, t)
+            );
+            yield return null;
+        }
+        if (product == null)
+            yield break;
+
+        product.transform.SetPositionAndRotation(slot.position, slot.rotation);
+        product.Carriable.FreezeInPlace(); // the player's pickup or drag lifts the freeze
     }
 
     void ReturnUndeliveredItems()
@@ -560,6 +652,7 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
         product.transform.SetParent(null, true);
         product.transform.position = position;
         product.gameObject.SetActive(true);
+        product.Carriable.Unfreeze(); // it may be frozen on the counter
         // Restore a normal pickup before storing, so the shelf remembers usable physics.
         product.Carriable.Body.isKinematic = false;
         product.Carriable.Body.useGravity = true;
@@ -652,6 +745,9 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
         if (shoppingRoutine != null)
             StopCoroutine(shoppingRoutine);
         shoppingRoutine = null;
+        if (deliveryRoutine != null)
+            StopCoroutine(deliveryRoutine);
+        deliveryRoutine = null;
         ReleaseReservations();
         ReturnUndeliveredItems();
         if (shoppingMarker != null)

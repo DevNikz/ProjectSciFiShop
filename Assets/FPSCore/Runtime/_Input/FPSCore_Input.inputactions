@@ -64,7 +64,7 @@
                     "name": "UnlockCursor",
                     "type": "Button",
                     "id": "36b2e6b6-acc4-4001-96ed-983c913ca0a1",
-                    "expectedControlType": "Button",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
                     "initialStateCheck": false

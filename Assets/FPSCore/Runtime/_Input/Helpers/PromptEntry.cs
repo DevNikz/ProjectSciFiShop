@@ -5,6 +5,7 @@ using UnityEngine;
 /// This displays what Key / Control Input for that specific action
 public enum PromptAction
 {
+    None,
     Interact,
     Grab,
     Scan,

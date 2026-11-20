@@ -1,7 +1,5 @@
-using UnityEngine;
-#if FPS_CINEMACHINE
 using Unity.Cinemachine;
-#endif
+using UnityEngine;
 
 /// <summary>
 /// FPS Controller Base

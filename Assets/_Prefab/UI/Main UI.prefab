@@ -63,6 +63,7 @@ GameObject:
   - component: {fileID: 5312917041354144850}
   - component: {fileID: 1216630336183514359}
   - component: {fileID: 5776250260131889594}
+  - component: {fileID: 4933295361685190879}
   m_Layer: 5
   m_Name: Main UI
   m_TagString: Untagged
@@ -173,6 +174,21 @@ MonoBehaviour:
   closedText: Closed
   clockLabel: {fileID: 1283174885333381162}
   use24Hour: 0
+--- !u!114 &4933295361685190879
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7145029745851707884}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f0c2b79974ed0349b198f8964c168e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CoinUIPool
+  popupPrefab: {fileID: 8266320862853172948, guid: 9afd2a3f562b42140b5cf0114c08e0c8, type: 3}
+  popupParent: {fileID: 3042216935521444998}
+  worldCamera: {fileID: 0}
 --- !u!1001 &6258186614051038817
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -259,6 +275,22 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1552126646291756080, guid: b383b7ee906e97347b455e8ddba2377a, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2107249330427220108, guid: b383b7ee906e97347b455e8ddba2377a, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2107249330427220108, guid: b383b7ee906e97347b455e8ddba2377a, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2107249330427220108, guid: b383b7ee906e97347b455e8ddba2377a, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2107249330427220108, guid: b383b7ee906e97347b455e8ddba2377a, type: 3}
+      propertyPath: m_AnchoredPosition.y
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4426497856788716254, guid: b383b7ee906e97347b455e8ddba2377a, type: 3}
@@ -400,6 +432,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 23383052338031701}
     m_Modifications:
+    - target: {fileID: 82415551256952971, guid: e75182678ed1cad448882b3ac9188fab, type: 3}
+      propertyPath: m_Sprite
+      value: 
+      objectReference: {fileID: 21300000, guid: c52fbb14110bc9f4db1fd01dc0b387d8, type: 3}
     - target: {fileID: 1939022638784978401, guid: e75182678ed1cad448882b3ac9188fab, type: 3}
       propertyPath: m_Name
       value: CoinUI
@@ -446,7 +482,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5524562910151701231, guid: e75182678ed1cad448882b3ac9188fab, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -2.02971
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5524562910151701231, guid: e75182678ed1cad448882b3ac9188fab, type: 3}
       propertyPath: m_LocalRotation.w
@@ -466,11 +502,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5524562910151701231, guid: e75182678ed1cad448882b3ac9188fab, type: 3}
       propertyPath: m_AnchoredPosition.x
-      value: -961.9612
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5524562910151701231, guid: e75182678ed1cad448882b3ac9188fab, type: 3}
       propertyPath: m_AnchoredPosition.y
-      value: -1078.1171
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5524562910151701231, guid: e75182678ed1cad448882b3ac9188fab, type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
@@ -525,6 +561,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: e75182678ed1cad448882b3ac9188fab, type: 3}
+--- !u!224 &3042216935521444998 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 6445906672688310352, guid: e75182678ed1cad448882b3ac9188fab, type: 3}
+  m_PrefabInstance: {fileID: 8308109801804975318}
+  m_PrefabAsset: {fileID: 0}
 --- !u!224 &4604760654067613241 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 5524562910151701231, guid: e75182678ed1cad448882b3ac9188fab, type: 3}

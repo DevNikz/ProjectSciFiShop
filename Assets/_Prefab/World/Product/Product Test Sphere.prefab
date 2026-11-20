@@ -20,6 +20,7 @@ GameObject:
   - component: {fileID: 4453609102522107596}
   - component: {fileID: 6723651003102093314}
   - component: {fileID: 1096332653333590833}
+  - component: {fileID: -2858077689350854117}
   m_Layer: 6
   m_Name: Product Test Sphere
   m_TagString: Untagged
@@ -160,14 +161,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: FPSCore::Interactable
   interactable: 1
-  interactWhen: 0
+  interactWhen: 511
   promptText: 
   prompts:
-  - action: 0
-    text: Pickup Sphere
-    when: 1
   - action: 1
-    text: Drag Sphere
+    text: Pickup Test Product
+    when: 1
+  - action: 2
+    text: Drag Test Product
     when: 1
   IsDebugEnabled: 0
 --- !u!114 &5789167913800884461
@@ -261,3 +262,18 @@ MonoBehaviour:
   definition: {fileID: 11400000, guid: 08e07d79f61d9e640852fb9bd4452c60, type: 2}
   displayName: Product test Sphere
   icon: {fileID: 0}
+--- !u!114 &-2858077689350854117
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3393862057570696971}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c870417d5be347a45aa8d0e9c4dfd0fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShelfProduct
+  placementOffset: {x: 0, y: 0, z: 0}
+  placementRotation: {x: 0, y: 0, z: 0}
+  fallbackDisplayName: 

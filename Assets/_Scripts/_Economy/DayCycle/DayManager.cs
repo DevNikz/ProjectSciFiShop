@@ -103,6 +103,8 @@ public class DayManager : MonoBehaviour
 
     private void Start()
     {
+        if (FindFirstObjectByType<StoreControlUI>() == null)
+            gameObject.AddComponent<StoreControlUI>();
         if (startFirstDayOnStart && _day == 0)
             StartNextDay();
     }

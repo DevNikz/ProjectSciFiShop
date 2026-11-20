@@ -8,6 +8,7 @@ public enum ProductCategory
     Drinks,
     Snacks,
     Household,
+    Canned,
 }
 
 /// <summary>
@@ -49,7 +50,7 @@ public class ProductDefinition : ScriptableObject
     int unlockCost;
 
     [Tooltip("Prefab spawned for each unit. Its ProductPickup must use this definition.")]
-    [SerializeField]
+    [SerializeField, FolderAsset("Assets/_Prefab")]
     ProductCarriable prefab;
 
     [Tooltip("Instances created at scene start. 0 = grow on demand.")]

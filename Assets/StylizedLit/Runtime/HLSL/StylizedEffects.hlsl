@@ -100,4 +100,27 @@ half3 ApplyHatching(half3 color, InputData inputData)
 }
 #endif
 
+// Planar reflection (Phase 7). The "Planar Reflections" asset folder is included only while _PLANAR_REFLECTION_ON is set,
+// so materials that leave it off do not need the folder. (Unity's shader preprocessor has no __has_include.)
+// Keep this path in sync with PlanarReflectionHlslPath in StylizedLitShaderGUI.cs.
+#if defined(_PLANAR_REFLECTION_ON)
+#include "Assets/Planar Reflections/Shaders/PlanarReflection.hlsl"
+
+// Fresnel-weighted mix of the lit color toward the planar reflection (same recipe as PlanarReflectionLit.shader).
+// The normal map offsets the lookup; the main light shadow optionally dims the reflection so shadows stay visible at grazing angles.
+// Roughness comes from surface smoothness (gloss map x _Smoothness): rougher surfaces blur more and reflect less.
+half3 ApplyPlanarReflection(half3 color, InputData inputData, SurfaceData surfaceData, half mainLightShadow)
+{
+    float2 screenUV = GetPlanarReflectionScreenUV(inputData.positionWS, inputData.normalizedScreenSpaceUV);
+    half roughness = 1.0h - surfaceData.smoothness;
+    half3 reflection = SamplePlanarReflection(screenUV, surfaceData.normalTS.xy * _PlanarReflectionDistortion, roughness);
+    reflection *= _PlanarReflectionTint.rgb * lerp(1.0h, mainLightShadow, _PlanarReflectionShadow);
+
+    half fresnel = pow(1.0h - saturate(dot(inputData.normalWS, inputData.viewDirectionWS)), _PlanarReflectionFresnelPower);
+    half blend = saturate(_PlanarReflectionStrength * lerp(_PlanarReflectionMin, 1.0h, fresnel));
+    blend *= GetPlanarReflectionFade(inputData.positionWS) * surfaceData.smoothness;
+    return lerp(color, reflection, blend);
+}
+#endif
+
 #endif // STYLIZED_EFFECTS_INCLUDED

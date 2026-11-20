@@ -8,6 +8,7 @@
 // Phase 4 adds Rim Light, Matcap and Outline foldouts; Outline works by enabling/disabling the "SRPDefaultUnlit" pass.
 // Phase 5 adds Pixelation, Dither and Dissolve foldouts and their keyword rules.
 // Phase 6 adds Triplanar, Wind, Vertex Displacement and Hatching foldouts, and public UpdateKeywords for scripts.
+// Phase 7 adds the Planar Reflection foldout (_PLANAR_REFLECTION_ON); the effect needs the "Planar Reflections" asset folder.
 // Phase 3+ adds stylized foldouts through FillAdditionalFoldouts.
 #if UNITY_EDITOR
 using System;
@@ -36,6 +37,11 @@ namespace StylizedLit.Editor
         const uint WindFoldoutBit = 1u << 12;
         const uint DisplaceFoldoutBit = 1u << 13;
         const uint HatchFoldoutBit = 1u << 14;
+        const uint PlanarReflectionFoldoutBit = 1u << 15;
+        // Keep in sync with the #include path in StylizedEffects.hlsl.
+        const string PlanarReflectionHlslPath = "Assets/Planar Reflections/Shaders/PlanarReflection.hlsl";
+        const string PlanarReflectionMissingMessage =
+            "Planar Reflections was not found at Assets/Planar Reflections. Shaders with this enabled fail to compile until it is there.";
         const string OutlinePassName = "SRPDefaultUnlit";
 
         LitGUI.LitProperties _litProperties;
@@ -70,6 +76,7 @@ namespace StylizedLit.Editor
             materialScopesList.RegisterHeaderScope(new GUIContent("Wind"), WindFoldoutBit, _ => DrawWindInputs());
             materialScopesList.RegisterHeaderScope(new GUIContent("Vertex Displacement"), DisplaceFoldoutBit, _ => DrawDisplaceInputs());
             materialScopesList.RegisterHeaderScope(new GUIContent("Hatching / Halftone"), HatchFoldoutBit, _ => DrawHatchInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Planar Reflection"), PlanarReflectionFoldoutBit, _ => DrawPlanarReflectionInputs());
         }
 
         // Material changed check. Keywords must stay in sync with the shader_feature list in StylizedLit.shader.
@@ -250,6 +257,26 @@ namespace StylizedLit.Editor
                 ("_HatchSoftness", "Edge Softness", "Anti-aliasing and softness of the pattern edges."));
         }
 
+        void DrawPlanarReflectionInputs()
+        {
+            DrawSection("_PlanarReflectionEnabled", "Enable Planar Reflection", "Mixes a planar reflection into the lit color. Needs a PlanarReflector on this object or a parent.",
+                ("_PlanarReflectionStrength", "Strength", "Overall reflection amount. Scaled by smoothness, and roughness (1 - smoothness) sets the blur."),
+                ("_PlanarReflectionMin", "Min Reflectance", "Reflection amount facing the camera head-on. Fresnel raises it toward grazing angles."),
+                ("_PlanarReflectionFresnelPower", "Fresnel Power", "Higher values keep the reflection to grazing angles."),
+                ("_PlanarReflectionTint", "Tint", "Color multiplied into the reflection."),
+                ("_PlanarReflectionDistortion", "Distortion", "Offsets the lookup with the normal map."),
+                ("_PlanarReflectionShadow", "Shadow On Reflection", "How much the main light shadow also dims the reflection."));
+
+            var enabled = FindProperty("_PlanarReflectionEnabled", _properties, false);
+            if (enabled != null && enabled.floatValue > 0.5f && !IsPlanarReflectionAssetPresent())
+                EditorGUILayout.HelpBox(PlanarReflectionMissingMessage, MessageType.Warning, true);
+        }
+
+        static bool IsPlanarReflectionAssetPresent()
+        {
+            return !string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(PlanarReflectionHlslPath));
+        }
+
         void DrawOutlineInputs()
         {
             DrawSection("_OutlineEnabled", "Enable Outline", "Draws an inverted-hull outline pass (SRPDefaultUnlit). Disabled materials skip the pass entirely.",
@@ -311,6 +338,7 @@ namespace StylizedLit.Editor
             SetToggleKeyword(material, "_WindEnabled", "_WIND_ON");
             SetToggleKeyword(material, "_DisplaceEnabled", "_VERTEX_DISPLACE_ON");
             SetToggleKeyword(material, "_HatchEnabled", "_HATCH_ON");
+            SetToggleKeyword(material, "_PlanarReflectionEnabled", "_PLANAR_REFLECTION_ON");
             SetDissolveKeywords(material);
             SetOutlinePass(material);
         }

@@ -13,4 +13,9 @@ MonoBehaviour:
   m_Name: ProductCatalog
   m_EditorClassIdentifier: Assembly-CSharp::ProductCatalog
   products:
-  - {fileID: 11400000, guid: 08e07d79f61d9e640852fb9bd4452c60, type: 2}
+  - {fileID: 11400000, guid: dc2e84104c7ff664699ad8fbddc4a504, type: 2}
+  - {fileID: 11400000, guid: d336466498d25be42a75c4a447ea04f9, type: 2}
+  - {fileID: 11400000, guid: 3542a2077d4f3794283602a55701774a, type: 2}
+  - {fileID: 11400000, guid: 1acae4e4b941c1147afd7f4246d57efe, type: 2}
+  - {fileID: 11400000, guid: 9f072397107443749b82f521262416c4, type: 2}
+  - {fileID: 11400000, guid: 71d351a431f30ae4f9f40ce53c2a1c06, type: 2}

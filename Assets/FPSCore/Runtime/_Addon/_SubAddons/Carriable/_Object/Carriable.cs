@@ -91,7 +91,8 @@ public class Carriable : MonoBehaviour, ICarriablePoolable
     Coroutine _restore;
     bool _attached,
         _claimed,
-        _savedGravity;
+        _savedGravity,
+        _frozenInPlace;
     RigidbodyInterpolation _savedInterp;
     float _savedAngDamp;
     Quaternion _relRot = Quaternion.identity; // rotation relative to view
@@ -124,6 +125,9 @@ public class Carriable : MonoBehaviour, ICarriablePoolable
     public Interactor HolderInteractor => Holder != null ? Holder.Interactor : null;
     public bool IsHeld => _attached;
     public bool IsLodFrozen { get; set; }
+
+    /// <summary>True while held still by FreezeInPlace. Carrying or claiming lifts the freeze first.</summary>
+    public bool IsFrozenInPlace => _frozenInPlace;
 
     /// <summary>Non-carry owner (e.g. Grabber dragging), null when not claimed.</summary>
     public ICarriableClaimant Claimant { get; private set; }
@@ -198,9 +202,10 @@ public class Carriable : MonoBehaviour, ICarriablePoolable
     /// <summary>Called by Carrier. False if it can't be carried.</summary>
     public bool Attach(Carrier who)
     {
-        if (_attached || who == null || _rb == null || _rb.isKinematic)
+        if (_attached || who == null || _rb == null || (_rb.isKinematic && !_frozenInPlace))
             return false;
 
+        Unfreeze(); // a frozen item is a normal body again before it is carried
         ReleaseClaim(); // picking up ends a claim
 
         Holder = who;
@@ -232,9 +237,16 @@ public class Carriable : MonoBehaviour, ICarriablePoolable
     /// <summary>Called by an ICarriableClaimant (e.g. Grabber). False if it can't be claimed.</summary>
     public bool TryClaim(ICarriableClaimant who)
     {
-        if (_attached || _claimed || who == null || _rb == null || _rb.isKinematic)
+        if (
+            _attached
+            || _claimed
+            || who == null
+            || _rb == null
+            || (_rb.isKinematic && !_frozenInPlace)
+        )
             return false;
 
+        Unfreeze(); // a frozen item is a normal body again before it is dragged
         Claimant = who;
         _claimed = true;
         Engage(who.Body); // the claimant sets gravity
@@ -255,6 +267,34 @@ public class Carriable : MonoBehaviour, ICarriablePoolable
         Disengage();
         if (!IsDestroyed(c))
             c.Clear(this);
+    }
+
+    /// <summary>
+    /// Holds the object still where it rests (for example on a counter). Unlike a plain kinematic body
+    /// it can still be carried or dragged: Attach and TryClaim lift the freeze first.
+    /// </summary>
+    public void FreezeInPlace()
+    {
+        if (_attached || _claimed || _rb == null)
+            return;
+        if (!_rb.isKinematic) // velocity can't be set on a kinematic body
+        {
+            _rb.linearVelocity = Vector3.zero;
+            _rb.angularVelocity = Vector3.zero;
+        }
+        _rb.useGravity = false;
+        _rb.isKinematic = true;
+        _frozenInPlace = true;
+    }
+
+    /// <summary>Ends FreezeInPlace: a normal physics body again. Safe to call at any time.</summary>
+    public void Unfreeze()
+    {
+        if (!_frozenInPlace)
+            return;
+        _frozenInPlace = false;
+        _rb.isKinematic = false;
+        _rb.useGravity = true;
     }
 
     /// <summary>Release gently.</summary>
@@ -309,6 +349,7 @@ public class Carriable : MonoBehaviour, ICarriablePoolable
         Grabbed = null;
         Dropped = null;
         Thrown = null;
+        Unfreeze(); // a pooled item must not come back frozen
     }
 
     internal void TickFixed()

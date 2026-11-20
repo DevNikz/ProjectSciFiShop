@@ -122,13 +122,14 @@ public class PromptPublisher : MonoBehaviour
     bool TryGetPlacingState(out PromptState state)
     {
         state = default;
-        // var placer = FurniturePlacer.Active;
-        // if (placer == null)
-        //     return false;
-        // _placingSource.Prompts = placer.Prompts;
-        // state = new PromptState { source = _placingSource, context = PromptContext.Placing };
-        // return true;
-        return false;
+        var placer = FurniturePlacer.Active;
+        if (placer == null)
+            return false;
+        _placingSource.Prompts = placer.Prompts;
+        state = new PromptState { source = _placingSource, context = PromptContext.Placing };
+        return true;
+
+        // return false;
     }
 
     // Carrying: the held object's lines, then the aimed-at Interactable's lines.

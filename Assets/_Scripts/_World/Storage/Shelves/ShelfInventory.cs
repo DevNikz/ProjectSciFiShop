@@ -79,7 +79,12 @@ public class ShelfInventory : MonoBehaviour
 
     public bool TryReserveProduct(ProductCarriable product, CustomerAI customer)
     {
-        var entry = entries.Find(candidate => candidate.item == product);
+        if (product == null)
+            return false;
+        // Match by GameObject: entry.item is the Carriable, product is its ProductCarriable companion.
+        var entry = entries.Find(candidate =>
+            candidate.item != null && candidate.item.gameObject == product.gameObject
+        );
         if (!isActiveAndEnabled || customer == null || entry == null || entry.customer != null)
             return false;
         entry.customer = customer;
@@ -88,7 +93,11 @@ public class ShelfInventory : MonoBehaviour
 
     public bool TryCollectProduct(ProductCarriable product, CustomerAI customer)
     {
-        var entry = entries.Find(candidate => candidate.item == product);
+        if (product == null)
+            return false;
+        var entry = entries.Find(candidate =>
+            candidate.item != null && candidate.item.gameObject == product.gameObject
+        );
         if (!isActiveAndEnabled || entry == null || customer == null || entry.customer != customer)
             return false;
         ReleaseEntry(entry);

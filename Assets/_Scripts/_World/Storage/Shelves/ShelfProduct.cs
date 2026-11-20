@@ -3,6 +3,7 @@ using UnityEngine;
 
 /// <summary>Marks a PickupObject as an item that can be stocked on a ShelfInventory.</summary>
 [DisallowMultipleComponent]
+[CarriableAddon("As Shelf Product")]
 [RequireComponent(typeof(Carriable))]
 public class ShelfProduct : MonoBehaviour
 {

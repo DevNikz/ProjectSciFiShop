@@ -175,8 +175,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ca313ecc91091b542b8279dcc382a2c5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::DayManager
-  dayLengthSeconds: 360
-  startFirstDayOnStart: 1
+  dayLengthSeconds: 240
+  startFirstDayOnStart: 0
 --- !u!114 &8446903829409018248
 MonoBehaviour:
   m_ObjectHideFlags: 0

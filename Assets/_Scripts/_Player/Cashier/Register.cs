@@ -18,6 +18,13 @@ public struct SaleReceipt
     public int Profit => revenue - cost;
 }
 
+/// <summary>Where one customer product rests on the counter.</summary>
+public struct BasketSlot
+{
+    public Vector3 position;
+    public Quaternion rotation;
+}
+
 /// <summary>
 /// The checkout counter. The customer AI calls TryBeginCheckout, then ItemsReady. Products resting on
 /// the counter are scanned automatically. Payment is automatic; the player gives back change.
@@ -36,22 +43,277 @@ public class Register : MonoBehaviour
     [SerializeField]
     Transform customerBasketPoint;
 
-    /// <summary>Stages the actual shelf products beside the scanner for the player to pick up.</summary>
-    public Vector3 CustomerBasketPosition(ProductCarriable product, int index, int count)
+    [Tooltip(
+        "Area where customers lay out their shopping, from the basket point, as the customer sees it (metres). "
+            + "X = top (far) to bottom (near), Y = left to right. Items start at the top-left corner and fill X first (down a column), then Y (the next column to the right). When the area is full, the next items stack on top."
+    )]
+    [SerializeField]
+    private Vector2 basketAreaSize = new(0.5f, 0.9f);
+
+    [Tooltip("Gap between neighbouring products and columns on the counter (metres).")]
+    [SerializeField]
+    private float layoutGap = 0.03f;
+
+    [Tooltip(
+        "While the register is selected, draw the last basket layout: columns, the start corner, each product's footprint (spacing) and stack layers."
+    )]
+    [SerializeField]
+    private bool showLayoutGizmos = true;
+
+    private const float SurfaceClearance = 0.015f;
+
+    // The last PlanCustomerBasket result, kept only so the gizmos can draw it.
+    private struct LayoutDebugItem
     {
-        var basis = customerBasketPoint != null ? customerBasketPoint : counter.transform;
-        var origin = customerBasketPoint != null ? basis.position : counter.CustomerStagingOrigin;
-        int columns = Mathf.Min(3, count);
-        var position =
-            origin
-            + basis.right * ((index % columns - (columns - 1) * 0.5f) * 0.22f)
-            + basis.forward * (index / columns * 0.22f);
-        // Find the counter surface so products do not fall through or spawn inside it.
-        float surfaceY = origin.y;
+        public Vector3 center; // world middle of the product's bounds
+        public Vector3 size; // in the basket frame
+        public int layer;
+    }
+
+    private struct LayoutDebugColumn
+    {
+        public Vector3 center; // world middle of the column's floor strip
+        public Vector2 size; // width, depth
+    }
+
+    // One column of the basket grid: the items stacked top to bottom, and the room they use.
+    private sealed class BasketColumn
+    {
+        public readonly List<int> items = new();
+        public float width,
+            depth,
+            height,
+            left; // distance from the left edge of the area
+        public int layer;
+    }
+
+    private readonly List<LayoutDebugItem> _debugItems = new();
+    private readonly List<LayoutDebugColumn> _debugColumns = new();
+    private Vector3 _debugStart, // top-left corner of the area (world)
+        _debugRight, // unit vector: left to right
+        _debugDown; // unit vector: top to bottom
+    private Quaternion _debugFrame = Quaternion.identity;
+
+    // What a product measures in the basket frame (right, up, forward) in the pose it will rest in.
+    private readonly struct ProductFootprint
+    {
+        public readonly Vector3 Size; // width, height, depth
+        public readonly Vector3 CenterOffset; // from the product's pivot to the middle of its bounds
+        public readonly float BottomOffset; // how far the pivot is above the lowest point
+
+        public ProductFootprint(Vector3 size, Vector3 centerOffset, float bottomOffset)
+        {
+            Size = size;
+            CenterOffset = centerOffset;
+            BottomOffset = bottomOffset;
+        }
+    }
+
+    private Transform BasketBasis =>
+        customerBasketPoint != null ? customerBasketPoint : counter.transform;
+
+    private Vector3 BasketOrigin =>
+        customerBasketPoint != null ? customerBasketPoint.position : counter.CustomerStagingOrigin;
+
+    // Flat frame of the basket area: only the turn around the vertical axis counts.
+    private Quaternion BasketFrame => Quaternion.Euler(0f, BasketBasis.eulerAngles.y, 0f);
+
+    // basketAreaSize is X = top to bottom, Y = left to right.
+    private float AreaDepth => basketAreaSize.x;
+    private float AreaWidth => basketAreaSize.y;
+
+    /// <summary>
+    /// Lays the customer's products out on the counter as the customer sees it: from the top-left corner
+    /// of the basket area, down each column from the far edge to the near edge, then on to the next
+    /// column to the right. Products of one type sit together. When the area is full, the next items
+    /// start a new layer on top. Returns one slot per product, in the same order. Products keep their
+    /// current pose: the caller moves them into the slots.
+    /// </summary>
+    public List<BasketSlot> PlanCustomerBasket(
+        IReadOnlyList<ProductCarriable> products,
+        Vector3 customerPosition
+    )
+    {
+        var rotation = GetBasketRotation(customerPosition);
+        var frame = BasketFrame;
+        _debugItems.Clear();
+        _debugColumns.Clear();
+        _debugFrame = frame;
+        var slots = new List<BasketSlot>(products.Count);
+        var footprints = new ProductFootprint[products.Count];
+        var groups = new List<List<int>>();
+        var groupOf = new Dictionary<ProductDefinition, List<int>>();
+
+        for (int i = 0; i < products.Count; i++)
+        {
+            slots.Add(new BasketSlot { position = BasketOrigin, rotation = rotation });
+            var product = products[i];
+            if (product == null)
+                continue;
+
+            var original = product.transform.rotation;
+            product.transform.rotation = rotation; // measure it as it will rest
+            footprints[i] = MeasureProduct(product, frame);
+            product.transform.rotation = original;
+
+            if (
+                product.Definition == null
+                || !groupOf.TryGetValue(product.Definition, out var group)
+            )
+            {
+                group = new List<int>();
+                groups.Add(group);
+                if (product.Definition != null)
+                    groupOf[product.Definition] = group;
+            }
+            group.Add(i);
+        }
+
+        var order = new List<int>(products.Count); // one product type after another
+        foreach (var group in groups)
+            order.AddRange(group);
+        LayGrid(order, footprints, rotation, customerPosition, slots);
+        return slots;
+    }
+
+    // Columns first: each takes items from the top until its depth is used up, so its width is the widest
+    // item in it. Then the columns go left to right, and one that no longer fits the width starts a new layer.
+    private void LayGrid(
+        List<int> order,
+        ProductFootprint[] footprints,
+        Quaternion rotation,
+        Vector3 customerPosition,
+        List<BasketSlot> slots
+    )
+    {
+        var columns = new List<BasketColumn>();
+        BasketColumn column = null;
+        foreach (int i in order)
+        {
+            var size = footprints[i].Size;
+            if (size.x > AreaWidth || size.z > AreaDepth)
+                Debug.LogWarning(
+                    $"{name}: a product ({size.x:0.00} x {size.z:0.00} m) is bigger than the basket area.",
+                    this
+                );
+            if (
+                column == null
+                || (column.items.Count > 0 && column.depth + layoutGap + size.z > AreaDepth)
+            )
+            {
+                column = new BasketColumn();
+                columns.Add(column);
+            }
+            column.depth += (column.items.Count > 0 ? layoutGap : 0f) + size.z;
+            column.width = Mathf.Max(column.width, size.x);
+            column.height = Mathf.Max(column.height, size.y);
+            column.items.Add(i);
+        }
+
+        var layerHeights = new List<float> { 0f };
+        int layer = 0;
+        float left = 0f;
+        foreach (var c in columns)
+        {
+            if (left > 0f && left + c.width > AreaWidth)
+            {
+                layer++;
+                left = 0f;
+                layerHeights.Add(0f);
+            }
+            c.layer = layer;
+            c.left = left;
+            left += c.width + layoutGap;
+            layerHeights[layer] = Mathf.Max(layerHeights[layer], c.height);
+        }
+
+        var layerBases = new float[layerHeights.Count];
+        for (int l = 1; l < layerBases.Length; l++)
+            layerBases[l] = layerBases[l - 1] + layerHeights[l - 1] + layoutGap;
+
+        // The area is read as the customer sees it: far edge on top, the customer's left on the left.
+        var frame = BasketFrame;
+        var origin = BasketOrigin;
+        bool customerIsBehind = IsCustomerBehind(customerPosition);
+        float rightSign = customerIsBehind ? 1f : -1f;
+        float downSign = customerIsBehind ? -1f : 1f;
+        float topZ = customerIsBehind ? AreaDepth : 0f;
+        float leftX = rightSign * -AreaWidth * 0.5f;
+        _debugStart = origin + frame * new Vector3(leftX, 0f, topZ);
+        _debugRight = frame * new Vector3(rightSign, 0f, 0f);
+        _debugDown = frame * new Vector3(0f, 0f, downSign);
+
+        for (int c = 0; c < columns.Count; c++)
+        {
+            var col = columns[c];
+            float columnX = leftX + rightSign * (col.left + col.width * 0.5f);
+            float depth = 0f;
+            foreach (int i in col.items)
+            {
+                var footprint = footprints[i];
+                var center =
+                    origin
+                    + frame
+                        * new Vector3(
+                            columnX,
+                            0f,
+                            topZ + downSign * (depth + footprint.Size.z * 0.5f)
+                        );
+                var pivot =
+                    center
+                    - frame * new Vector3(footprint.CenterOffset.x, 0f, footprint.CenterOffset.z);
+                float surfaceY = FindSurfaceY(new Vector3(pivot.x, origin.y, pivot.z), origin.y);
+                pivot.y =
+                    surfaceY + footprint.BottomOffset + SurfaceClearance + layerBases[col.layer];
+
+                slots[i] = new BasketSlot { position = pivot, rotation = rotation };
+                _debugItems.Add(
+                    new LayoutDebugItem
+                    {
+                        center = pivot + frame * footprint.CenterOffset,
+                        size = footprint.Size,
+                        layer = col.layer,
+                    }
+                );
+                depth += footprint.Size.z + layoutGap;
+            }
+
+            if (col.layer == 0)
+                _debugColumns.Add(
+                    new LayoutDebugColumn
+                    {
+                        center =
+                            origin
+                            + frame * new Vector3(columnX, 0f, topZ + downSign * col.depth * 0.5f),
+                        size = new Vector2(col.width, col.depth),
+                    }
+                );
+        }
+    }
+
+    // True when the customer stands on the -forward side of the basket frame.
+    private bool IsCustomerBehind(Vector3 customerPosition)
+    {
+        var toCustomer = customerPosition - BasketOrigin;
+        toCustomer.y = 0f;
+        return Vector3.Dot(BasketFrame * Vector3.forward, toCustomer) < 0f;
+    }
+
+    // Flat, with the product's front (local +Z) toward the side of the counter the customer stands on.
+    private Quaternion GetBasketRotation(Vector3 customerPosition)
+    {
+        var frame = BasketFrame;
+        return IsCustomerBehind(customerPosition) ? frame * Quaternion.Euler(0f, 180f, 0f) : frame;
+    }
+
+    // Find the counter surface so products do not fall through or spawn inside it.
+    private static float FindSurfaceY(Vector3 point, float fallbackY)
+    {
+        float surfaceY = fallbackY;
         float nearest = float.PositiveInfinity;
         foreach (
             var hit in Physics.RaycastAll(
-                position + Vector3.up * 2f,
+                point + Vector3.up * 2f,
                 Vector3.down,
                 3f,
                 ~0,
@@ -68,17 +330,42 @@ public class Register : MonoBehaviour
             nearest = hit.distance;
             surfaceY = hit.point.y;
         }
-        float bottomOffset = 0.1f;
-        var renderers = product.GetComponentsInChildren<Renderer>(true);
-        if (renderers.Length > 0)
+        return surfaceY;
+    }
+
+    // Oriented bounds of every renderer, in the basket frame, for the pose the product has right now.
+    private static ProductFootprint MeasureProduct(ProductCarriable product, Quaternion frame)
+    {
+        var toFrame = Quaternion.Inverse(frame);
+        var pivot = toFrame * product.transform.position;
+        var bounds = new Bounds();
+        bool hasBounds = false;
+        foreach (var renderer in product.GetComponentsInChildren<Renderer>(true))
         {
-            var bounds = renderers[0].bounds;
-            foreach (var renderer in renderers)
-                bounds.Encapsulate(renderer.bounds);
-            bottomOffset = product.transform.position.y - bounds.min.y;
+            var local = renderer.localBounds;
+            var toWorld = renderer.transform.localToWorldMatrix;
+            for (int corner = 0; corner < 8; corner++)
+            {
+                var sign = new Vector3(
+                    (corner & 1) == 0 ? -1f : 1f,
+                    (corner & 2) == 0 ? -1f : 1f,
+                    (corner & 4) == 0 ? -1f : 1f
+                );
+                var point =
+                    toFrame
+                    * toWorld.MultiplyPoint3x4(local.center + Vector3.Scale(local.extents, sign));
+                if (hasBounds)
+                    bounds.Encapsulate(point);
+                else
+                {
+                    bounds = new Bounds(point, Vector3.zero);
+                    hasBounds = true;
+                }
+            }
         }
-        position.y = surfaceY + bottomOffset + 0.015f;
-        return position;
+        if (!hasBounds) // no renderers: assume a small box standing on its pivot
+            return new ProductFootprint(Vector3.one * 0.2f, Vector3.up * 0.1f, 0.1f);
+        return new ProductFootprint(bounds.size, bounds.center - pivot, pivot.y - bounds.min.y);
     }
 
     [Tooltip(
@@ -414,5 +701,72 @@ public class Register : MonoBehaviour
             c.OnCheckoutEnded(completed);
     }
 
-    private void OnValidate() => scanInterval = Mathf.Max(0.02f, scanInterval);
+    // Shows the basket area when the register is selected: the width and depth products fill before
+    // they stack. The start corner and fill direction show once a layout has been planned.
+    private void OnDrawGizmos()
+    {
+        if (customerBasketPoint == null && counter == null)
+            return;
+
+        var previousMatrix = Gizmos.matrix;
+        Gizmos.matrix = Matrix4x4.TRS(BasketOrigin, BasketFrame, Vector3.one);
+
+        var center = new Vector3(0f, 0f, AreaDepth * 0.5f);
+        var size = new Vector3(AreaWidth, 0.002f, AreaDepth);
+        Gizmos.color = new Color(0.2f, 0.8f, 1f, 0.15f);
+        Gizmos.DrawCube(center, size);
+        Gizmos.color = new Color(0.2f, 0.8f, 1f, 1f);
+        Gizmos.DrawWireCube(center, size);
+
+        Gizmos.matrix = previousMatrix;
+
+        if (showLayoutGizmos)
+            DrawLayoutGizmos();
+    }
+
+    // Columns are the coloured floor strips; each wire box is a product's real footprint, so the gaps
+    // between boxes are the spacing. Box colour is the stack layer: green bottom, then yellow, orange, red.
+    // The white marker is the start (top-left) corner, with a line down the first column and a short
+    // one along the first row.
+    private void DrawLayoutGizmos()
+    {
+        var previousMatrix = Gizmos.matrix;
+
+        for (int c = 0; c < _debugColumns.Count; c++)
+        {
+            var column = _debugColumns[c];
+            var color = Color.HSVToRGB((c * 0.17f) % 1f, 0.5f, 1f);
+            Gizmos.matrix = Matrix4x4.TRS(column.center, _debugFrame, Vector3.one);
+            var size = new Vector3(column.size.x, 0.002f, column.size.y);
+            Gizmos.color = new Color(color.r, color.g, color.b, 0.2f);
+            Gizmos.DrawCube(Vector3.zero, size);
+            Gizmos.color = color;
+            Gizmos.DrawWireCube(Vector3.zero, size);
+        }
+
+        foreach (var item in _debugItems)
+        {
+            Gizmos.matrix = Matrix4x4.TRS(item.center, _debugFrame, Vector3.one);
+            Gizmos.color = Color.HSVToRGB(Mathf.Max(0f, 0.33f - item.layer * 0.11f), 0.9f, 1f);
+            Gizmos.DrawWireCube(Vector3.zero, item.size);
+        }
+
+        if (_debugItems.Count > 0)
+        {
+            Gizmos.matrix = Matrix4x4.identity;
+            Gizmos.color = Color.white;
+            Gizmos.DrawSphere(_debugStart, 0.025f);
+            Gizmos.DrawLine(_debugStart, _debugStart + _debugDown * AreaDepth);
+            Gizmos.DrawLine(_debugStart, _debugStart + _debugRight * 0.15f);
+        }
+
+        Gizmos.matrix = previousMatrix;
+    }
+
+    private void OnValidate()
+    {
+        scanInterval = Mathf.Max(0.02f, scanInterval);
+        basketAreaSize = Vector2.Max(basketAreaSize, new Vector2(0.1f, 0.1f));
+        layoutGap = Mathf.Max(0f, layoutGap);
+    }
 }

@@ -121,9 +121,13 @@ public class PromptUI : MonoBehaviour
             if (!IsLineVisibleIn(e, ctx))
                 continue;
 
-            string key = input != null ? input.GetLabel(e.action) : null;
-            if (string.IsNullOrEmpty(key))
-                key = keyLabel;
+            string key = null; // None = text only (notices, "Shelf full"), no key shown
+            if (e.action != PromptAction.None)
+            {
+                key = input != null ? input.GetLabel(e.action) : null;
+                if (string.IsNullOrEmpty(key))
+                    key = keyLabel;
+            }
 
             var view = GetLine(shown++);
             view.gameObject.SetActive(true);

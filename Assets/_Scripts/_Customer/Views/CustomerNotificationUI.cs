@@ -8,6 +8,7 @@ using UnityEngine.UI;
 public class CustomerNotificationUI : MonoBehaviour
 {
     static CustomerNotificationUI instance;
+    static bool quitting;
 
     readonly Queue<string> messages = new();
     TMP_Text label;
@@ -23,6 +24,9 @@ public class CustomerNotificationUI : MonoBehaviour
             return;
 
         var notifications = EnsureExists();
+        if (notifications == null)
+            return;
+
         notifications.messages.Enqueue(message);
         if (notifications.displayRoutine == null)
             notifications.displayRoutine = notifications.StartCoroutine(
@@ -34,12 +38,22 @@ public class CustomerNotificationUI : MonoBehaviour
     {
         if (instance != null)
             return instance;
+        if (quitting)
+            return null; // shutdown: creating a DontDestroyOnLoad object now would leak it
 
         var root = new GameObject("Customer Notifications");
         DontDestroyOnLoad(root);
         instance = root.AddComponent<CustomerNotificationUI>();
         instance.BuildUI();
         return instance;
+    }
+
+    void OnApplicationQuit() => quitting = true;
+
+    void OnDestroy()
+    {
+        if (instance == this)
+            instance = null;
     }
 
     void BuildUI()

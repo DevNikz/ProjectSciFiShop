@@ -4,12 +4,12 @@ using UnityEngine;
 /// One compartment of the cash drawer. Interact (empty hands) to take a coin: it costs its value from
 /// your coins, and you can drag it to the change tray. Make one per denomination.
 /// </summary>
-[RequireComponent(typeof(Interactable))]
+[InteractableAddon("As Change Drawer")]
 public class ChangeDrawer : MonoBehaviour
 {
     [Tooltip("Coin spawned for this compartment.")]
-    [SerializeField]
-    Coin coinPrefab;
+    [SerializeField, FolderAsset("Assets/_Prefab")]
+    private Coin coinPrefab;
 
     [Tooltip("What the coin is worth, and what taking it costs (coins, min 1).")]
     [SerializeField]

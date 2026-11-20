@@ -59,6 +59,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AddPrecomputedVelocity: 0
     - _BumpScale: 2
     - _ClearCoat: 0
     - _DisplaceEnabled: 0
@@ -68,12 +69,13 @@ Material:
     - _OcclusionStrength: 1
     - _OutlineEnabled: 0
     - _Parallax: 0.08
+    - _PlanarReflectionEnabled: 0
     - _RimEnabled: 0
     - _RimLightMask: 0.5
     - _RimShadowAware: 0
     - _RimSoftness: 0.25
     - _RimThreshold: 0.8
-    - _Smoothness: 0
+    - _Smoothness: 0.451
     - _ToonEnabled: 0
     - _ToonHalfLambert: 0
     - _ToonSteps: 3

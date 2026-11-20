@@ -170,6 +170,11 @@ half4 StylizedFragmentLit(InputData inputData, SurfaceData surfaceData)
 
     half4 finalColor = CalculateFinalColor(lightingData, surfaceData.alpha);
 
+    // Planar reflection goes before matcap and hatching so both stylize the reflected result.
+    #if defined(_PLANAR_REFLECTION_ON)
+    finalColor.rgb = ApplyPlanarReflection(finalColor.rgb, inputData, surfaceData, mainLight.shadowAttenuation);
+    #endif
+
     #if defined(_MATCAP_ON)
     finalColor.rgb = ApplyMatcap(finalColor.rgb, inputData);
     #endif

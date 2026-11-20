@@ -17,7 +17,9 @@ GameObject:
   - component: {fileID: 4463755820698382390}
   - component: {fileID: 8166944377697290157}
   - component: {fileID: 9142464506034300670}
-  m_Layer: 0
+  - component: {fileID: 1293733560263189502}
+  - component: {fileID: 2827183867949456148}
+  m_Layer: 6
   m_Name: Coin
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -219,3 +221,27 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e45c48e74c5645f42801da6903aca3d5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: FPSCore::CarriableTicker
+--- !u!114 &1293733560263189502
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7802465085357718917}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2ca2481a6da88d94cb92b1c91aaba46d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: FPSCore::Draggable
+--- !u!114 &2827183867949456148
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7802465085357718917}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0484fc5cf4fc1e142aa7b12fb8cd8773, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: FPSCore::CarriableDragTarget

@@ -6,12 +6,23 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class CustomerSpawner : MonoBehaviour
 {
-    [SerializeField] CustomerAI customerPrefab;
-    [SerializeField] CustomerQueue checkoutQueue;
-    [SerializeField] Transform[] spawnPoints = System.Array.Empty<Transform>();
-    [SerializeField, Min(1f)] float secondsBetweenCustomers = 12f;
-    [SerializeField, Min(1)] int maximumActiveCustomers = 4;
-    [SerializeField] bool beginSpawningOnStart = true;
+    [SerializeField, FolderAsset("Assets/_Prefab")]
+    CustomerAI customerPrefab;
+
+    [SerializeField]
+    CustomerQueue checkoutQueue;
+
+    [SerializeField]
+    Transform[] spawnPoints = System.Array.Empty<Transform>();
+
+    [SerializeField, Min(1f)]
+    float secondsBetweenCustomers = 12f;
+
+    [SerializeField, Min(1)]
+    int maximumActiveCustomers = 4;
+
+    [SerializeField]
+    bool beginSpawningOnStart = true;
 
     readonly List<CustomerAI> activeCustomers = new();
     Coroutine spawnRoutine;
@@ -55,17 +66,24 @@ public class CustomerSpawner : MonoBehaviour
     {
         if (spawningRequested && isActiveAndEnabled && store != null && store.IsOpen)
         {
-            if (spawnRoutine == null) spawnRoutine = StartCoroutine(SpawnLoop());
+            if (spawnRoutine == null)
+                spawnRoutine = StartCoroutine(SpawnLoop());
         }
-        else PauseSpawning();
+        else
+            PauseSpawning();
     }
 
     public CustomerAI SpawnOne()
     {
         RemoveMissingCustomers();
-        if (DayManager.Instance == null || !DayManager.Instance.IsOpen
-            || customerPrefab == null || spawnPoints == null || spawnPoints.Length == 0
-            || activeCustomers.Count >= maximumActiveCustomers)
+        if (
+            DayManager.Instance == null
+            || !DayManager.Instance.IsOpen
+            || customerPrefab == null
+            || spawnPoints == null
+            || spawnPoints.Length == 0
+            || activeCustomers.Count >= maximumActiveCustomers
+        )
             return null;
 
         var point = spawnPoints[Random.Range(0, spawnPoints.Length)];
@@ -102,11 +120,13 @@ public class CustomerSpawner : MonoBehaviour
 
     void OnEnable()
     {
-        if (store == null) return;
+        if (store == null)
+            return;
         store.StoreOpened += RefreshSpawning;
         store.StoreClosed += RefreshSpawning;
         store.StateRestored += RefreshSpawning;
-        if (beginSpawningOnStart) BeginSpawning();
+        if (beginSpawningOnStart)
+            BeginSpawning();
     }
 
     void OnDisable()
