@@ -1,5 +1,27 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-8850458268539373384
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5485954d14dfb9a4c8ead8edb0ded5b1, type: 3}
+  m_Name: LiftGammaGain
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.LiftGammaGain
+  active: 1
+  lift:
+    m_OverrideState: 1
+    m_Value: {x: 1, y: 1, z: 1, w: -0.019011479}
+  gamma:
+    m_OverrideState: 1
+    m_Value: {x: 1, y: 1, z: 1, w: 0.03802281}
+  gain:
+    m_OverrideState: 1
+    m_Value: {x: 1, y: 1, z: 1, w: 0.095057026}
 --- !u!114 &-8706668337886005054
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -21,10 +43,10 @@ MonoBehaviour:
     m_Value: 1
   intensity:
     m_OverrideState: 1
-    m_Value: 0.25
+    m_Value: 2
   scatter:
     m_OverrideState: 1
-    m_Value: 0.5
+    m_Value: 0.25
   clamp:
     m_OverrideState: 0
     m_Value: 65472
@@ -35,10 +57,10 @@ MonoBehaviour:
     m_OverrideState: 1
     m_Value: 1
   filter:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 0
   downscale:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 0
   maxIterations:
     m_OverrideState: 0
@@ -75,6 +97,34 @@ MonoBehaviour:
   clamp:
     m_OverrideState: 0
     m_Value: 0.05
+--- !u!114 &-1685472347828302579
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 66f335fb1ffd8684294ad653bf1c7564, type: 3}
+  m_Name: ColorAdjustments
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.ColorAdjustments
+  active: 1
+  postExposure:
+    m_OverrideState: 1
+    m_Value: -0.5
+  contrast:
+    m_OverrideState: 1
+    m_Value: 10
+  colorFilter:
+    m_OverrideState: 0
+    m_Value: {r: 1, g: 1, b: 1, a: 1}
+  hueShift:
+    m_OverrideState: 0
+    m_Value: 0
+  saturation:
+    m_OverrideState: 0
+    m_Value: 0
 --- !u!114 &-1017340114799836745
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -133,6 +183,8 @@ MonoBehaviour:
   - {fileID: -2040120126527326182}
   - {fileID: 8051798056819205687}
   - {fileID: 2924616059828726699}
+  - {fileID: -1685472347828302579}
+  - {fileID: -8850458268539373384}
 --- !u!114 &2924616059828726699
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -248,7 +300,7 @@ MonoBehaviour:
     m_Value: {x: 0.5, y: 0.5}
   intensity:
     m_OverrideState: 1
-    m_Value: 0.2
+    m_Value: 0.3
   smoothness:
     m_OverrideState: 0
     m_Value: 0.2

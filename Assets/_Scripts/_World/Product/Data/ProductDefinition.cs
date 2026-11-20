@@ -33,6 +33,16 @@ public class ProductDefinition : ScriptableObject
     [SerializeField]
     ProductCategory category = ProductCategory.Other;
 
+    [Tooltip(
+        "The item this product is a brand of (e.g. Milk). Empty = it is its own item, so customers have no brand choice for it."
+    )]
+    [SerializeField]
+    ProductGroup group;
+
+    [Tooltip("Brand name shown in the shop. Empty = Display Name.")]
+    [SerializeField]
+    string brand;
+
     [Tooltip("Starting market price (coins, min 1).")]
     [SerializeField]
     int baseMarketPrice = 1;
@@ -49,8 +59,10 @@ public class ProductDefinition : ScriptableObject
     [SerializeField]
     int unlockCost;
 
-    [Tooltip("Prefab spawned for each unit. Its ProductPickup must use this definition.")]
-    [SerializeField, FolderAsset("Assets/_Prefab")]
+    [Tooltip(
+        "Prefab spawned for each unit. Several definitions (brands) can share one prefab: the spawner sets the definition on each unit."
+    )]
+    [SerializeField]
     ProductCarriable prefab;
 
     [Tooltip("Instances created at scene start. 0 = grow on demand.")]
@@ -64,6 +76,11 @@ public class ProductDefinition : ScriptableObject
     public string DisplayName => string.IsNullOrEmpty(displayName) ? name : displayName;
     public Sprite Icon => icon;
     public ProductCategory Category => category;
+    public ProductGroup Group => group;
+    public string Brand => string.IsNullOrEmpty(brand) ? DisplayName : brand;
+
+    /// <summary>What customers compare to decide two products are the same item: the group, else this product.</summary>
+    public UnityEngine.Object GroupKey => group != null ? (UnityEngine.Object)group : this;
     public int BaseMarketPrice => baseMarketPrice;
     public int UnitCost => unitCost;
     public int UnitsPerBox => unitsPerBox;
@@ -78,8 +95,11 @@ public class ProductDefinition : ScriptableObject
         unlockCost = Mathf.Max(0, unlockCost);
         if (unitCost >= baseMarketPrice)
             Debug.LogWarning($"{name}: unit cost is not below the market price (no margin).", this);
-        if (prefab != null && prefab.Definition != this)
-            Debug.LogWarning($"{name}: prefab '{prefab.name}' uses a different definition.", this);
+        if (group == null)
+            Debug.LogWarning(
+                $"{name}: no Product Group, so it is its own item and customers have no brand choice for it.",
+                this
+            );
         if (string.IsNullOrEmpty(id)) // lock an id in once, so renaming the asset can't break saves
             id = name;
     }

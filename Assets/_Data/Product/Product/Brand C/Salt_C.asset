@@ -10,15 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f7d91d1dbd29b18468f67b4c0a8364f3, type: 3}
-  m_Name: StrawberryMilk
+  m_Name: Salt_C
   m_EditorClassIdentifier: Assembly-CSharp::ProductDefinition
-  id: StrawberryMilk
-  displayName: StrawberryMilk
+  id: Salt_C
+  displayName: Salt_C
   icon: {fileID: 0}
-  category: 2
+  category: 6
+  group: {fileID: 11400000, guid: 35f131339b63e9746affa25df537c6b5, type: 2}
+  brand: 
   baseMarketPrice: 5
   unitCost: 2
   unitsPerBox: 10
   unlockCost: 0
-  prefab: {fileID: 1096332653333590833, guid: 2f56f002c59bd374ca44f0db7fc12d68, type: 3}
+  prefab: {fileID: 1096332653333590833, guid: 012b36d9ccb3c27409137645804cf325, type: 3}
   prewarmCount: 10

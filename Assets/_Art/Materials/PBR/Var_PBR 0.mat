@@ -16,6 +16,7 @@ Material:
   - _NORMALMAP
   - _OCCLUSIONMAP
   - _PARALLAXMAP
+  - _SSR_REFLECTION_ON
   m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 1
@@ -75,7 +76,9 @@ Material:
     - _RimShadowAware: 0
     - _RimSoftness: 0.25
     - _RimThreshold: 0.8
-    - _Smoothness: 0.451
+    - _SSRReflectionEnabled: 1
+    - _SSRReflectionIntensity: 1
+    - _Smoothness: 0.25
     - _ToonEnabled: 0
     - _ToonHalfLambert: 0
     - _ToonSteps: 3

@@ -10,12 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f7d91d1dbd29b18468f67b4c0a8364f3, type: 3}
-  m_Name: Salt
+  m_Name: Salt_B
   m_EditorClassIdentifier: Assembly-CSharp::ProductDefinition
-  id: Salt
-  displayName: Salt
+  id: Salt_B
+  displayName: Salt_B
   icon: {fileID: 0}
   category: 6
+  group: {fileID: 11400000, guid: 16ca2e60ea9d0b744b2f722877f03a3b, type: 2}
+  brand: 
   baseMarketPrice: 5
   unitCost: 2
   unitsPerBox: 10

@@ -17,6 +17,7 @@ Material:
   - _OCCLUSIONMAP
   - _PARALLAXMAP
   - _PLANAR_REFLECTION_ON
+  - _SSR_REFLECTION_ON
   - _TOON_ON
   - _TOON_RAMPMAP
   m_InvalidKeywords: []
@@ -90,6 +91,8 @@ Material:
     - _RimShadowAware: 0
     - _RimSoftness: 0.25
     - _RimThreshold: 0.8
+    - _SSRReflectionEnabled: 1
+    - _SSRReflectionIntensity: 1
     - _Smoothness: 0.75
     - _ToonAdditionalLights: 1
     - _ToonEnabled: 1

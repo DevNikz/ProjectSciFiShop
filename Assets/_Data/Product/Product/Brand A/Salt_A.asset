@@ -10,15 +10,17 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f7d91d1dbd29b18468f67b4c0a8364f3, type: 3}
-  m_Name: FreshCream
+  m_Name: Salt_A
   m_EditorClassIdentifier: Assembly-CSharp::ProductDefinition
-  id: FreshCream
-  displayName: FreshCream
+  id: Salt_A
+  displayName: Salt_A
   icon: {fileID: 0}
-  category: 2
+  category: 6
+  group: {fileID: 11400000, guid: 287919aa9462de4468f10ebeb4026ed2, type: 2}
+  brand: 
   baseMarketPrice: 5
   unitCost: 2
   unitsPerBox: 10
   unlockCost: 0
-  prefab: {fileID: 1096332653333590833, guid: cc2ed01e9350a90488d133d1424001df, type: 3}
+  prefab: {fileID: 1096332653333590833, guid: 012b36d9ccb3c27409137645804cf325, type: 3}
   prewarmCount: 10

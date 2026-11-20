@@ -99,6 +99,7 @@ half _PlanarReflectionMin;
 half _PlanarReflectionFresnelPower;
 half _PlanarReflectionDistortion;
 half _PlanarReflectionShadow;
+half _SSRReflectionIntensity;
 UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 CBUFFER_END
 
@@ -185,6 +186,7 @@ UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
     UNITY_DOTS_INSTANCED_PROP(float , _PlanarReflectionFresnelPower)
     UNITY_DOTS_INSTANCED_PROP(float , _PlanarReflectionDistortion)
     UNITY_DOTS_INSTANCED_PROP(float , _PlanarReflectionShadow)
+    UNITY_DOTS_INSTANCED_PROP(float , _SSRReflectionIntensity)
 UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 
 // Here, we want to avoid overriding a property like e.g. _BaseColor with something like this:
@@ -274,6 +276,7 @@ static float  unity_DOTS_Sampled_PlanarReflectionMin;
 static float  unity_DOTS_Sampled_PlanarReflectionFresnelPower;
 static float  unity_DOTS_Sampled_PlanarReflectionDistortion;
 static float  unity_DOTS_Sampled_PlanarReflectionShadow;
+static float  unity_DOTS_Sampled_SSRReflectionIntensity;
 
 void SetupDOTSStylizedMaterialPropertyCaches()
 {
@@ -354,6 +357,7 @@ void SetupDOTSStylizedMaterialPropertyCaches()
     unity_DOTS_Sampled_PlanarReflectionFresnelPower = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _PlanarReflectionFresnelPower);
     unity_DOTS_Sampled_PlanarReflectionDistortion = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _PlanarReflectionDistortion);
     unity_DOTS_Sampled_PlanarReflectionShadow = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _PlanarReflectionShadow);
+    unity_DOTS_Sampled_SSRReflectionIntensity = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _SSRReflectionIntensity);
 }
 
 #undef UNITY_SETUP_DOTS_MATERIAL_PROPERTY_CACHES
@@ -436,6 +440,7 @@ void SetupDOTSStylizedMaterialPropertyCaches()
 #define _PlanarReflectionFresnelPower   unity_DOTS_Sampled_PlanarReflectionFresnelPower
 #define _PlanarReflectionDistortion     unity_DOTS_Sampled_PlanarReflectionDistortion
 #define _PlanarReflectionShadow         unity_DOTS_Sampled_PlanarReflectionShadow
+#define _SSRReflectionIntensity         unity_DOTS_Sampled_SSRReflectionIntensity
 
 #endif
 

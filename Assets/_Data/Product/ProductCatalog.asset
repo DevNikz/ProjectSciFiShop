@@ -13,9 +13,21 @@ MonoBehaviour:
   m_Name: ProductCatalog
   m_EditorClassIdentifier: Assembly-CSharp::ProductCatalog
   products:
-  - {fileID: 11400000, guid: dc2e84104c7ff664699ad8fbddc4a504, type: 2}
-  - {fileID: 11400000, guid: d336466498d25be42a75c4a447ea04f9, type: 2}
   - {fileID: 11400000, guid: 3542a2077d4f3794283602a55701774a, type: 2}
-  - {fileID: 11400000, guid: 1acae4e4b941c1147afd7f4246d57efe, type: 2}
   - {fileID: 11400000, guid: 9f072397107443749b82f521262416c4, type: 2}
+  - {fileID: 11400000, guid: d336466498d25be42a75c4a447ea04f9, type: 2}
+  - {fileID: 11400000, guid: dc2e84104c7ff664699ad8fbddc4a504, type: 2}
   - {fileID: 11400000, guid: 71d351a431f30ae4f9f40ce53c2a1c06, type: 2}
+  - {fileID: 11400000, guid: 1acae4e4b941c1147afd7f4246d57efe, type: 2}
+  - {fileID: 11400000, guid: 0e12a931386087e42bdd65de0ce009fc, type: 2}
+  - {fileID: 11400000, guid: 00923908433b90f4fbed1dd713e80924, type: 2}
+  - {fileID: 11400000, guid: 686c50f7f20648e4897b09f03ec08f86, type: 2}
+  - {fileID: 11400000, guid: 2272e2cfb4af4f542adb210147518436, type: 2}
+  - {fileID: 11400000, guid: 9b73d0f6f1859cd439f42bd617260552, type: 2}
+  - {fileID: 11400000, guid: 539e73ac77502b04aa43eca2b59561b9, type: 2}
+  - {fileID: 11400000, guid: 294433a7f3f7c954a98c83e71cf261e3, type: 2}
+  - {fileID: 11400000, guid: a9cbe5629115a994cb2539961eb0a9ad, type: 2}
+  - {fileID: 11400000, guid: 12dbe446eab143d40b28663636bd41b1, type: 2}
+  - {fileID: 11400000, guid: 4b42b436c8e5e7a4ab9b569f25ff4071, type: 2}
+  - {fileID: 11400000, guid: 70c3f13b70deb4f4db2ea76588614610, type: 2}
+  - {fileID: 11400000, guid: a3a5b66cd9894fe45901c0209c0e2680, type: 2}

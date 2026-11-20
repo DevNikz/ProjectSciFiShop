@@ -9,9 +9,17 @@ public class ShelfInventory : MonoBehaviour
     [SerializeField]
     string shelfName = "Shelf";
 
-    [Tooltip("Empty transforms marking item pivots. One product fits in each slot.")]
+    [Tooltip(
+        "Empty transforms marking item pivots. One product fits in each slot. Used only when there is no Shelf Slot Layout."
+    )]
     [SerializeField]
     Transform[] slots = Array.Empty<Transform>();
+
+    [Tooltip(
+        "Optional. Each layout supplies slots (generated grid or scene references), in this order, and replaces the Slots list above. Empty = every Shelf Slot Layout on this object and its children, in hierarchy order."
+    )]
+    [SerializeField]
+    ShelfSlotLayout[] slotLayouts = Array.Empty<ShelfSlotLayout>();
 
     [Tooltip(
         "Where customers stand to collect products. Place this on the floor in front of the shelf. Falls back to one metre in front of the shelf."
@@ -61,7 +69,9 @@ public class ShelfInventory : MonoBehaviour
     public event Action<string> PlacementRejected;
     public string ShelfName => shelfName;
     public int Count => entries.Count;
-    public int Capacity => slots == null ? 0 : slots.Length;
+    List<Transform> activeSlots; // built on first use: the stock UI can ask before this Awake runs
+    IReadOnlyList<Transform> ActiveSlots => activeSlots ??= BuildActiveSlots();
+    public int Capacity => ActiveSlots.Count;
 
     /// <summary>Available physical stock, excluding items another shopper already reserved.</summary>
     public void GetAvailableProducts(List<ProductCarriable> products)
@@ -112,6 +122,27 @@ public class ShelfInventory : MonoBehaviour
     }
 
     void Awake() => interactable = GetComponent<Interactable>();
+
+    // Every layout's slots in order. With no layout at all, the old Slots list is used.
+    List<Transform> BuildActiveSlots()
+    {
+        var layouts =
+            slotLayouts != null && slotLayouts.Length > 0
+                ? slotLayouts
+                : GetComponentsInChildren<ShelfSlotLayout>(true);
+        var list = new List<Transform>();
+        int found = 0;
+        foreach (var layout in layouts)
+        {
+            if (layout == null)
+                continue;
+            found++;
+            list.AddRange(layout.Slots);
+        }
+        if (found == 0 && slots != null)
+            list.AddRange(slots);
+        return list;
+    }
 
     void OnEnable() => interactable.OnInteractEvent += HandleInteract;
 
@@ -228,7 +259,7 @@ public class ShelfInventory : MonoBehaviour
             || item.GetComponent<ShelfProduct>().Shelf != null
         )
             return null;
-        foreach (var slot in slots)
+        foreach (var slot in ActiveSlots)
             if (
                 slot != null
                 && !reserved.Contains(slot)

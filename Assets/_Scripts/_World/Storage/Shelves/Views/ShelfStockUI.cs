@@ -3,6 +3,10 @@ using System.Text;
 using DG.Tweening;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 /// <summary>
 /// Formats one shelf's stock into a TMP label that fades in only while the player aims at the shelf.
@@ -59,6 +63,27 @@ public class ShelfStockUI : MonoBehaviour, IPromptSource, IPromptContextProvider
     [SerializeField]
     Interactor interactor;
 
+    [Header("Content Fit")]
+    [Tooltip(
+        "The panel that is resized to its content. Its direct child is the label. Empty = the stock group's object, else the label's parent."
+    )]
+    [SerializeField]
+    RectTransform panel;
+
+    [Tooltip("Narrowest label width, in canvas units.")]
+    [SerializeField]
+    float fitMinWidth = 160f;
+
+    [Tooltip("Widest label width, in canvas units. Longer lines wrap. 0 = no limit.")]
+    [SerializeField]
+    float fitMaxWidth = 320f;
+
+    [Tooltip(
+        "Space between the panel edge and the label. Applied by the 'Setup content fit' context menu."
+    )]
+    [SerializeField]
+    RectOffset fitPadding;
+
     [Header("Slot Outline")]
     [Tooltip("Width and depth of the flat placement marker, in metres.")]
     [SerializeField]
@@ -83,6 +108,7 @@ public class ShelfStockUI : MonoBehaviour, IPromptSource, IPromptContextProvider
     readonly List<string> ids = new();
     LineRenderer outline;
     Material outlineMaterial;
+    LayoutElement labelLayout;
     Tween fadeTween;
     bool isStockVisible;
     bool isFocused;
@@ -116,6 +142,24 @@ public class ShelfStockUI : MonoBehaviour, IPromptSource, IPromptContextProvider
             );
         if (interactor == null)
             interactor = FindFirstObjectByType<Interactor>();
+
+        panel = ResolvePanel();
+        if (stockLabel != null)
+            labelLayout = stockLabel.GetComponent<LayoutElement>();
+        if (panel == null || labelLayout == null)
+            Debug.LogWarning(
+                $"{name}: no panel or label Layout Element, so the stock panel does not fit its content. Use 'Setup content fit'.",
+                this
+            );
+    }
+
+    RectTransform ResolvePanel()
+    {
+        if (panel != null)
+            return panel;
+        if (stockGroup != null)
+            return stockGroup.transform as RectTransform;
+        return stockLabel != null ? stockLabel.rectTransform.parent as RectTransform : null;
     }
 
     void OnEnable()
@@ -178,6 +222,90 @@ public class ShelfStockUI : MonoBehaviour, IPromptSource, IPromptContextProvider
                 .Append(stock[id])
                 .Append("</b></color>");
         stockLabel.text = text.ToString();
+        ApplyLabelWidth();
+        if (panel != null)
+            LayoutRebuilder.ForceRebuildLayoutImmediate(panel); // size is right before the fade-in
+    }
+
+    // The label is as wide as its longest line, kept between the min and max. Longer lines wrap.
+    void ApplyLabelWidth()
+    {
+        if (labelLayout == null)
+            return;
+        float width = stockLabel.GetPreferredValues(stockLabel.text).x;
+        if (fitMaxWidth > 0f)
+            width = Mathf.Min(width, fitMaxWidth);
+        labelLayout.preferredWidth = Mathf.Max(width, fitMinWidth);
+    }
+
+    /// <summary>Adds the layout components that make the panel fit the label. Safe to run again.</summary>
+    [ContextMenu("Setup content fit")]
+    void EnsureContentFit()
+    {
+#if UNITY_EDITOR
+        if (Application.isPlaying)
+        {
+            Debug.LogWarning($"{name}: set up content fit in Edit Mode so it is saved.", this);
+            return;
+        }
+        var target = ResolvePanel();
+        if (target == null || stockLabel == null)
+        {
+            Debug.LogWarning($"{name}: assign the label (and a panel) first.", this);
+            return;
+        }
+        if (stockLabel.rectTransform.parent != target)
+        {
+            Debug.LogWarning($"{name}: the label must be a direct child of the panel.", this);
+            return;
+        }
+        if (target.TryGetComponent(out LayoutGroup other) && other is not VerticalLayoutGroup)
+        {
+            Debug.LogWarning(
+                $"{name}: the panel already has a {other.GetType().Name}. Remove it first.",
+                this
+            );
+            return;
+        }
+        if (target.anchorMin != target.anchorMax)
+            Debug.LogWarning(
+                $"{name}: the panel has stretched anchors, which fight the size fitter.",
+                this
+            );
+
+        Undo.RecordObject(this, "Setup content fit");
+        panel = target;
+
+        var group = target.GetComponent<VerticalLayoutGroup>();
+        if (group == null)
+            group = Undo.AddComponent<VerticalLayoutGroup>(target.gameObject);
+        group.padding = new RectOffset(
+            fitPadding.left,
+            fitPadding.right,
+            fitPadding.top,
+            fitPadding.bottom
+        );
+        group.childControlWidth = true;
+        group.childControlHeight = true;
+        group.childForceExpandWidth = false;
+        group.childForceExpandHeight = false;
+
+        var fitter = target.GetComponent<ContentSizeFitter>();
+        if (fitter == null)
+            fitter = Undo.AddComponent<ContentSizeFitter>(target.gameObject);
+        fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        var element = stockLabel.GetComponent<LayoutElement>();
+        if (element == null)
+            element = Undo.AddComponent<LayoutElement>(stockLabel.gameObject);
+        element.preferredWidth = fitMinWidth;
+
+        Undo.RecordObject(stockLabel, "Setup content fit");
+        stockLabel.textWrappingMode = TextWrappingModes.Normal;
+        EditorUtility.SetDirty(this);
+        Debug.Log($"{name}: content fit set up on '{target.name}'.", this);
+#endif
     }
 
     void ShowNotice(string message)
@@ -364,7 +492,17 @@ public class ShelfStockUI : MonoBehaviour, IPromptSource, IPromptContextProvider
             outline.SetPosition(i, slot.TransformPoint(local[i]));
     }
 
-    void OnValidate() => fadeDuration = Mathf.Max(0f, fadeDuration);
+    // RectOffset can't be built in a field initializer (Unity throws), so defaults are set here.
+    void Reset() => fitPadding = new RectOffset(12, 12, 12, 12);
+
+    void OnValidate()
+    {
+        fadeDuration = Mathf.Max(0f, fadeDuration);
+        fitMinWidth = Mathf.Max(0f, fitMinWidth);
+        fitMaxWidth = Mathf.Max(0f, fitMaxWidth);
+        if (fitMaxWidth > 0f && fitMaxWidth < fitMinWidth)
+            fitMaxWidth = fitMinWidth;
+    }
 
     void OnDestroy()
     {

@@ -1,5 +1,42 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
+--- !u!114 &-387554323586356153
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dff390f52760dad4695cfcc8dfc72e33, type: 3}
+  m_Name: SSRRendererFeature
+  m_EditorClassIdentifier: SSR.Runtime::SSRFeature.SSRRendererFeature
+  m_Active: 1
+  settings:
+    enabled: 1
+    applyInSceneView: 1
+    quality: 1
+    surfaceMode: 2
+    reflectivity: 0.8
+    useMaterialSmoothness: 1
+    smoothnessThreshold: 0.35
+    smoothnessRamp: 0.3
+    smoothnessInfluence: 1
+    roughnessBlur: 2
+    fallbackSmoothness: 0.5
+    maxDistance: 100
+    thickness: 1
+    edgeFade: 0
+    fresnelPower: 3
+    minReflectance: 0.2
+    intensity: 1
+    maxOpacity: 1
+    maxLuminance: 8
+    temporalFeedback: 0.8
+    debugView: 0
+  ssrShader: {fileID: 4800000, guid: 855e911ebf03e1b4d9f5c5875cb68825, type: 3}
+  maskShader: {fileID: 4800000, guid: 5b5054cd1b0296b4aac32033be6f21fa, type: 3}
 --- !u!114 &11400000
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -28,7 +65,8 @@ MonoBehaviour:
   - {fileID: 7491601281297515449}
   - {fileID: 2235548775312966909}
   - {fileID: 3622465286788718717}
-  m_RendererFeatureMap: b9839952ac83f767fdc49646c443061f7da03956fc944532
+  - {fileID: -387554323586356153}
+  m_RendererFeatureMap: b9839952ac83f767fdc49646c443061f7da03956fc94453247ec776365219ffa
   m_UseNativeRenderPass: 1
   xrSystemData: {fileID: 0}
   postProcessData: {fileID: 11400000, guid: 41439944d30ece34e96484bdb6645b55, type: 2}

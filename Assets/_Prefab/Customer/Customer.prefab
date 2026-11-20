@@ -180,6 +180,12 @@ MonoBehaviour:
   shelfPickupDelay: 0.3
   shelfTravelTimeout: 25
   shelfLeaveDelay: 0.4
+  minimumLifetime: 15
+  maximumLifetime: 30
+  brandLoyaltyChance: 0.4
+  brandWaitSeconds: 6
+  wanderRadius: 10
+  shelfLookDelay: 0.5
   flightDuration: 0.3
   placeInterval: 0.05
   arcHeight: 0.25

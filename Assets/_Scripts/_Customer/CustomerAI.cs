@@ -99,6 +99,35 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
     [SerializeField, Min(0f)]
     float shelfLeaveDelay = 0.6f;
 
+    [Tooltip(
+        "A customer looks for items this long (seconds, random between min and max) before giving up."
+    )]
+    [SerializeField, Min(1f)]
+    float minimumLifetime = 45f;
+
+    [SerializeField, Min(1f)]
+    float maximumLifetime = 90f;
+
+    [Tooltip(
+        "Chance (0-1) that a wanted item has a preferred brand. The rest accept any brand of it."
+    )]
+    [SerializeField, Range(0f, 1f)]
+    float brandLoyaltyChance = 0.4f;
+
+    [Tooltip(
+        "Seconds a customer keeps looking for a preferred brand before accepting another brand of the same item."
+    )]
+    [SerializeField, Min(0f)]
+    float brandWaitSeconds = 12f;
+
+    [Tooltip("How far from a shelf (metres) a customer wanders between shelf checks.")]
+    [SerializeField, Min(0f)]
+    float wanderRadius = 3f;
+
+    [Tooltip("Seconds spent looking at a shelf before its stock is checked.")]
+    [SerializeField, Min(0f)]
+    float shelfLookDelay = 0.8f;
+
     [Header("Counter Placement")]
     [Tooltip("Seconds one item takes to arc from the customer onto the counter.")]
     [SerializeField, Min(0.05f)]
@@ -120,7 +149,18 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
         public bool delivered;
     }
 
+    // One thing the customer is looking for: an item (group), maybe one preferred brand of it.
+    sealed class WantedItem
+    {
+        public UnityEngine.Object groupKey;
+        public ProductDefinition preferred; // null = any brand
+        public int remaining;
+        public float brandWaitStart = -1f; // -1 = not started
+    }
+
     readonly List<ShoppingItem> shoppingItems = new();
+    readonly List<WantedItem> wants = new();
+    bool didReachPoint;
     Transform shoppingMarker;
     Coroutine shoppingRoutine;
     Coroutine deliveryRoutine;
@@ -254,54 +294,60 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
         State = CustomerState.Shopping;
         if (spawnPause > 0f)
             yield return new WaitForSeconds(spawnPause);
-        GenerateOrder();
+
+        var shelves = new List<ShelfInventory>(
+            FindObjectsByType<ShelfInventory>(FindObjectsSortMode.None)
+        );
+        if (shelves.Count == 0)
+            Debug.LogWarning(
+                $"{name}: no shelves in the scene, so there is nothing to browse.",
+                this
+            );
+        BuildWantList(shelves);
         shoppingMarker = new GameObject("Customer Shelf Destination").transform;
         shoppingMarker.SetParent(transform.parent, false);
-        foreach (var item in shoppingItems)
+
+        float deadline =
+            Time.time
+            + UnityEngine.Random.Range(
+                minimumLifetime,
+                Mathf.Max(minimumLifetime, maximumLifetime)
+            );
+        var unvisited = new List<ShelfInventory>(shelves);
+        while (IsStillLooking(deadline))
         {
-            if (item.shelf == null || item.product == null)
+            yield return null; // a frame every pass, so a customer that is already there never spins
+            ShelfInventory shelf = null;
+            Vector3 point;
+            if (unvisited.Count > 0)
             {
-                Debug.LogWarning(
-                    $"{name}: skipped a reserved item, its shelf or product no longer exists.",
-                    this
-                );
+                int index = UnityEngine.Random.Range(0, unvisited.Count);
+                shelf = unvisited[index];
+                unvisited.RemoveAt(index);
+                if (shelf == null)
+                    continue;
+                point = shelf.CustomerPickupPosition;
+            }
+            else
+            {
+                point = PickWanderPoint(shelves);
+                unvisited.AddRange(shelves); // after the wander, look at every shelf again
+            }
+
+            yield return WalkToRoutine(point, deadline);
+            if (!didReachPoint)
+            {
+                if (Time.time < deadline)
+                    Debug.LogWarning(
+                        $"{name}: could not reach a browse point within {shelfTravelTimeout}s.",
+                        this
+                    );
                 continue;
             }
-            var position = item.shelf.CustomerPickupPosition;
-            position.y = transform.position.y;
-            shoppingMarker.position = position;
-            SetDestination(shoppingMarker);
-            float timeout = Time.time + shelfTravelTimeout;
-            while (!IsAtDestination() && Time.time < timeout)
-                yield return null;
-            if (!IsAtDestination())
-            {
-                Debug.LogWarning(
-                    $"{name}: could not reach the shelf for '{item.product.Definition.DisplayName}' within {shelfTravelTimeout}s.",
-                    this
-                );
-                continue;
-            }
-            yield return new WaitForSeconds(shelfPickupDelay);
-            if (
-                item.shelf == null
-                || item.product == null
-                || !item.shelf.TryCollectProduct(item.product, this)
-            )
-            {
-                Debug.LogWarning(
-                    $"{name}: could not collect a reserved item from its shelf.",
-                    this
-                );
-                continue;
-            }
-            item.collected = true;
-            item.product.transform.SetParent(transform, true);
-            item.product.Carriable.Body.isKinematic = true;
-            item.product.Carriable.Body.useGravity = false;
-            item.product.gameObject.SetActive(false); // carried in the customer's basket
-            yield return new WaitForSeconds(shelfLeaveDelay);
+            if (shelf != null)
+                yield return LookAtShelfRoutine(shelf);
         }
+
         ReleaseReservations();
         RebuildCollectedOrder();
         destination = null;
@@ -314,7 +360,7 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
                 $"{name}: nothing collected ({shoppingItems.Count} item(s) were reserved).",
                 this
             );
-            CustomerNotificationUI.Show("Customer left — desired items were unavailable");
+            CustomerNotificationUI.Show("Customer left — nothing they wanted was in stock");
             LeaveStore();
         }
         else
@@ -324,6 +370,102 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
             if (!registered)
                 LeaveStore();
         }
+    }
+
+    // No wants at all (nothing to look for) still wanders until the lifetime ends.
+    bool IsStillLooking(float deadline) =>
+        Time.time < deadline && (wants.Count == 0 || wants.Exists(want => want.remaining > 0));
+
+    // Walks to a point and sets didReachPoint. Gives up at shelfTravelTimeout or the lifetime deadline.
+    IEnumerator WalkToRoutine(Vector3 point, float giveUpAt)
+    {
+        point.y = transform.position.y;
+        shoppingMarker.position = point;
+        SetDestination(shoppingMarker);
+        float timeout = Mathf.Min(Time.time + shelfTravelTimeout, giveUpAt);
+        while (!IsAtDestination() && Time.time < timeout)
+            yield return null;
+        didReachPoint = IsAtDestination();
+    }
+
+    // A shelf is checked only when the customer is standing at it: take what matches a want.
+    IEnumerator LookAtShelfRoutine(ShelfInventory shelf)
+    {
+        if (shelfLookDelay > 0f)
+            yield return new WaitForSeconds(shelfLookDelay);
+        var stock = new List<ProductCarriable>();
+        shelf.GetAvailableProducts(stock);
+        foreach (var want in wants)
+        {
+            foreach (var pickup in stock)
+            {
+                if (want.remaining <= 0)
+                    break;
+                if (pickup == null || !IsAcceptable(want, pickup.Definition))
+                    continue;
+                if (shelf == null || !shelf.TryReserveProduct(pickup, this))
+                    continue;
+                var item = new ShoppingItem { shelf = shelf, product = pickup };
+                shoppingItems.Add(item);
+                yield return CollectFromShelfRoutine(item);
+                if (item.collected)
+                    want.remaining--;
+            }
+            // Still short after this shelf: the preferred brand's wait starts now.
+            if (want.remaining > 0 && want.preferred != null && want.brandWaitStart < 0f)
+                want.brandWaitStart = Time.time;
+        }
+    }
+
+    IEnumerator CollectFromShelfRoutine(ShoppingItem item)
+    {
+        yield return new WaitForSeconds(shelfPickupDelay);
+        if (
+            item.shelf == null
+            || item.product == null
+            || !item.shelf.TryCollectProduct(item.product, this)
+        )
+        {
+            Debug.LogWarning($"{name}: could not collect a reserved item from its shelf.", this);
+            yield break;
+        }
+        item.collected = true;
+        item.product.transform.SetParent(transform, true);
+        item.product.Carriable.Body.isKinematic = true;
+        item.product.Carriable.Body.useGravity = false;
+        item.product.gameObject.SetActive(false); // carried in the customer's basket
+        yield return new WaitForSeconds(shelfLeaveDelay);
+    }
+
+    bool IsAcceptable(WantedItem want, ProductDefinition definition)
+    {
+        if (definition == null || definition.GroupKey != want.groupKey)
+            return false;
+        if (want.preferred == null || definition == want.preferred)
+            return true;
+        return IsBrandWaitOver(want); // another brand only once the wait for the preferred one is over
+    }
+
+    bool IsBrandWaitOver(WantedItem want) =>
+        want.brandWaitStart >= 0f && Time.time - want.brandWaitStart >= brandWaitSeconds;
+
+    Vector3 PickWanderPoint(List<ShelfInventory> shelves)
+    {
+        var anchor = transform.position;
+        if (shelves.Count > 0)
+        {
+            var shelf = shelves[UnityEngine.Random.Range(0, shelves.Count)];
+            if (shelf != null)
+                anchor = shelf.CustomerPickupPosition;
+        }
+        var offset = UnityEngine.Random.insideUnitCircle * wanderRadius;
+        var point = anchor + new Vector3(offset.x, 0f, offset.y);
+        if (
+            useNavMeshAgent
+            && NavMesh.SamplePosition(point, out var hit, wanderRadius + 1f, NavMesh.AllAreas)
+        )
+            point = hit.position;
+        return point;
     }
 
     /// <summary>Called by CustomerQueue whenever this customer's position changes.</summary>
@@ -500,50 +642,69 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
     [ContextMenu("Cashier: Items Ready")]
     void DebugItemsReady() => NotifyItemsReady();
 
-    void GenerateOrder()
+    // Items come from unlocked products whether or not they are on a shelf right now.
+    // A product with no group counts as its own item.
+    void BuildWantList(List<ShelfInventory> shelves)
     {
+        wants.Clear();
         order.Clear();
-        var stock = new List<ProductCarriable>();
-        foreach (var shelf in FindObjectsByType<ShelfInventory>(FindObjectsSortMode.None))
-            shelf.GetAvailableProducts(stock);
-        var available = new List<ProductDefinition>();
-        foreach (var product in stock)
-            if (!available.Contains(product.Definition))
-                available.Add(product.Definition);
-        if (available.Count == 0)
+
+        var brandsByItem = new Dictionary<UnityEngine.Object, List<ProductDefinition>>();
+        foreach (var definition in CollectWantableDefinitions(shelves))
         {
-            Debug.LogWarning("Items Run out!");
+            var key = definition.GroupKey;
+            if (!brandsByItem.TryGetValue(key, out var brands))
+                brandsByItem[key] = brands = new List<ProductDefinition>();
+            brands.Add(definition);
+        }
+        if (brandsByItem.Count == 0)
+        {
+            Debug.LogWarning(
+                $"{name}: no unlocked products, so there is nothing to look for.",
+                this
+            );
             return;
         }
-        int min = Mathf.Clamp(minimumProductTypes, 1, available.Count);
-        int max = Mathf.Clamp(maximumProductTypes, min, available.Count);
+
+        var items = new List<UnityEngine.Object>(brandsByItem.Keys);
+        int min = Mathf.Clamp(minimumProductTypes, 1, items.Count);
+        int max = Mathf.Clamp(maximumProductTypes, min, items.Count);
         int lineCount = UnityEngine.Random.Range(min, max + 1);
         for (int i = 0; i < lineCount; i++)
         {
-            int picked = UnityEngine.Random.Range(0, available.Count);
-            var product = available[picked];
-            available.RemoveAt(picked); // every line is a different product
-            int wanted = UnityEngine.Random.Range(1, maximumQuantityPerProduct + 1);
-            int reservedCount = 0;
-            foreach (var pickup in stock)
-            {
-                if (reservedCount >= wanted)
-                    break;
-                if (pickup == null || pickup.Definition != product)
-                    continue;
-                var shelf = pickup.GetComponent<ShelfProduct>().Shelf;
-                if (shelf != null && shelf.TryReserveProduct(pickup, this))
+            int picked = UnityEngine.Random.Range(0, items.Count);
+            var key = items[picked];
+            items.RemoveAt(picked); // every line is a different item
+            var brands = brandsByItem[key];
+            // A preferred brand only means something when the item has more than one brand.
+            bool isLoyal = brands.Count > 1 && UnityEngine.Random.value < brandLoyaltyChance;
+            wants.Add(
+                new WantedItem
                 {
-                    shoppingItems.Add(new ShoppingItem { shelf = shelf, product = pickup });
-                    reservedCount++;
+                    groupKey = key,
+                    preferred = isLoyal ? brands[UnityEngine.Random.Range(0, brands.Count)] : null,
+                    remaining = UnityEngine.Random.Range(1, maximumQuantityPerProduct + 1),
                 }
-            }
-            if (reservedCount == 0)
-                Debug.LogWarning(
-                    $"{name}: could not reserve '{product.DisplayName}' on any shelf.",
-                    this
-                );
+            );
         }
+    }
+
+    // Free products plus anything on a shelf now (stocked products are unlocked).
+    // Resources only finds definitions that are loaded, so swap in the product catalog when it is known.
+    static List<ProductDefinition> CollectWantableDefinitions(List<ShelfInventory> shelves)
+    {
+        var result = new List<ProductDefinition>();
+        foreach (var definition in Resources.FindObjectsOfTypeAll<ProductDefinition>())
+            if (definition.UnlockCost <= 0 && !result.Contains(definition))
+                result.Add(definition);
+        var stock = new List<ProductCarriable>();
+        foreach (var shelf in shelves)
+            if (shelf != null)
+                shelf.GetAvailableProducts(stock);
+        foreach (var product in stock)
+            if (product != null && !result.Contains(product.Definition))
+                result.Add(product.Definition);
+        return result;
     }
 
     void RebuildCollectedOrder()

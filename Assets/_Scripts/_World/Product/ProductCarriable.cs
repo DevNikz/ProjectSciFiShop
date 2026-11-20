@@ -6,7 +6,10 @@ using UnityEngine;
 public class ProductCarriable : MonoBehaviour, IHasCarriable
 {
     [Header("Product")]
-    [Tooltip("What this object is. Overrides the Hotbar icon and name below.")]
+    [Tooltip(
+        "What this object is. Overrides the Hotbar icon and name below. Brands that share one prefab "
+            + "get theirs from SetDefinition when spawned, so this can stay empty or hold any one of them."
+    )]
     [SerializeField]
     ProductDefinition definition;
 
@@ -23,6 +26,20 @@ public class ProductCarriable : MonoBehaviour, IHasCarriable
         _carriable != null ? _carriable : (_carriable = GetComponent<Carriable>());
 
     public ProductDefinition Definition => definition;
+
+    /// <summary>
+    /// Sets which product this unit is. Call it right after spawning a unit from a prefab that several
+    /// definitions (brands) share, before anything reads Definition.
+    /// </summary>
+    public void SetDefinition(ProductDefinition value)
+    {
+        if (value == null)
+        {
+            Debug.LogWarning($"{name}: SetDefinition needs a definition.", this);
+            return;
+        }
+        definition = value;
+    }
 
     public Sprite Icon => definition != null && definition.Icon != null ? definition.Icon : icon;
 
