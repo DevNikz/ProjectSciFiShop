@@ -17,6 +17,8 @@ namespace SSRFeature
         Material _ssrMat;
 
 #if UNITY_EDITOR
+        void OnValidate() { settings.SyncCustomFromPreset(); }
+
         void Reset()
         {
             ssrShader = Shader.Find("Hidden/SSR/Reflections");

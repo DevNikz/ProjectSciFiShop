@@ -16,6 +16,7 @@ Shader "Stylized/Master Lit"
 
         _Smoothness("Smoothness", Range(0.0, 1.0)) = 0.5
         _SmoothnessTextureChannel("Smoothness texture channel", Float) = 0
+        [ToggleUI] _SmoothnessInvert("Invert Smoothness Source (Roughness Map)", Float) = 0.0
 
         _Metallic("Metallic", Range(0.0, 1.0)) = 0.0
         _MetallicGlossMap("Metallic", 2D) = "white" {}

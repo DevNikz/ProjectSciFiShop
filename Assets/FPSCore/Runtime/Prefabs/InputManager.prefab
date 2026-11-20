@@ -196,6 +196,62 @@ MonoBehaviour:
     defaults:
     - slotIndex: 0
       path: <Keyboard>/9
+  - actionName: Scan
+    displayName: Scan
+    hidden: 0
+    locked: 0
+    defaults:
+    - slotIndex: 0
+      path: <Mouse>/leftButton
+  - actionName: BoxStore
+    displayName: BoxStore
+    hidden: 0
+    locked: 0
+    defaults:
+    - slotIndex: 0
+      path: <Mouse>/leftButton
+  - actionName: BoxReturn
+    displayName: BoxReturn
+    hidden: 0
+    locked: 0
+    defaults:
+    - slotIndex: 0
+      path: <Keyboard>/q
+  - actionName: BoxCycleNext
+    displayName: BoxCycleNext
+    hidden: 0
+    locked: 0
+    defaults:
+    - slotIndex: 0
+      path: <Keyboard>/v
+  - actionName: BoxCyclePrev
+    displayName: BoxCyclePrev
+    hidden: 0
+    locked: 0
+    defaults:
+    - slotIndex: 0
+      path: <Keyboard>/v
+  - actionName: BoxCancel
+    displayName: BoxCancel
+    hidden: 0
+    locked: 0
+    defaults:
+    - slotIndex: 0
+      path: <Keyboard>/x
+  - actionName: ScannerToggle
+    displayName: ScannerToggle
+    hidden: 0
+    locked: 0
+    defaults:
+    - slotIndex: 0
+      path: <Keyboard>/q
+  - actionName: FurnitureSellPressed
+    displayName: FurnitureSellPressed
+    hidden: 0
+    locked: 0
+    defaults:
+    - slotIndex: 0
+      path: <Keyboard>/delete
   saveFileName: keybinds.json
 --- !u!114 &9057123294085795094
 MonoBehaviour:

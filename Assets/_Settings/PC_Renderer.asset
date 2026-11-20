@@ -16,15 +16,24 @@ MonoBehaviour:
   settings:
     enabled: 1
     applyInSceneView: 1
-    quality: 1
+    quality: 3
+    custom:
+      resolutionScale: 0.5
+      maxSteps: 40
+      refineSteps: 4
+      maxDistance: 100
+      thickness: 1
+      temporalFeedback: 0.8
+      roughnessBlur: 4
+    lastQuality: 3
     surfaceMode: 2
     reflectivity: 0.8
     useMaterialSmoothness: 1
-    smoothnessThreshold: 0.35
+    smoothnessThreshold: 0.4
     smoothnessRamp: 0.3
     smoothnessInfluence: 1
-    roughnessBlur: 2
-    fallbackSmoothness: 0.5
+    roughnessBlur: 0
+    fallbackSmoothness: 0
     maxDistance: 100
     thickness: 1
     edgeFade: 0

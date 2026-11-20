@@ -103,6 +103,43 @@ namespace SSRFeature.Tests
             Assert.AreEqual(1f, p.intensity);
         }
 
+        [Test] public void CustomQuality_UsesCustomValues()
+        {
+            var s = S(); s.quality = SSRQuality.Custom;
+            s.custom.resolutionScale = 0.75f; s.custom.maxSteps = 100; s.custom.refineSteps = 7; s.custom.maxDistance = 55f;
+            var r = SSRAccessibility.Resolve(s, new SSRAccessibilityPrefs(), dt);
+            Assert.AreEqual(0.75f, r.resolutionScale, 1e-5f);
+            Assert.AreEqual(100, r.maxSteps);
+            Assert.AreEqual(7, r.refineSteps);
+            Assert.AreEqual(55f, r.maxDistance, 1e-5f);
+        }
+
+        [Test] public void PerformanceMode_OverridesCustom()
+        {
+            var s = S(); s.quality = SSRQuality.Custom; s.custom.maxSteps = 100;
+            var r = SSRAccessibility.Resolve(s, new SSRAccessibilityPrefs { performanceMode = true }, dt);
+            Assert.AreEqual(SSRQualityProfile.Get(SSRQuality.Low).maxSteps, r.maxSteps);
+        }
+
+        [Test] public void CopyFromPreset_SeedsCustomFromHigh()
+        {
+            var s = S(); s.lastQuality = SSRQuality.High; s.quality = SSRQuality.Custom;
+            s.SyncCustomFromPreset();
+            Assert.AreEqual(SSRQualityProfile.Get(SSRQuality.High).maxSteps, s.custom.maxSteps);
+            Assert.AreEqual(SSRQuality.Custom, s.lastQuality);
+        }
+
+        [Test] public void Smoothness_DrivesNormalsAlphaAndRegistered_NotAllOpaque()
+        {
+            var s = S();
+            s.surfaceMode = SSRSurfaceMode.NormalsAlpha;
+            Assert.Greater(SSRAccessibility.Resolve(s, null, 1f / 60f).smoothnessInfluence, 0f);
+            s.surfaceMode = SSRSurfaceMode.Registered;
+            Assert.Greater(SSRAccessibility.Resolve(s, null, 1f / 60f).smoothnessInfluence, 0f);
+            s.surfaceMode = SSRSurfaceMode.AllOpaque;
+            Assert.AreEqual(0f, SSRAccessibility.Resolve(s, null, 1f / 60f).smoothnessInfluence);
+        }
+
         [Test] public void Json_Garbage_FallsBackToDefaults()
         {
             Assert.IsTrue(SSRAccessibilityPrefs.FromJson("not json").reflectionsEnabled);

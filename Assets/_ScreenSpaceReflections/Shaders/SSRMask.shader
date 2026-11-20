@@ -9,6 +9,7 @@ Shader "Hidden/SSR/Mask"
         _MetallicGlossMap("", 2D) = "white" {}
         _Smoothness("", Float) = 0.5
         _SmoothnessTextureChannel("", Float) = 0
+        _SmoothnessInvert("", Float) = 0
         _SSRMaskValue("", Float) = 1
         _SSRSmoothOverride("", Float) = -1
     }
@@ -32,6 +33,7 @@ Shader "Hidden/SSR/Mask"
                 float4 _BaseMap_ST;
                 float _Smoothness;
                 float _SmoothnessTextureChannel;   // 0 = metallic-map alpha, 1 = albedo alpha
+                float _SmoothnessInvert;           // 1 = source is a roughness map
                 float _SSRMaskValue;
                 float _SSRSmoothOverride;
             CBUFFER_END
@@ -57,6 +59,7 @@ Shader "Hidden/SSR/Mask"
                 float a = (_SmoothnessTextureChannel > 0.5)
                     ? SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv).a
                     : SAMPLE_TEXTURE2D(_MetallicGlossMap, sampler_MetallicGlossMap, i.uv).a;
+                a = lerp(a, 1.0 - a, _SmoothnessInvert);
                 float sm = (_SSRSmoothOverride >= 0.0) ? _SSRSmoothOverride : saturate(_Smoothness * a);
                 return float2(_SSRMaskValue, sm);
             }

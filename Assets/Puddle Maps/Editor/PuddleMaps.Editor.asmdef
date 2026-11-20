@@ -1,0 +1,7 @@
+{
+    "name": "PuddleMaps.Editor",
+    "rootNamespace": "PuddleMaps",
+    "references": [],
+    "includePlatforms": [ "Editor" ],
+    "autoReferenced": true
+}

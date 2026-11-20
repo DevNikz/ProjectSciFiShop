@@ -16,6 +16,8 @@ namespace SSRFeature
         static readonly int Smoothness = Shader.PropertyToID("_Smoothness");
         static readonly int SmoothnessChannel = Shader.PropertyToID("_SmoothnessTextureChannel");
         static readonly int Surface = Shader.PropertyToID("_Surface");
+        static readonly int SpecGlossMap = Shader.PropertyToID("_SpecGlossMap");
+        static readonly int SmoothnessInvert = Shader.PropertyToID("_SmoothnessInvert");
 
         readonly Dictionary<Material, Entry> _map = new Dictionary<Material, Entry>();
         readonly List<Material> _dead = new List<Material>();
@@ -45,7 +47,10 @@ namespace SSRFeature
             }
             else dst.SetVector(BaseMapST, new Vector4(1, 1, 0, 0));
 
-            Texture mg = src.HasProperty(MetallicGlossMap) ? src.GetTexture(MetallicGlossMap) : null;
+            // Specular workflow (Stylized Lit / URP Lit) keeps smoothness in _SpecGlossMap; feed it through the mask's gloss slot.
+            bool specular = src.IsKeywordEnabled("_SPECULAR_SETUP");
+            int glossId = specular && src.HasProperty(SpecGlossMap) ? SpecGlossMap : MetallicGlossMap;
+            Texture mg = src.HasProperty(glossId) ? src.GetTexture(glossId) : null;
             dst.SetTexture(MetallicGlossMap, mg != null ? mg : Texture2D.whiteTexture);
 
             dst.SetFloat(Smoothness, src.HasProperty(Smoothness) ? src.GetFloat(Smoothness) : fallback);
@@ -53,6 +58,10 @@ namespace SSRFeature
             bool albedoAlpha = src.IsKeywordEnabled("_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A")
                                || (src.HasProperty(SmoothnessChannel) && src.GetFloat(SmoothnessChannel) > 0.5f);
             dst.SetFloat(SmoothnessChannel, albedoAlpha ? 1f : 0f);
+
+            // Invert only applies when a map/albedo alpha is the source (matches StylizedLit SampleMetallicSpecGloss); a constant must not invert.
+            bool hasSource = albedoAlpha ? bm != null : mg != null;
+            dst.SetFloat(SmoothnessInvert, hasSource && src.HasProperty(SmoothnessInvert) ? src.GetFloat(SmoothnessInvert) : 0f);
         }
 
         public void Purge()

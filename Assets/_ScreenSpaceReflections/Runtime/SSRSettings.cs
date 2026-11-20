@@ -4,7 +4,11 @@ using UnityEngine;
 
 namespace SSRFeature
 {
-    public enum SSRQuality { Low = 0, Medium = 1, High = 2 }
+    /// <summary>Custom = use <see cref="SSRSettings.custom"/> (modelled on HDRP SSR Quality: Low/Medium/High/Custom).</summary>
+    public enum SSRQuality { Low = 0, Medium = 1, High = 2, Custom = 3 }
+
+    /// <summary>Draws the field only while SSRSettings.quality is Custom (drawer lives in SSR.Editor).</summary>
+    public sealed class ShowIfCustomQualityAttribute : PropertyAttribute { }
 
     /// <summary>Registered = only meshes with an <c>SSRSurface</c> component reflect (per-material smoothness supported). AllOpaque = every opaque pixel, uniform reflectivity (smoothness ignored).
     /// NormalsAlpha = reads smoothness (high nibble) and intensity (low nibble) packed into the alpha of _CameraNormalsTexture by StylizedLit's DepthNormalsOnly pass; no mask pass, no SSRSurface needed.</summary>
@@ -32,6 +36,49 @@ namespace SSRFeature
                 default:              return new SSRQualityProfile(0.5f, 40, 4);
             }
         }
+
+        public static SSRQualityProfile FromCustom(SSRCustomQuality c)
+        { return new SSRQualityProfile(c.resolutionScale, c.maxSteps, c.refineSteps); }
+    }
+
+    /// <summary>Individual settings used when SSRSettings.quality == Custom. Ranges are PLACEHOLDERS [GAP].</summary>
+    [Serializable]
+    public sealed class SSRCustomQuality
+    {
+        [Range(0.25f, 1f), Tooltip("Trace/resolve buffer scale. Presets: Low/Medium 0.5, High 1.0.")]
+        public float resolutionScale = 0.5f;
+        [Range(8, 128), Tooltip("Max ray-march steps. Presets: 24 / 40 / 64.")]
+        public int maxSteps = 40;
+        [Range(0, 8), Tooltip("Binary-search refinement steps after a hit. Presets: 3 / 4 / 5.")]
+        public int refineSteps = 4;
+        [Min(0.1f), Tooltip("World units. Rays fade out toward this distance.")]
+        public float maxDistance = 30f;
+        [Range(0.01f, 2f), Tooltip("World-unit depth tolerance for a hit.")]
+        public float thickness = 0.3f;
+        [Range(0f, 0.95f), Tooltip("History weight. Higher = smoother but more ghosting.")]
+        public float temporalFeedback = 0.8f;
+        [Range(0f, 4f), Tooltip("Extra blur radius (texels) applied to rough surfaces.")]
+        public float roughnessBlur = 2f;
+
+        /// <summary>Copies the preset's tier values plus the current global values, so switching to Custom changes nothing visually.</summary>
+        public void CopyFromPreset(SSRQuality preset, SSRSettings s)
+        {
+            var prof = SSRQualityProfile.Get(preset == SSRQuality.Custom ? SSRQuality.Medium : preset);
+            resolutionScale = prof.resolutionScale; maxSteps = prof.maxSteps; refineSteps = prof.refineSteps;
+            maxDistance = s.maxDistance; thickness = s.thickness;
+            temporalFeedback = s.temporalFeedback; roughnessBlur = s.roughnessBlur;
+        }
+
+        public void Validate()
+        {
+            resolutionScale = Mathf.Clamp(resolutionScale, 0.25f, 1f);
+            maxSteps = Mathf.Clamp(maxSteps, 8, 128);
+            refineSteps = Mathf.Clamp(refineSteps, 0, 8);
+            maxDistance = Mathf.Max(0.1f, maxDistance);
+            thickness = Mathf.Clamp(thickness, 0.01f, 2f);
+            temporalFeedback = Mathf.Clamp(temporalFeedback, 0f, 0.95f);
+            roughnessBlur = Mathf.Clamp(roughnessBlur, 0f, 4f);
+        }
     }
 
     /// <summary>Final per-camera, per-frame values after designer settings + player accessibility prefs are merged.
@@ -58,6 +105,9 @@ namespace SSRFeature
         public bool enabled = true;
         public bool applyInSceneView = true;
         public SSRQuality quality = SSRQuality.Medium;
+        [Tooltip("Used only when Quality is Custom. Replaces the global Max Distance, Thickness, Temporal Feedback and Roughness Blur while Custom is selected.")]
+        [ShowIfCustomQuality] public SSRCustomQuality custom = new SSRCustomQuality();
+        [HideInInspector] public SSRQuality lastQuality = SSRQuality.Medium;
 
         [Header("Which surfaces reflect")]
         [Tooltip("Registered: add an SSRSurface component to each reflective MeshRenderer. AllOpaque: everything reflects uniformly. NormalsAlpha: surfaces that write SSR data into the normals texture alpha (StylizedLit with Screen Space Reflection enabled) reflect.")]
@@ -66,7 +116,7 @@ namespace SSRFeature
         public float reflectivity = 1f;
 
         [Header("Material smoothness (reads each material's _Smoothness / smoothness map)")]
-        [Tooltip("Registered mode only: read each material's smoothness (or the SSRSurface override).")]
+        [Tooltip("Registered and NormalsAlpha modes: read each material's smoothness (Registered also honours the SSRSurface override). AllOpaque ignores smoothness.")]
         public bool useMaterialSmoothness = true;
         [Range(0f, 1f), Tooltip("Surfaces smoother than this start reflecting.")]
         public float smoothnessThreshold = 0.35f;
@@ -102,8 +152,18 @@ namespace SSRFeature
         [Tooltip("Smoothness: grey, magenta = no SSR data. Reflectivity: grey. FinalMask: after threshold/ramp, black = off, blue to red = weak to strong. RawNormalsAlpha: normals texture alpha. Turn off post-processing for exact values. Registered mode shows nothing until an SSRSurface exists.")]
         public SSRDebugView debugView = SSRDebugView.Off;
 
+        /// <summary>Editor hook: when the user switches a preset to Custom, seed Custom from that preset.</summary>
+        public void SyncCustomFromPreset()
+        {
+            if (custom == null) custom = new SSRCustomQuality();
+            if (quality == SSRQuality.Custom && lastQuality != SSRQuality.Custom) custom.CopyFromPreset(lastQuality, this);
+            lastQuality = quality;
+        }
+
         public void Validate()
         {
+            if (custom == null) custom = new SSRCustomQuality();
+            custom.Validate();
             maxDistance = Mathf.Max(0.1f, maxDistance);
             thickness = Mathf.Clamp(thickness, 0.01f, 2f);
             edgeFade = Mathf.Clamp(edgeFade, 0f, 0.5f);

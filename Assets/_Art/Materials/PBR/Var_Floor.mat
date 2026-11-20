@@ -16,6 +16,7 @@ Material:
   - _NORMALMAP
   - _OCCLUSIONMAP
   - _PARALLAXMAP
+  - _PIXELATE_ON
   - _PLANAR_REFLECTION_ON
   - _SSR_REFLECTION_ON
   - _TOON_ON
@@ -78,7 +79,7 @@ Material:
     - _OutlineEnabled: 0
     - _Parallax: 0.005
     - _PixelSize: 256
-    - _PixelateEnabled: 0
+    - _PixelateEnabled: 1
     - _PlanarReflectionDistortion: 0.03
     - _PlanarReflectionEnabled: 1
     - _PlanarReflectionFresnelPower: 3
@@ -93,14 +94,18 @@ Material:
     - _RimThreshold: 0.8
     - _SSRReflectionEnabled: 1
     - _SSRReflectionIntensity: 1
-    - _Smoothness: 0.75
+    - _Smoothness: 0.6
+    - _SmoothnessInvert: 0
+    - _SmoothnessTextureChannel: 0
     - _ToonAdditionalLights: 1
     - _ToonEnabled: 1
     - _ToonHalfLambert: 0
     - _ToonSteps: 3
     - _ToonStrength: 1
     - _TriplanarEnabled: 0
+    - _WindBaseHeight: 1.29
     - _WindEnabled: 0
+    - _WindStrength: 1
     m_Colors:
     - _PlanarReflectionTint: {r: 1, g: 1, b: 1, a: 1}
     - _RimColor: {r: 0.76862746, g: 0.8862745, b: 0.47058824, a: 1}

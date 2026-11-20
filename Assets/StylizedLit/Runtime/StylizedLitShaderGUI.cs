@@ -119,8 +119,18 @@ namespace StylizedLit.Editor
         {
             base.DrawSurfaceInputs(material);
             LitGUI.Inputs(_litProperties, materialEditor, material);
+            DrawSmoothnessInvert(material);
             DrawEmissionProperties(material, true);
             DrawTileOffset(materialEditor, baseMapProp);
+        }
+
+        // Roughness-map workflow: flips the smoothness map / albedo alpha. Ignored when smoothness is a constant.
+        void DrawSmoothnessInvert(Material material)
+        {
+            var invert = FindProperty("_SmoothnessInvert", _properties, false);
+            if (invert == null) return;
+            materialEditor.ShaderProperty(invert, new GUIContent("Invert Smoothness Source",
+                "Use when the smoothness source is a roughness map (white = rough). Affects lighting and SSR. Only applies with a Metallic/Specular map or Albedo-alpha smoothness."));
         }
 
         // Material main advanced options.

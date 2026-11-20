@@ -81,7 +81,15 @@ namespace SSRFeature
             bool calm = safe || p.reduceShimmer;
             float dt = Mathf.Clamp(unscaledDeltaTime, 1f / 240f, 1f / 15f);
 
-            var prof = SSRQualityProfile.Get(p.performanceMode ? SSRQuality.Low : s.quality);
+            // performanceMode forces the Low preset and ignores Custom.
+            bool useCustom = !p.performanceMode && s.quality == SSRQuality.Custom && s.custom != null;
+            var prof = useCustom ? SSRQualityProfile.FromCustom(s.custom)
+                                 : SSRQualityProfile.Get(p.performanceMode ? SSRQuality.Low : s.quality);
+            float maxDistance = useCustom ? s.custom.maxDistance : s.maxDistance;
+            float thickness = useCustom ? s.custom.thickness : s.thickness;
+            float feedback = useCustom ? s.custom.temporalFeedback : s.temporalFeedback;
+            float blur = useCustom ? s.custom.roughnessBlur : s.roughnessBlur;
+            bool smoothnessDriven = s.useMaterialSmoothness && s.surfaceMode != SSRSurfaceMode.AllOpaque;
 
             float lum = Mathf.Lerp(kMinBrightnessCap, s.maxLuminance, Mathf.Clamp01(p.brightnessLimit));
             if (safe) lum = Mathf.Min(lum, kSafeMaxLuminance);
@@ -96,8 +104,8 @@ namespace SSRFeature
                 resolutionScale  = prof.resolutionScale,
                 maxSteps         = prof.maxSteps,
                 refineSteps      = prof.refineSteps,
-                maxDistance      = s.maxDistance,
-                thickness        = s.thickness,
+                maxDistance      = maxDistance,
+                thickness        = thickness,
                 edgeFade         = p.reduceMotion ? Mathf.Max(s.edgeFade, kReducedEdgeFade) : s.edgeFade,
                 fresnelPower     = s.fresnelPower,
                 minReflectance   = s.minReflectance,
@@ -106,11 +114,11 @@ namespace SSRFeature
                 maxOpacity       = s.maxOpacity,
                 saturation       = Mathf.Clamp01(p.saturation),
                 maxLuminance     = lum,
-                temporalFeedback = calm ? Mathf.Max(s.temporalFeedback, kCalmFeedback) : s.temporalFeedback,
+                temporalFeedback = calm ? Mathf.Max(feedback, kCalmFeedback) : feedback,
                 smoothnessThreshold = s.smoothnessThreshold,
                 smoothnessRamp   = s.smoothnessRamp,
-                smoothnessInfluence = (s.useMaterialSmoothness && s.surfaceMode == SSRSurfaceMode.Registered) ? s.smoothnessInfluence : 0f,
-                roughnessBlur    = calm ? Mathf.Max(s.roughnessBlur, kCalmMinBlur) : s.roughnessBlur,
+                smoothnessInfluence = smoothnessDriven ? s.smoothnessInfluence : 0f,   // NormalsAlpha + Registered (was Registered only, so NormalsAlpha smoothness was ignored)
+                roughnessBlur    = calm ? Mathf.Max(blur, kCalmMinBlur) : blur,
                 jitterPerFrame   = !calm,
                 resetHistoryToZero = safe || p.reduceMotion,
                 maxDeltaPerFrame = float.IsInfinity(rate) ? 0f : rate * dt,
