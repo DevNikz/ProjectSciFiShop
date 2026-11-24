@@ -16,7 +16,6 @@ Material:
   - _NORMALMAP
   - _OCCLUSIONMAP
   - _PARALLAXMAP
-  - _PIXELATE_ON
   - _PLANAR_REFLECTION_ON
   - _SSR_REFLECTION_ON
   - _TOON_ON
@@ -36,7 +35,7 @@ Material:
     m_TexEnvs:
     - _BaseMap:
         m_Texture: {fileID: 2800000, guid: b804e75c3abc49144bc0a46b035ca4d7, type: 3}
-        m_Scale: {x: 10, y: 10}
+        m_Scale: {x: 6, y: 3}
         m_Offset: {x: 0, y: 0}
     - _BumpMap:
         m_Texture: {fileID: 2800000, guid: 3e112f9315679dc48803edf5d45c8645, type: 3}
@@ -44,7 +43,7 @@ Material:
         m_Offset: {x: 0, y: 0}
     - _MainTex:
         m_Texture: {fileID: 2800000, guid: b804e75c3abc49144bc0a46b035ca4d7, type: 3}
-        m_Scale: {x: 10, y: 10}
+        m_Scale: {x: 6, y: 3}
         m_Offset: {x: 0, y: 0}
     - _MetallicGlossMap:
         m_Texture: {fileID: 2800000, guid: 449b1746faf8a6e4385b38f4a072370d, type: 3}
@@ -79,7 +78,7 @@ Material:
     - _OutlineEnabled: 0
     - _Parallax: 0.005
     - _PixelSize: 256
-    - _PixelateEnabled: 1
+    - _PixelateEnabled: 0
     - _PlanarReflectionDistortion: 0.03
     - _PlanarReflectionEnabled: 1
     - _PlanarReflectionFresnelPower: 3
@@ -94,7 +93,7 @@ Material:
     - _RimThreshold: 0.8
     - _SSRReflectionEnabled: 1
     - _SSRReflectionIntensity: 1
-    - _Smoothness: 0.6
+    - _Smoothness: 1
     - _SmoothnessInvert: 0
     - _SmoothnessTextureChannel: 0
     - _ToonAdditionalLights: 1

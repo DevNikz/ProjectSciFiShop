@@ -18,31 +18,31 @@ MonoBehaviour:
     applyInSceneView: 1
     quality: 3
     custom:
-      resolutionScale: 0.5
+      resolutionScale: 0.75
       maxSteps: 40
       refineSteps: 4
       maxDistance: 100
       thickness: 1
       temporalFeedback: 0.8
-      roughnessBlur: 4
+      roughnessBlur: 2
     lastQuality: 3
     surfaceMode: 2
     reflectivity: 0.8
     useMaterialSmoothness: 1
-    smoothnessThreshold: 0.4
-    smoothnessRamp: 0.3
+    smoothnessThreshold: 0.2
+    smoothnessRamp: 0.5
     smoothnessInfluence: 1
-    roughnessBlur: 0
-    fallbackSmoothness: 0
+    roughnessBlur: 4
+    fallbackSmoothness: 0.5
     maxDistance: 100
-    thickness: 1
+    thickness: 2
     edgeFade: 0
     fresnelPower: 3
     minReflectance: 0.2
     intensity: 1
     maxOpacity: 1
-    maxLuminance: 8
-    temporalFeedback: 0.8
+    maxLuminance: 128
+    temporalFeedback: 0.95
     debugView: 0
   ssrShader: {fileID: 4800000, guid: 855e911ebf03e1b4d9f5c5875cb68825, type: 3}
   maskShader: {fileID: 4800000, guid: 5b5054cd1b0296b4aac32033be6f21fa, type: 3}
@@ -135,17 +135,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GTAO_URP.GTAOFeature
   m_Active: 1
   settings:
-    apply: 0
+    apply: 1
     normals: 0
     radius: 1
-    intensity: 2
+    intensity: 0.8
     falloffRange: 0.1
     multiBounce: 0.4
     directLightingStrength: 1
-    quality: 4
+    quality: 2
     customSlices: 2
-    customSteps: 2
-    maxPixelRadius: 128
+    customSteps: 4
+    maxPixelRadius: 64
     downsample: 0
     fadeStart: 60
     fadeEnd: 100
@@ -158,7 +158,7 @@ MonoBehaviour:
     bentNormals: 1
     temporal: 1
     temporalWeight: 0.9
-    velocityFadePixels: 20
+    velocityFadePixels: 60
     depthTolerance: 0.03
     clampStrength: 1.25
     useMotionVectors: 1

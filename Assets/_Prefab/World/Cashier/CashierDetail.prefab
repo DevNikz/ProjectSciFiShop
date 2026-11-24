@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5682583593791863872}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Spawn
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -121,7 +121,7 @@ GameObject:
   - component: {fileID: 2010007513941255368}
   - component: {fileID: 1482007706963231660}
   - component: {fileID: 5449111541013651904}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: 10_Coin
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -343,7 +343,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8963457888154183786}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Spawn
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -515,7 +515,7 @@ GameObject:
   - component: {fileID: 8757339081324873106}
   - component: {fileID: 8696489029518647621}
   - component: {fileID: 2634516385710225328}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Counter
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -644,7 +644,7 @@ GameObject:
   - component: {fileID: 3698781848946524993}
   - component: {fileID: 5331382977836950501}
   - component: {fileID: 6771315612945375129}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Spawn
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -785,7 +785,7 @@ GameObject:
   - component: {fileID: 4940570662409454278}
   - component: {fileID: 3565353072002192548}
   - component: {fileID: 6122381201400734053}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: 5_Coin
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -935,7 +935,7 @@ GameObject:
   - component: {fileID: 5518169051309789446}
   - component: {fileID: 4918736844740934538}
   - component: {fileID: 7629003874714980678}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Change
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1154,7 +1154,7 @@ GameObject:
   - component: {fileID: 307852809027416178}
   - component: {fileID: 7656943179165963099}
   - component: {fileID: 4092866744447819686}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: 1_Coin
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1301,7 +1301,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5035306957357082834}
   - component: {fileID: 4856844509224628532}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: CashierDetail
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1356,7 +1356,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4330830615922897501}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: CustomerBasketPoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1524,7 +1524,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6810325385313468580}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Spawn
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1907,7 +1907,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1618010756586121937}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: ChangeDrawer
   m_TagString: Untagged
   m_Icon: {fileID: 0}

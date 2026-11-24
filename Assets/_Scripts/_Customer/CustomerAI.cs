@@ -120,13 +120,23 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
     [SerializeField, Min(0f)]
     float brandWaitSeconds = 12f;
 
-    [Tooltip("How far from a shelf (metres) a customer wanders between shelf checks.")]
+    [Tooltip(
+        "How far from a shelf (metres) a customer wanders between shelf checks. Only used when the scene has no Store Bounds."
+    )]
     [SerializeField, Min(0f)]
     float wanderRadius = 3f;
 
     [Tooltip("Seconds spent looking at a shelf before its stock is checked.")]
     [SerializeField, Min(0f)]
     float shelfLookDelay = 0.8f;
+
+    [Header("Ticketing")]
+    [Tooltip(
+        "A shelf only lets so many customers browse at once (Shelf Tickets). A customer without a ticket wanders and tries another shelf. "
+            + "After this many seconds of being turned away (the clock resets whenever a ticket is won) the customer stops shopping."
+    )]
+    [SerializeField, Min(1f)]
+    float ticketPatience = 20f;
 
     [Header("Counter Placement")]
     [Tooltip("Seconds one item takes to arc from the customer onto the counter.")]
@@ -161,6 +171,8 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
     readonly List<ShoppingItem> shoppingItems = new();
     readonly List<WantedItem> wants = new();
     bool didReachPoint;
+    ShelfTickets heldTicket;
+    float ticketWaitStart = -1f; // -1 = not being turned away
     Transform shoppingMarker;
     Coroutine shoppingRoutine;
     Coroutine deliveryRoutine;
@@ -217,6 +229,12 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
 
         if (useNavMeshAgent)
             PlaceOnNavMesh();
+
+        if (StoreBounds.All.Count == 0)
+            Debug.LogWarning(
+                $"{name}: no Store Bounds in the scene, so the whole scene counts as the store.",
+                this
+            );
 
         if (joinQueueOnStart)
             shoppingRoutine = StartCoroutine(ShopAfterSpawnPause());
@@ -295,12 +313,11 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
         if (spawnPause > 0f)
             yield return new WaitForSeconds(spawnPause);
 
-        var shelves = new List<ShelfInventory>(
-            FindObjectsByType<ShelfInventory>(FindObjectsSortMode.None)
-        );
+        var shelves = new List<ShelfInventory>();
+        RefreshBrowsableShelves(shelves);
         if (shelves.Count == 0)
             Debug.LogWarning(
-                $"{name}: no shelves in the scene, so there is nothing to browse.",
+                $"{name}: no shelves with Shelf Tickets inside the store, so there is nothing to browse.",
                 this
             );
         BuildWantList(shelves);
@@ -313,8 +330,12 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
                 minimumLifetime,
                 Mathf.Max(minimumLifetime, maximumLifetime)
             );
+        ticketWaitStart = -1f;
+        if (!StoreBounds.IsInsideStore(transform.position))
+            yield return WalkIntoStoreRoutine(deadline);
+
         var unvisited = new List<ShelfInventory>(shelves);
-        while (IsStillLooking(deadline))
+        while (IsStillLooking(deadline) && !IsTicketPatienceOver())
         {
             yield return null; // a frame every pass, so a customer that is already there never spins
             ShelfInventory shelf = null;
@@ -331,6 +352,7 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
             else
             {
                 point = PickWanderPoint(shelves);
+                RefreshBrowsableShelves(shelves); // a bought expansion adds its shelves
                 unvisited.AddRange(shelves); // after the wander, look at every shelf again
             }
 
@@ -344,8 +366,23 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
                     );
                 continue;
             }
-            if (shelf != null)
+            if (shelf == null)
+                continue;
+
+            if (!shelf.TryGetComponent(out ShelfTickets tickets) || tickets.TryTake(this))
+            {
+                heldTicket = tickets;
+                ticketWaitStart = -1f;
                 yield return LookAtShelfRoutine(shelf);
+                ReleaseTicket();
+            }
+            else
+            {
+                if (ticketWaitStart < 0f)
+                    ticketWaitStart = Time.time;
+                unvisited.Add(shelf); // try it again after the wander
+                yield return WalkToRoutine(PickWanderPoint(shelves), deadline);
+            }
         }
 
         ReleaseReservations();
@@ -360,7 +397,11 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
                 $"{name}: nothing collected ({shoppingItems.Count} item(s) were reserved).",
                 this
             );
-            CustomerNotificationUI.Show("Customer left — nothing they wanted was in stock");
+            CustomerNotificationUI.Show(
+                IsTicketPatienceOver()
+                    ? "Customer left — the shelves were too busy"
+                    : "Customer left — nothing they wanted was in stock"
+            );
             LeaveStore();
         }
         else
@@ -375,6 +416,45 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
     // No wants at all (nothing to look for) still wanders until the lifetime ends.
     bool IsStillLooking(float deadline) =>
         Time.time < deadline && (wants.Count == 0 || wants.Exists(want => want.remaining > 0));
+
+    bool IsTicketPatienceOver() =>
+        ticketWaitStart >= 0f && Time.time - ticketWaitStart >= ticketPatience;
+
+    // Browsable = has Shelf Tickets and its pickup point is inside an open store area.
+    static void RefreshBrowsableShelves(List<ShelfInventory> shelves)
+    {
+        shelves.Clear();
+        foreach (var tickets in ShelfTickets.All)
+            if (tickets != null && StoreBounds.IsInsideStore(tickets.Shelf.CustomerPickupPosition))
+                shelves.Add(tickets.Shelf);
+    }
+
+    // Spawn points are outside the store: walk to the nearest open store point before browsing.
+    IEnumerator WalkIntoStoreRoutine(float giveUpAt)
+    {
+        if (!StoreBounds.TryGetClosestPoint(transform.position, useNavMeshAgent, out var entry))
+        {
+            Debug.LogWarning(
+                $"{name}: no open store area to walk into, so it shops where it stands.",
+                this
+            );
+            yield break;
+        }
+
+        yield return WalkToRoutine(entry, giveUpAt);
+        if (!didReachPoint)
+            Debug.LogWarning(
+                $"{name}: could not walk into the store within {shelfTravelTimeout}s.",
+                this
+            );
+    }
+
+    void ReleaseTicket()
+    {
+        if (heldTicket != null)
+            heldTicket.Release(this);
+        heldTicket = null;
+    }
 
     // Walks to a point and sets didReachPoint. Gives up at shelfTravelTimeout or the lifetime deadline.
     IEnumerator WalkToRoutine(Vector3 point, float giveUpAt)
@@ -451,6 +531,9 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
 
     Vector3 PickWanderPoint(List<ShelfInventory> shelves)
     {
+        if (StoreBounds.TryGetRandomPoint(useNavMeshAgent, out var storePoint))
+            return storePoint;
+
         var anchor = transform.position;
         if (shelves.Count > 0)
         {
@@ -723,6 +806,7 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
 
     void ReleaseReservations()
     {
+        ReleaseTicket();
         foreach (var item in shoppingItems)
             if (item.shelf != null)
                 item.shelf.ReleaseCustomerReservations(this);

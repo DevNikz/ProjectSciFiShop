@@ -209,10 +209,10 @@ MonoBehaviour:
     m_Value: 3
   resolution:
     m_OverrideState: 1
-    m_Value: 4
+    m_Value: 3
   rayCount:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 2
   maxSteps:
     m_OverrideState: 1
     m_Value: 32
@@ -242,7 +242,7 @@ MonoBehaviour:
     m_Value: 1
   restirHistoryCap:
     m_OverrideState: 1
-    m_Value: 20
+    m_Value: 64
   maxDistance:
     m_OverrideState: 1
     m_Value: 50
@@ -266,13 +266,13 @@ MonoBehaviour:
     m_Value: 0.25
   fireflyClamp:
     m_OverrideState: 1
-    m_Value: 50
+    m_Value: 20
   temporalClamp:
     m_OverrideState: 1
-    m_Value: 2
+    m_Value: 2.5
   motionRejection:
     m_OverrideState: 1
-    m_Value: 8
+    m_Value: 12
   normalSource:
     m_OverrideState: 1
     m_Value: 3

@@ -15,7 +15,6 @@ Material:
   - _METALLICSPECGLOSSMAP
   - _NORMALMAP
   - _PARALLAXMAP
-  - _PIXELATE_ON
   - _SSR_REFLECTION_ON
   m_InvalidKeywords: []
   m_LightmapFlags: 4
@@ -76,7 +75,7 @@ Material:
     - _OutlineEnabled: 0
     - _Parallax: 0.005
     - _PixelSize: 256
-    - _PixelateEnabled: 1
+    - _PixelateEnabled: 0
     - _PlanarReflectionDistortion: 0.03
     - _PlanarReflectionEnabled: 0
     - _PlanarReflectionFresnelPower: 3
@@ -91,7 +90,7 @@ Material:
     - _RimThreshold: 0.8
     - _SSRReflectionEnabled: 1
     - _SSRReflectionIntensity: 0.25
-    - _Smoothness: 0.25
+    - _Smoothness: 0.5
     - _ToonAdditionalLights: 1
     - _ToonEnabled: 0
     - _ToonHalfLambert: 0
@@ -103,8 +102,8 @@ Material:
     - _TriplanarSpace: 0
     - _WindEnabled: 0
     m_Colors:
-    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
-    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _BaseColor: {r: 0.735849, g: 0.735849, b: 0.735849, a: 1}
+    - _Color: {r: 0.735849, g: 0.735849, b: 0.735849, a: 1}
     - _PlanarReflectionTint: {r: 1, g: 1, b: 1, a: 1}
     - _RimColor: {r: 0.76862746, g: 0.8862745, b: 0.47058824, a: 1}
   m_BuildTextureStacks: []

@@ -15,7 +15,6 @@ Material:
   - _METALLICSPECGLOSSMAP
   - _NORMALMAP
   - _PARALLAXMAP
-  - _PIXELATE_ON
   - _SSR_REFLECTION_ON
   m_InvalidKeywords: []
   m_LightmapFlags: 4
@@ -75,7 +74,7 @@ Material:
     - _OutlineEnabled: 0
     - _Parallax: 0.005
     - _PixelSize: 256
-    - _PixelateEnabled: 1
+    - _PixelateEnabled: 0
     - _PlanarReflectionDistortion: 0.03
     - _PlanarReflectionEnabled: 0
     - _PlanarReflectionFresnelPower: 3
