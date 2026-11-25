@@ -11,11 +11,15 @@ SAMPLER(sampler_PlanarReflectionBlurTex);
 // All zero (unbound) means: no fade, sharp, mip 0.
 float4 _PlanarReflectionParams;
 
+// Set per source camera by PlanarReflectionManager. Own global on purpose: URP's _NonJitteredViewProjMatrix is only
+// written while motion vectors are needed, so it is zero or stale in a plain forward setup.
+float4x4 _PlanarNonJitteredVP;
+
 // Screen UV of the pixel without the TAA/STP projection jitter, so the sample lines up with the
 // unjittered reflection render. Falls back to fallbackUV when the matrix is not set.
 float2 GetPlanarReflectionScreenUV(float3 positionWS, float2 fallbackUV)
 {
-    float4 clip = mul(_NonJitteredViewProjMatrix, float4(positionWS, 1.0));
+    float4 clip = mul(_PlanarNonJitteredVP, float4(positionWS, 1.0));
     if (clip.w <= 1e-4)
         return fallbackUV;
 

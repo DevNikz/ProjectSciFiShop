@@ -17,7 +17,13 @@ namespace SSRFeature
         Material _ssrMat;
 
 #if UNITY_EDITOR
-        void OnValidate() { settings.SyncCustomFromPreset(); }
+        void OnValidate()
+        {
+            int version = settings.settingsVersion;
+            settings.SyncCustomFromPreset();
+            settings.Validate();
+            if (version != settings.settingsVersion) UnityEditor.EditorUtility.SetDirty(this);   // persist the migrated Resolution Scale
+        }
 
         void Reset()
         {

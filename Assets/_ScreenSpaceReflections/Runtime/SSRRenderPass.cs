@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 // BLK-05  Render Graph passes (URP 17 / Unity 6). Reads SSRResolvedParams only; never reads designer settings for accessibility.
-// Passes: [Mask] -> Trace -> Resolve (spatial + temporal + limiter) -> Composite (blend into active color) -> [Debug view].
+// Passes: [Mask] -> Depth pyramid (Hi-Z) -> Trace -> Resolve (spatial + temporal + limiter) -> Composite (depth-aware upsample, blend into active color) -> [Debug view].
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.Rendering;
@@ -12,7 +12,8 @@ namespace SSRFeature
 {
     internal sealed class SSRRenderPass : ScriptableRenderPass, System.IDisposable
     {
-        const int kPassTrace = 0, kPassResolve = 1, kPassComposite = 2, kPassDebug = 3;
+        const int kPassTrace = 0, kPassResolve = 1, kPassComposite = 2, kPassDebug = 3, kPassHiZBase = 4, kPassHiZReduce = 5, kPassDenoise = 6;
+        const int kHiZMaxMips = 8;
         static readonly Vector4 k_ScaleBias = new Vector4(1f, 1f, 0f, 0f);
         static readonly ShaderTagId[] k_Tags =
         {
@@ -27,6 +28,10 @@ namespace SSRFeature
             public static readonly int MaskValue = Shader.PropertyToID("_SSRMaskValue");
             public static readonly int SmoothOverride = Shader.PropertyToID("_SSRSmoothOverride");
             public static readonly int History = Shader.PropertyToID("_SSRHistory");
+            public static readonly int HiZ = Shader.PropertyToID("_SSRHiZ");
+            public static readonly int HiZDims = Shader.PropertyToID("_SSRHiZDims");
+            public static readonly int HiZMaxMip = Shader.PropertyToID("_SSRHiZMaxMip");
+            public static readonly int HiZSrc = Shader.PropertyToID("_SSRHiZSrc");
             public static readonly int Texel = Shader.PropertyToID("_SSRTexel");
             public static readonly int MaxDistance = Shader.PropertyToID("_SSRMaxDistance");
             public static readonly int Thickness = Shader.PropertyToID("_SSRThickness");
@@ -50,6 +55,12 @@ namespace SSRFeature
             public static readonly int SmoothInfluence = Shader.PropertyToID("_SSRSmoothInfluence");
             public static readonly int Blur = Shader.PropertyToID("_SSRBlur");
             public static readonly int DebugView = Shader.PropertyToID("_SSRDebugView");
+            public static readonly int DistFadePower = Shader.PropertyToID("_SSRDistFadePower");
+            public static readonly int NormalSharpness = Shader.PropertyToID("_SSRNormalSharpness");
+            public static readonly int HitReproj = Shader.PropertyToID("_SSRHitReproj");
+            public static readonly int TraceHit = Shader.PropertyToID("_SSRTraceHit");
+            public static readonly int PrevVP = Shader.PropertyToID("_SSRPrevVP");
+            public static readonly int DenoiseStep = Shader.PropertyToID("_SSRDenoiseStep");
         }
 
         struct DrawItem { public Mesh mesh; public Matrix4x4 matrix; public int sub; public Material mat; public float reflectivity, smoothOverride; }
@@ -67,6 +78,20 @@ namespace SSRFeature
             public int debugView;
             public RTHandle history;
             public Vector4 texel;
+            public TextureHandle hiz;
+            public Vector4 hizDims;
+            public int hizMaxMip;
+            public TextureHandle hit;
+            public Matrix4x4 prevVP;
+            public bool hitReproj;
+            public float denoiseStep;
+        }
+
+        sealed class HiZData
+        {
+            public Material mat;
+            public TextureHandle hiz, tmp;
+            public int mips, width, height;
         }
 
         readonly SSRHistory _history = new SSRHistory();
@@ -77,6 +102,12 @@ namespace SSRFeature
         SSRSettings _settings;
         SSRResolvedParams _p;
         bool _warned, _hasNormals;
+        TextureHandle _hiz;          // set per frame in RecordRenderGraph, copied into every pass by Fill
+        Vector4 _hizDims;
+        int _hizMaxMip;
+        TextureHandle _hit;          // R16F surface->hit distance written by Trace, read by Resolve
+        Matrix4x4 _prevVP;
+        bool _hitReproj;
 
         public SSRRenderPass()
         {
@@ -135,6 +166,12 @@ namespace SSRFeature
             }
             if (!_hasNormals && !_warned) { _warned = true; Debug.LogWarning("[SSR] Normals texture unavailable; reconstructing normals from depth (lower quality)."); }
 
+            if ((SystemInfo.copyTextureSupport & CopyTextureSupport.Basic) == 0)
+            {
+                if (!_warned) { _warned = true; Debug.LogWarning("[SSR] The Hi-Z depth pyramid needs CopyTexture support; skipping."); }
+                return;
+            }
+
             bool useMask = _settings.surfaceMode == SSRSurfaceMode.Registered;
             if (useMask && SSRSurfaceRegistry.Count == 0) return;     // nothing registered => nothing to reflect
             if (useMask && _maskMats == null)
@@ -154,8 +191,14 @@ namespace SSRFeature
             desc.width = w; desc.height = h; desc.depthBufferBits = 0; desc.msaaSamples = 1;
             desc.graphicsFormat = GraphicsFormat.R16G16B16A16_SFloat;
 
+            // ---- Hi-Z: min eye depth pyramid at full resolution ----
+            _hiz = RecordDepthPyramid(rg, res, baseDesc.width, baseDesc.height, out int hizMips);
+            _hizDims = new Vector4(baseDesc.width, baseDesc.height, 1f / baseDesc.width, 1f / baseDesc.height);
+            _hizMaxMip = hizMips - 1;
+
             // ---- history (imported, persistent) ----
-            bool histValid = _history.Acquire(cam.camera, w, h, out RTHandle histReadRT, out RTHandle histWriteRT);
+            Matrix4x4 viewProj = GL.GetGPUProjectionMatrix(cam.camera.projectionMatrix, true) * cam.camera.worldToCameraMatrix;   // Camera.projectionMatrix is unjittered in URP (TAA jitter is applied to URP's own matrices), so jitter does not leak into the reprojection
+            bool histValid = _history.Acquire(cam.camera, w, h, viewProj, out RTHandle histReadRT, out RTHandle histWriteRT, out _prevVP);
             TextureHandle histRead = rg.ImportTexture(histReadRT);
             TextureHandle histWrite = rg.ImportTexture(histWriteRT);
 
@@ -164,6 +207,13 @@ namespace SSRFeature
             if (useMask) mask = RecordMask(rg, frame, baseDesc);
 
             TextureHandle trace = UniversalRenderer.CreateRenderGraphTexture(rg, desc, "_SSRTrace", false, FilterMode.Bilinear);
+
+            bool hitFmtOk = SystemInfo.IsFormatSupported(GraphicsFormat.R16_SFloat, GraphicsFormatUsage.Render);
+            if (_p.hitReprojection && !hitFmtOk && !_warned) { _warned = true; Debug.LogWarning("[SSR] R16_SFloat render targets unsupported; hit-point reprojection disabled."); }
+            _hitReproj = _p.hitReprojection && hitFmtOk;
+            RenderTextureDescriptor hitDesc = desc;
+            hitDesc.graphicsFormat = hitFmtOk ? GraphicsFormat.R16_SFloat : GraphicsFormat.R16G16B16A16_SFloat;   // fallback only keeps the MRT bindable
+            _hit = UniversalRenderer.CreateRenderGraphTexture(rg, hitDesc, "_SSRTraceHit", false, FilterMode.Point);
             Vector4 texel = new Vector4(w, h, 1f / w, 1f / h);
             int frameIdx = _p.jitterPerFrame ? Time.frameCount : 0;
 
@@ -173,17 +223,21 @@ namespace SSRFeature
                 Fill(d, opaque, kPassTrace, frameIdx, useMask, hasMotion, histValid, null, texel);
                 b.UseTexture(opaque, AccessFlags.Read);
                 b.UseTexture(res.cameraDepthTexture, AccessFlags.Read);
+                b.UseTexture(_hiz, AccessFlags.Read);
                 if (_hasNormals) b.UseTexture(res.cameraNormalsTexture, AccessFlags.Read);
                 if (useMask) b.UseTexture(mask, AccessFlags.Read);
                 b.SetRenderAttachment(trace, 0, AccessFlags.Write);
+                b.SetRenderAttachment(_hit, 1, AccessFlags.Write);
                 b.SetRenderFunc((FullscreenData x, RasterGraphContext c) => Run(x, c));
             }
 
-            // ---- Resolve: spatial filter + temporal + luminance-delta limiter -> writes history target ----
+            // ---- Resolve: temporal accumulation (hit-point reprojection) + luminance-delta limiter -> writes history target ----
             using (var b = rg.AddRasterRenderPass<FullscreenData>("SSR Resolve", out var d))
             {
                 Fill(d, trace, kPassResolve, frameIdx, useMask, hasMotion, histValid, histReadRT, texel);
+                b.AllowGlobalStateModification(true);   // Run() sets _SSRPrevVP through the command buffer
                 b.UseTexture(trace, AccessFlags.Read);
+                b.UseTexture(_hit, AccessFlags.Read);
                 b.UseTexture(histRead, AccessFlags.Read);
                 if (useMask) b.UseTexture(mask, AccessFlags.Read);
                 if (_settings.surfaceMode == SSRSurfaceMode.NormalsAlpha) b.UseTexture(res.cameraNormalsTexture, AccessFlags.Read);
@@ -193,11 +247,17 @@ namespace SSRFeature
                 b.SetRenderFunc((FullscreenData x, RasterGraphContext c) => Run(x, c));
             }
 
+            // ---- Denoise: edge-aware a-trous on the accumulated result (history itself stays unfiltered) ----
+            TextureHandle denoised = RecordDenoise(rg, res, histWrite, mask, desc, _p.denoiseIterations, frameIdx, useMask, hasMotion, histValid, texel);
+
             // ---- Composite: premultiplied blend into camera color ----
             using (var b = rg.AddRasterRenderPass<FullscreenData>("SSR Composite", out var d))
             {
-                Fill(d, histWrite, kPassComposite, frameIdx, useMask, hasMotion, histValid, null, texel);
-                b.UseTexture(histWrite, AccessFlags.Read);
+                Fill(d, denoised, kPassComposite, frameIdx, useMask, hasMotion, histValid, null, texel);
+                b.UseTexture(denoised, AccessFlags.Read);
+                b.UseTexture(res.cameraDepthTexture, AccessFlags.Read);                       // depth-aware upsample + full-res mask
+                if (useMask) b.UseTexture(mask, AccessFlags.Read);
+                if (_hasNormals) b.UseTexture(res.cameraNormalsTexture, AccessFlags.Read);                // NormalsAlpha mask + normal-aware upsample
                 b.SetRenderAttachment(res.activeColorTexture, 0, AccessFlags.ReadWrite);
                 b.AllowPassCulling(false);
                 b.SetRenderFunc((FullscreenData x, RasterGraphContext c) => Run(x, c));
@@ -223,6 +283,82 @@ namespace SSRFeature
                     b.AllowPassCulling(false);
                     b.SetRenderFunc((FullscreenData x, RasterGraphContext c) => Run(x, c));
                 }
+            }
+        }
+
+        // N chained a-trous draws (stride 1, 2, 4, ...). Returns the last target, or src when iterations == 0.
+        TextureHandle RecordDenoise(RenderGraph rg, UniversalResourceData res, TextureHandle src, TextureHandle mask, RenderTextureDescriptor desc,
+                                    int iterations, int frameIdx, bool useMask, bool hasMotion, bool histValid, Vector4 texel)
+        {
+            TextureHandle current = src;
+            for (int i = 0; i < iterations; i++)
+            {
+                TextureHandle dst = UniversalRenderer.CreateRenderGraphTexture(rg, desc, "_SSRDenoise", false, FilterMode.Bilinear);
+                using (var b = rg.AddRasterRenderPass<FullscreenData>("SSR Denoise", out var d))
+                {
+                    Fill(d, current, kPassDenoise, frameIdx, useMask, hasMotion, histValid, null, texel);
+                    d.denoiseStep = 1 << i;
+                    b.AllowGlobalStateModification(true);   // Run() sets _SSRDenoiseStep through the command buffer
+                    b.UseTexture(current, AccessFlags.Read);
+                    b.UseTexture(res.cameraDepthTexture, AccessFlags.Read);
+                    if (_hasNormals) b.UseTexture(res.cameraNormalsTexture, AccessFlags.Read);
+                    if (useMask) b.UseTexture(mask, AccessFlags.Read);
+                    b.SetRenderAttachment(dst, 0, AccessFlags.Write);
+                    b.SetRenderFunc((FullscreenData x, RasterGraphContext c) => Run(x, c));
+                }
+                current = dst;
+            }
+            return current;
+        }
+
+        // Mip 0 = linear eye depth, mip n = min of the 2x2 below it. Each reduce draw goes into a temp target and is copied into
+        // the mip, so no draw reads and writes the same texture (D3D11-safe). [GAP] verify the unsafe pass + CopyTexture on your exact 6000.x.
+        TextureHandle RecordDepthPyramid(RenderGraph rg, UniversalResourceData res, int w, int h, out int mipCount)
+        {
+            mipCount = 1;
+            while (mipCount < kHiZMaxMips && (Mathf.Min(w, h) >> mipCount) >= 8) mipCount++;
+
+            var full = new TextureDesc(w, h)
+            {
+                colorFormat = GraphicsFormat.R32_SFloat, useMipMap = true, autoGenerateMips = false,
+                filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, name = "_SSRHiZ"
+            };
+            var half = new TextureDesc(Mathf.Max(1, w >> 1), Mathf.Max(1, h >> 1))
+            {
+                colorFormat = GraphicsFormat.R32_SFloat, filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, name = "_SSRHiZTmp"
+            };
+            TextureHandle hiz = rg.CreateTexture(full);
+            TextureHandle tmp = rg.CreateTexture(half);
+
+            using (var b = rg.AddUnsafePass<HiZData>("SSR Depth Pyramid", out var d))
+            {
+                d.mat = _ssr; d.hiz = hiz; d.tmp = tmp; d.mips = mipCount; d.width = w; d.height = h;
+                b.UseTexture(res.cameraDepthTexture, AccessFlags.Read);
+                b.UseTexture(hiz, AccessFlags.Write);
+                b.UseTexture(tmp, AccessFlags.Write);
+                b.SetRenderFunc((HiZData x, UnsafeGraphContext c) => RunDepthPyramid(x, c));
+            }
+            return hiz;
+        }
+
+        static void RunDepthPyramid(HiZData x, UnsafeGraphContext c)
+        {
+            CommandBuffer cmd = CommandBufferHelpers.GetNativeCommandBuffer(c.cmd);
+            RTHandle hiz = x.hiz, tmp = x.tmp;
+
+            cmd.SetRenderTarget(hiz, 0, CubemapFace.Unknown, 0);
+            Blitter.BlitTexture(cmd, tmp, k_ScaleBias, x.mat, kPassHiZBase);       // source unused by the base pass
+
+            int sw = x.width, sh = x.height;
+            for (int m = 1; m < x.mips; m++)
+            {
+                int dw = Mathf.Max(1, sw >> 1), dh = Mathf.Max(1, sh >> 1);
+                cmd.SetGlobalVector(Ids.HiZSrc, new Vector4(m - 1, sw, sh, 0f));    // recorded in order, unlike material properties
+                cmd.SetRenderTarget(tmp, 0, CubemapFace.Unknown, 0);
+                cmd.SetViewport(new Rect(0, 0, dw, dh));
+                Blitter.BlitTexture(cmd, hiz, k_ScaleBias, x.mat, kPassHiZReduce);
+                cmd.CopyTexture(tmp, 0, 0, 0, 0, dw, dh, hiz, 0, m, 0, 0);
+                sw = dw; sh = dh;
             }
         }
 
@@ -291,6 +427,8 @@ namespace SSRFeature
             d.src = src; d.mat = _ssr; d.pass = pass; d.p = _p; d.frame = frameIdx;
             d.useMask = useMask; d.useNormalsMask = _settings.surfaceMode == SSRSurfaceMode.NormalsAlpha; d.hasMotion = hasMotion; d.historyValid = histValid;
             d.history = history; d.texel = texel; d.hasNormals = _hasNormals; d.debugView = (int)_settings.debugView;
+            d.hiz = _hiz; d.hizDims = _hizDims; d.hizMaxMip = _hizMaxMip;
+            d.hit = _hit; d.prevVP = _prevVP; d.hitReproj = _hitReproj; d.denoiseStep = 1f;
         }
 
         static void Run(FullscreenData x, RasterGraphContext c)
@@ -302,6 +440,8 @@ namespace SSRFeature
             CoreUtils.SetKeyword(m, "_SSR_NO_NORMALS", !x.hasNormals);
 
             m.SetVector(Ids.Texel, x.texel);
+            m.SetVector(Ids.HiZDims, x.hizDims);          // identical in every pass: material values are read when the command buffer runs, not per pass
+            m.SetFloat(Ids.HiZMaxMip, x.hizMaxMip);
             m.SetFloat(Ids.MaxDistance, p.maxDistance);
             m.SetFloat(Ids.Thickness, p.thickness);
             m.SetFloat(Ids.MaxSteps, p.maxSteps);
@@ -324,7 +464,14 @@ namespace SSRFeature
             m.SetFloat(Ids.SmoothInfluence, p.smoothnessInfluence);
             m.SetFloat(Ids.Blur, p.roughnessBlur);
             m.SetFloat(Ids.DebugView, x.debugView);
+            m.SetFloat(Ids.DistFadePower, p.distanceFadePower);
+            m.SetFloat(Ids.NormalSharpness, p.normalSharpness);
+            m.SetFloat(Ids.HitReproj, x.hitReproj ? 1f : 0f);
+            // per-pass values go through the command buffer (recorded in order); material values are read when it runs, so only the last would win
+            if (x.pass == kPassDenoise) c.cmd.SetGlobalFloat(Ids.DenoiseStep, x.denoiseStep);
+            if (x.pass == kPassResolve) { c.cmd.SetGlobalMatrix(Ids.PrevVP, x.prevVP); RTHandle hitRT = x.hit; m.SetTexture(Ids.TraceHit, hitRT); }
             if (x.history != null) m.SetTexture(Ids.History, x.history);
+            if (x.pass == kPassTrace) { RTHandle hizRT = x.hiz; m.SetTexture(Ids.HiZ, hizRT); }
 
             // [GAP] TextureHandle -> RTHandle implicit conversion as used in Unity's Blit samples; verify on your exact 6000.x.
             Blitter.BlitTexture(c.cmd, x.src, k_ScaleBias, m, x.pass);

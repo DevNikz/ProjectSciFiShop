@@ -13,13 +13,16 @@ namespace SSRFeature
         {
             public RTHandle a, b;
             public int w, h, flip, lastFrame = -100, cutGen;
+            public Matrix4x4 viewProj;       // this camera's unjittered view-projection of the last recorded frame
+            public bool hasViewProj;
         }
 
         readonly Dictionary<Camera, Entry> _map = new Dictionary<Camera, Entry>();
         readonly List<Camera> _dead = new List<Camera>();
 
-        /// <summary>Call once per camera per frame. Returns true if <paramref name="read"/> holds last frame's valid result.</summary>
-        public bool Acquire(Camera cam, int w, int h, out RTHandle read, out RTHandle write)
+        /// <summary>Call once per camera per frame. Returns true if <paramref name="read"/> holds last frame's valid result.
+        /// <paramref name="prevViewProj"/> is last frame's view-projection (equals <paramref name="viewProj"/> on the first frame).</summary>
+        public bool Acquire(Camera cam, int w, int h, in Matrix4x4 viewProj, out RTHandle read, out RTHandle write, out Matrix4x4 prevViewProj)
         {
             Purge();
             if (!_map.TryGetValue(cam, out var e)) { e = new Entry { cutGen = SSRAccessibility.CutGeneration }; _map[cam] = e; }
@@ -39,6 +42,9 @@ namespace SSRFeature
             read  = e.flip == 0 ? e.a : e.b;
             write = e.flip == 0 ? e.b : e.a;
             e.lastFrame = Time.frameCount;
+
+            prevViewProj = e.hasViewProj ? e.viewProj : viewProj;
+            e.viewProj = viewProj; e.hasViewProj = true;
             return valid;
         }
 

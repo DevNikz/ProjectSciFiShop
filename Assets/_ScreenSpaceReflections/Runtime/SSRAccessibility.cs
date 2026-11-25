@@ -51,6 +51,7 @@ namespace SSRFeature
         public const float kCalmRatePerSecond  = 3.0f;
         public const float kCalmFeedback       = 0.9f;
         public const float kReducedEdgeFade    = 0.2f;
+        public const float kPerformanceMaxScale = 0.5f;  // performance mode caps the resolution scale
         public const float kCalmMinBlur        = 1.5f;   // reduce-shimmer: rougher kernel hides noise
 
         static readonly SSRAccessibilityPrefs s_Default = new SSRAccessibilityPrefs();
@@ -101,9 +102,13 @@ namespace SSRFeature
             return new SSRResolvedParams
             {
                 enabled          = s.enabled && p.reflectionsEnabled,
-                resolutionScale  = prof.resolutionScale,
+                resolutionScale  = p.performanceMode ? Mathf.Min(s.resolutionScale, kPerformanceMaxScale) : s.resolutionScale,
                 maxSteps         = prof.maxSteps,
                 refineSteps      = prof.refineSteps,
+                denoiseIterations = prof.denoiseIterations,      // performanceMode already forces the Low profile (1 iteration)
+                distanceFadePower = s.distanceFadePower,
+                normalSharpness  = s.normalSharpness,
+                hitReprojection  = s.hitReprojection,
                 maxDistance      = maxDistance,
                 thickness        = thickness,
                 edgeFade         = p.reduceMotion ? Mathf.Max(s.edgeFade, kReducedEdgeFade) : s.edgeFade,

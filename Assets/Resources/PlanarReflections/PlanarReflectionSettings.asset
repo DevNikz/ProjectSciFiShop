@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 31224086c94e6a54ca2d021444f9fbf8, type: 3}
   m_Name: PlanarReflectionSettings
   m_EditorClassIdentifier: Studio.PlanarReflections.Runtime::Studio.PlanarReflections.PlanarReflectionSettings
-  m_MaxActiveReflectors: 4
+  m_MaxActiveReflectors: 8
   m_BlurBackend: 2

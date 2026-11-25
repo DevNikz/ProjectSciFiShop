@@ -36,6 +36,7 @@ namespace Studio.PlanarReflections
         static readonly Comparison<Candidate> s_ByWeightDescending = (a, b) => b.Weight.CompareTo(a.Weight);
 
         static readonly ProfilerMarker s_SubmitMarker = new ProfilerMarker("PlanarReflections.Render");
+        static readonly int s_NonJitteredVPId = Shader.PropertyToID("_PlanarNonJitteredVP");
 
         static bool s_IsSubscribed;
         static bool s_IsSubmitting;
@@ -94,6 +95,7 @@ namespace Studio.PlanarReflections
                 return;
             }
 
+            SetSourceCameraMatrices(sourceCamera);
             PruneUnusedViews();
             CollectVisibleReflectors(sourceCamera);
 
@@ -105,6 +107,15 @@ namespace Studio.PlanarReflections
                 bool isActive = i < settings.MaxActiveReflectors;
                 ProcessReflector(s_Candidates[i].Reflector, sourceCamera, isActive, useComputeBlur);
             }
+        }
+
+        // URP only writes _NonJitteredViewProjMatrix while something needs motion vectors (TAA, STP, motion blur, or a feature
+        // such as SSR). Planar shaders read this own global instead, so reflections work without any of those.
+        // Camera.projectionMatrix is the unjittered one; URP adds jitter later in its camera data.
+        static void SetSourceCameraMatrices(Camera sourceCamera)
+        {
+            Matrix4x4 projection = GL.GetGPUProjectionMatrix(sourceCamera.projectionMatrix, false);
+            Shader.SetGlobalMatrix(s_NonJitteredVPId, projection * sourceCamera.worldToCameraMatrix);
         }
 
         // Runs the blur inside the reflection camera's own context so it is ordered behind its render.

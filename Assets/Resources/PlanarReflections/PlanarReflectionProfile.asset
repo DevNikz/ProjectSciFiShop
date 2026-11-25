@@ -21,7 +21,7 @@ MonoBehaviour:
   m_ClipOffset: 0.1
   m_FadeStartDistance: 60
   m_FadeEndDistance: 100
-  m_BlurMode: 1
+  m_BlurMode: 0
   m_RoughnessLodRange: 4
   m_BlurIterations: 3
   m_RenderShadows: 1

@@ -17,32 +17,38 @@ MonoBehaviour:
     enabled: 1
     applyInSceneView: 1
     quality: 3
+    resolutionScale: 1
     custom:
       resolutionScale: 0.75
-      maxSteps: 40
+      maxSteps: 64
       refineSteps: 4
+      denoiseIterations: 3
       maxDistance: 100
-      thickness: 1
+      thickness: 2
       temporalFeedback: 0.8
       roughnessBlur: 2
     lastQuality: 3
+    settingsVersion: 2
     surfaceMode: 2
     reflectivity: 0.8
-    useMaterialSmoothness: 1
-    smoothnessThreshold: 0.2
-    smoothnessRamp: 0.5
+    useMaterialSmoothness: 0
+    smoothnessThreshold: 0.4
+    smoothnessRamp: 0.3
     smoothnessInfluence: 1
-    roughnessBlur: 4
-    fallbackSmoothness: 0.5
+    roughnessBlur: 2
+    normalSharpness: 16
+    fallbackSmoothness: 0
     maxDistance: 100
     thickness: 2
-    edgeFade: 0
+    edgeFade: 0.1
+    distanceFadePower: 1
     fresnelPower: 3
     minReflectance: 0.2
     intensity: 1
     maxOpacity: 1
-    maxLuminance: 128
-    temporalFeedback: 0.95
+    maxLuminance: 32
+    temporalFeedback: 0.8
+    hitReprojection: 1
     debugView: 0
   ssrShader: {fileID: 4800000, guid: 855e911ebf03e1b4d9f5c5875cb68825, type: 3}
   maskShader: {fileID: 4800000, guid: 5b5054cd1b0296b4aac32033be6f21fa, type: 3}

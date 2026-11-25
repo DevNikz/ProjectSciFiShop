@@ -37,7 +37,7 @@ RenderSettings:
   m_ReflectionBounces: 2
   m_ReflectionIntensity: 0.5
   m_CustomReflection: {fileID: 8900000, guid: 90378027bbfa934459304c02c24711f2, type: 3}
-  m_Sun: {fileID: 0}
+  m_Sun: {fileID: 1933965996}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -1411,6 +1411,7 @@ GameObject:
   - component: {fileID: 354479167}
   - component: {fileID: 354479169}
   - component: {fileID: 354479168}
+  - component: {fileID: 354479170}
   m_Layer: 7
   m_Name: Plane
   m_TagString: Untagged
@@ -1490,6 +1491,24 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 354479166}
   m_Mesh: {fileID: 10209, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &354479170
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 354479166}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 410c3c94d38a0e54ba5b66ed592776c9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Studio.PlanarReflections.Runtime::Studio.PlanarReflections.PlanarReflector
+  m_Profile: {fileID: 11400000, guid: 4fce5f14bf163a3499d6ba2eb6b53fb4, type: 2}
+  m_TargetRenderers:
+  - {fileID: 354479168}
+  m_InvertCulling: 1
+  m_MaxDistance: 100
+  m_UpdateInterval: 1
 --- !u!1 &409474138
 GameObject:
   m_ObjectHideFlags: 0
@@ -2757,7 +2776,6 @@ GameObject:
   - component: {fileID: 857990314}
   - component: {fileID: 857990313}
   - component: {fileID: 857990315}
-  - component: {fileID: 857990316}
   m_Layer: 6
   m_Name: Test Cube
   m_TagString: Untagged
@@ -2858,24 +2876,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &857990316
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 857990311}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 410c3c94d38a0e54ba5b66ed592776c9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Studio.PlanarReflections.Runtime::Studio.PlanarReflections.PlanarReflector
-  m_Profile: {fileID: 11400000, guid: 4fce5f14bf163a3499d6ba2eb6b53fb4, type: 2}
-  m_TargetRenderers:
-  - {fileID: 857990313}
-  m_InvertCulling: 1
-  m_MaxDistance: 100
-  m_UpdateInterval: 2
 --- !u!1001 &859211590
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6264,6 +6264,11 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 6699476407767244329, guid: de4aa6eb70559034b8cf1c96e221a9e3, type: 3}
   m_PrefabInstance: {fileID: 1926769734}
   m_PrefabAsset: {fileID: 0}
+--- !u!108 &1933965996 stripped
+Light:
+  m_CorrespondingSourceObject: {fileID: 4432301033068413673, guid: 96af1945e8bda2947bf27902b1ad41fb, type: 3}
+  m_PrefabInstance: {fileID: 2341638579638360117}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1966676484
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6338,7 +6343,6 @@ GameObject:
   - component: {fileID: 2026517921}
   - component: {fileID: 2026517920}
   - component: {fileID: 2026517919}
-  - component: {fileID: 2026517923}
   m_Layer: 0
   m_Name: Floor
   m_TagString: Untagged
@@ -6380,12 +6384,12 @@ MeshRenderer:
   m_ReceiveShadows: 1
   m_DynamicOccludee: 1
   m_StaticShadowCaster: 0
-  m_MotionVectors: 1
+  m_MotionVectors: 0
   m_LightProbeUsage: 1
   m_ReflectionProbeUsage: 1
   m_RayTracingMode: 2
-  m_RayTraceProcedural: 0
-  m_RayTracingAccelStructBuildFlagsOverride: 0
+  m_RayTraceProcedural: 1
+  m_RayTracingAccelStructBuildFlagsOverride: 1
   m_RayTracingAccelStructBuildFlags: 1
   m_SmallMeshCulling: 1
   m_ForceMeshLod: -1
@@ -6440,24 +6444,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 207359251}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2026517923
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2026517918}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 410c3c94d38a0e54ba5b66ed592776c9, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Studio.PlanarReflections.Runtime::Studio.PlanarReflections.PlanarReflector
-  m_Profile: {fileID: 11400000, guid: 4fce5f14bf163a3499d6ba2eb6b53fb4, type: 2}
-  m_TargetRenderers:
-  - {fileID: 2026517920}
-  m_InvertCulling: 1
-  m_MaxDistance: 100
-  m_UpdateInterval: 2
 --- !u!1 &2032958208
 GameObject:
   m_ObjectHideFlags: 0
@@ -8117,7 +8103,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 877556900391206343, guid: 25650a5a79834ee498e8e119da20709d, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 83.4
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 877556900391206343, guid: 25650a5a79834ee498e8e119da20709d, type: 3}
       propertyPath: m_AnchoredPosition.x
@@ -8137,7 +8123,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1030341263242641377, guid: 25650a5a79834ee498e8e119da20709d, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 120.01
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1030341263242641377, guid: 25650a5a79834ee498e8e119da20709d, type: 3}
       propertyPath: m_AnchoredPosition.x
@@ -8157,7 +8143,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 1746254496809982308, guid: 25650a5a79834ee498e8e119da20709d, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 33.49
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 1746254496809982308, guid: 25650a5a79834ee498e8e119da20709d, type: 3}
       propertyPath: m_AnchoredPosition.x
@@ -8177,7 +8163,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3273543968524487119, guid: 25650a5a79834ee498e8e119da20709d, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 123.14
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3273543968524487119, guid: 25650a5a79834ee498e8e119da20709d, type: 3}
       propertyPath: m_AnchoredPosition.x
@@ -8654,6 +8640,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3507249674297301370, guid: 7626e08f4fcee4d43b6c17710170014c, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 7899679184525588672, guid: 7626e08f4fcee4d43b6c17710170014c, type: 3}
+      propertyPath: m_Antialiasing
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 7899679184525588672, guid: 7626e08f4fcee4d43b6c17710170014c, type: 3}
