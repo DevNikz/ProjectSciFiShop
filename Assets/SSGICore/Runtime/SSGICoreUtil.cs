@@ -210,6 +210,17 @@ namespace SSGICore
         public static readonly int MaxAge = ID("_SSGI_MaxAge");
         public static readonly int HasMotion = ID("_SSGI_HasMotion");
         public static readonly int StepSize = ID("_SSGI_StepSize");
+        public static readonly int LightFlush = ID("_SSGI_LightFlush");
+        public static readonly int LightFloor = ID("_SSGI_LightFloor");
+        public static readonly int ContactRadius = ID("_SSGI_ContactRadius");
+        public static readonly int MainScale = ID("_SSGI_MainScale");
+        public static readonly int MainDelta = ID("_SSGI_MainDelta");
+        public static readonly int AdaptiveRays = ID("_SSGI_AdaptiveRays");
+        public static readonly int LeakReduction = ID("_SSGI_LeakReduction");
+        public static readonly int DirtyCount = ID("_SSGI_DirtyCount");
+        public static readonly int LightScale = ID("_SSGI_LightScale");
+        public static readonly int DirtySphere = ID("_SSGI_DirtySphere");
+        public static readonly int DirtyAmount = ID("_SSGI_DirtyAmount");
 
         // textures
         public static readonly int Depth = ID("_SSGI_Depth");
@@ -234,6 +245,9 @@ namespace SSGICore
         public static readonly int FilterIn = ID("_SSGI_FilterIn");
         public static readonly int FilterOut = ID("_SSGI_FilterOut");
         public static readonly int GIOut = ID("_SSGI_GIOut");
+        public static readonly int LightTex = ID("_SSGI_LightTex");
+        public static readonly int LightOut = ID("_SSGI_LightOut");
+        public static readonly int MomIn = ID("_SSGI_MomIn");
 
         // composite
         public static readonly int CompGI = ID("_SSGICore_GI");
@@ -244,6 +258,7 @@ namespace SSGICore
         public static readonly int CompNormals = ID("_SSGICore_Normals");
         public static readonly int CompParams = ID("_SSGICore_Params");
         public static readonly int CompSize = ID("_SSGICore_Size");
+        public static readonly int CompParams2 = ID("_SSGICore_Params2");
         public static readonly int UserGI = ID("_SSGICore_GITexture");
     }
 }

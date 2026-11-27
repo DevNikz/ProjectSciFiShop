@@ -76,6 +76,8 @@ void Temporal(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 gtid
     }
 
     float lumCur = SSGILuma(cur);
+    float occCur = _SSGI_TraceIn.Load(int3(lp, 0)).a; // contact openness written by the trace
+    float prevOcc = occCur;
     float3 prevC = cur;
     float2 prevM = float2(lumCur, lumCur * lumCur);
     float newAge = 1.0;
@@ -93,7 +95,7 @@ void Temporal(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 gtid
         float2 f = pp - p0;
 
         float4 accC = 0;
-        float2 accM = 0;
+        float3 accM = 0; // xy = luminance moments, z = contact openness
         float wsum = 0;
 
         [unroll]
@@ -110,7 +112,7 @@ void Temporal(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 gtid
             if (dz < 0.05 && dn > 0.8)
             {
                 accC += wb * _SSGI_HistColorPrev.Load(int3(q, 0));
-                accM += wb * _SSGI_HistMomPrev.Load(int3(q, 0)).xy;
+                accM += wb * _SSGI_HistMomPrev.Load(int3(q, 0)).xyw;
                 wsum += wb;
             }
         }
@@ -120,7 +122,8 @@ void Temporal(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 gtid
             accC /= wsum;
             accM /= wsum;
             prevC = accC.rgb;
-            prevM = accM;
+            prevM = accM.xy;
+            prevOcc = accM.z;
             newAge = min(accC.a + 1.0, (float)_SSGI_MaxAge);
             alpha = rcp(newAge);
 
@@ -130,6 +133,14 @@ void Temporal(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 gtid
                 float2 camUV = AnalyticPrevUV(posVS);
                 float objPx = length((puv - camUV) * _SSGI_FullSize.xy);
                 alpha = max(alpha, saturate(objPx / _SSGI_MotionReject) * 0.5);
+            }
+
+            // lights that moved / changed / toggled in this pixel's range: the history was lit by the old lights, drop it
+            float lightAlpha = LoadLightResponseLow(lp).y * _SSGI_LightFlush;
+            if (lightAlpha > alpha)
+            {
+                alpha = lightAlpha;
+                newAge = min(newAge, max(1.0, rcp(alpha)));
             }
 
             if (_SSGI_TemporalClamp > 0.0)
@@ -161,7 +172,8 @@ void Temporal(uint3 id : SV_DispatchThreadID, uint3 gid : SV_GroupID, uint3 gtid
     if (_SSGI_Enhanced != 0 && newAge < 4.0) variance *= 1.0 + 0.5 * (4.0 - newAge);
 
     _SSGI_HistColorOut[lp] = float4(result, newAge);
-    _SSGI_HistMomOut[lp] = float4(m1, m2, newAge, 0); // z = age, read by the filter in Enhanced mode
+    float occ = lerp(prevOcc, occCur, alpha);
+    _SSGI_HistMomOut[lp] = float4(m1, m2, newAge, occ); // z = age (read by the filter in Enhanced mode), w = contact openness
     _SSGI_HistGeoOut[lp] = float4(nWS, eye);
     _SSGI_FilterOut[lp] = float4(result, variance);
 }

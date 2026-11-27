@@ -212,6 +212,7 @@ public class ShelfInventory : MonoBehaviour
             }
         }
         Debug.Log($"{name}: auto-fill stocked {stocked} item(s).", this);
+        Changed?.Invoke();
     }
 
     void OnValidate()

@@ -15,6 +15,11 @@ public class CoinUI : MonoBehaviour
     [SerializeField]
     private float duration = 0.6f;
 
+    [Tooltip("Text color when the amount is negative. Gains keep the prefab's label color.")]
+    [SerializeField]
+    private Color lossColor = new Color(1f, 0.35f, 0.35f, 1f);
+
+    private Color _gainColor;
     private RectTransform _rect;
     private CanvasGroup _canvasGroup;
 
@@ -29,6 +34,8 @@ public class CoinUI : MonoBehaviour
         _canvasGroup = GetComponent<CanvasGroup>();
         if (label == null)
             Debug.LogError("label not assigned.", this);
+        else
+            _gainColor = label.color;
         if (_canvasGroup == null)
             Debug.LogError("missing CanvasGroup, fade won't work.", this);
     }
@@ -39,6 +46,7 @@ public class CoinUI : MonoBehaviour
             return;
 
         label.text = (amount >= 0 ? "+" : "") + amount;
+        label.color = amount < 0 ? lossColor : _gainColor;
         _rect.anchoredPosition = anchoredPos;
         if (_canvasGroup != null)
             _canvasGroup.alpha = 1f;

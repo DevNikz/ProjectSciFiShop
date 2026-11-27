@@ -17,12 +17,12 @@ MonoBehaviour:
     enabled: 1
     applyInSceneView: 1
     quality: 3
-    resolutionScale: 1
+    resolutionScale: 0.5
     custom:
       resolutionScale: 0.75
-      maxSteps: 64
-      refineSteps: 4
-      denoiseIterations: 3
+      maxSteps: 48
+      refineSteps: 1
+      denoiseIterations: 1
       maxDistance: 100
       thickness: 2
       temporalFeedback: 0.8
@@ -31,12 +31,12 @@ MonoBehaviour:
     settingsVersion: 2
     surfaceMode: 2
     reflectivity: 0.8
-    useMaterialSmoothness: 0
+    useMaterialSmoothness: 1
     smoothnessThreshold: 0.4
     smoothnessRamp: 0.3
     smoothnessInfluence: 1
     roughnessBlur: 2
-    normalSharpness: 16
+    normalSharpness: 32
     fallbackSmoothness: 0
     maxDistance: 100
     thickness: 2
@@ -47,7 +47,7 @@ MonoBehaviour:
     intensity: 1
     maxOpacity: 1
     maxLuminance: 32
-    temporalFeedback: 0.8
+    temporalFeedback: 0.7
     hitReprojection: 1
     debugView: 0
   ssrShader: {fileID: 4800000, guid: 855e911ebf03e1b4d9f5c5875cb68825, type: 3}
@@ -148,7 +148,7 @@ MonoBehaviour:
     falloffRange: 0.1
     multiBounce: 0.4
     directLightingStrength: 1
-    quality: 2
+    quality: 1
     customSlices: 2
     customSteps: 4
     maxPixelRadius: 64
@@ -157,7 +157,7 @@ MonoBehaviour:
     fadeEnd: 100
     useDepthMips: 1
     depthMipBias: 3.3
-    highPrecisionDepthMips: 1
+    highPrecisionDepthMips: 0
     sampleDistributionPower: 2
     thinOccluderCompensation: 0
     noise: 1
@@ -169,10 +169,10 @@ MonoBehaviour:
     clampStrength: 1.25
     useMotionVectors: 1
     denoiser: 1
-    blur: 3
+    blur: 2
     upsample: 1
     planeTolerance: 0.02
-    blurDepthSharpness: 500
+    blurDepthSharpness: 100
     debugView: 0
   shader: {fileID: 4800000, guid: 30a1080d3cf26954290f430b46881b6b, type: 3}
 --- !u!114 &7491601281297515449

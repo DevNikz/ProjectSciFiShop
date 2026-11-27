@@ -39,18 +39,26 @@ public class Interactable : MonoBehaviour, IPromptSource
         get
         {
             if (prompts != null && prompts.Length > 0)
-                return prompts;
-            if (string.IsNullOrEmpty(promptText))
-                return Array.Empty<PromptEntry>();
-            return _legacy ??= new[]
             {
-                new PromptEntry
+                var resolved = new PromptEntry[prompts.Length];
+                for (int i = 0; i < prompts.Length; i++)
                 {
-                    action = PromptAction.Interact,
-                    text = promptText,
-                    when = PromptContext.EmptyHands,
-                },
+                    resolved[i] = prompts[i];
+                    resolved[i].text = prompts[i].text.FormatWithVariables(this, prompts[i]);
+                }
+                return resolved;
+            }
+
+            PromptEntry entry = new PromptEntry
+            {
+                action = PromptAction.Interact,
+                when = PromptContext.EmptyHands,
             };
+            entry.text = promptText.FormatWithVariables(this, entry);
+
+            _legacy ??= new PromptEntry[1];
+            _legacy.SetValue(entry, 0);
+            return _legacy;
         }
     }
 
@@ -86,7 +94,10 @@ public class Interactable : MonoBehaviour, IPromptSource
 
     private void Awake() => _heldFilters = GetComponents<IHeldInteractFilter>();
 
-    private void OnEnable() => Enabled?.Invoke(this);
+    private void OnEnable()
+    {
+        Enabled?.Invoke(this);
+    }
 
     private void OnDisable() => Disabled?.Invoke(this);
 

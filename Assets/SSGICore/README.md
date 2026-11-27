@@ -31,6 +31,13 @@ bilateral upsample -> additive composite.
 * **Radiance Cache (experimental)**: off-screen fallback for rays that leave the screen; see Docs/Phase5/handoffs.md.
 * **ReSTIR (experimental)**: resamples first-hit samples across frames/neighbours. Off by default; see Docs/Phase4/handoffs.md.
 * **Bounces**: extra explicit bounces inside the trace (albedo is approximated).
+* **Light Response** (on by default, Forward+): per-light GI control and dynamic lights. Add an *SSGICore Light* component to any
+  Light to scale (or disable) how much it feeds the bounce; lights that move, change colour/intensity/range, toggle, spawn or despawn
+  flush the temporal history in their range (*Light Change Flush*) so GI follows them without ghosting. *Light GI Floor* keeps a share
+  of the bounce (emissive, lightmaps) independent of the per-light scale. Costs nothing while every light has scale 1 and nothing
+  changes. Main light + point/spot lights; additional directional lights and shadows are not part of the scale. See Docs/Phase6/handoffs.md.
+* **Contact Occlusion / Contact Radius**: darkens creases using the distance to the first bounce hit.
+* **Leak Reduction**: tighter ray thickness and grazing-hit rejection. **Adaptive Rays**: stable pixels trace one ray instead of *Ray Count*.
 * **Debug View**: GI, Raw Trace, History Age.
 * **Normal Source**: Auto (default) decides per pixel between raw, octahedral and depth-reconstructed normals, so objects
   whose shaders pack DepthNormals differently all work. Raw / Octahedral / Reconstruct force one mode.
@@ -40,6 +47,7 @@ bilateral upsample -> additive composite.
 Forward+ has no albedo buffer. The built-in composite estimates albedo from scene-colour chroma x *Albedo Level*.
 For exact results in your own shaders include `Shaders/SSGICoreSampling.hlsl` and use
 `SSGICoreSampleGI(screenUV) * albedo`. The texture is exposed as global `_SSGICore_GITexture` after the composite.
+Its alpha channel is contact openness (1 = open, lower = a surface close by); the built-in composite uses it for Contact Occlusion.
 
 ## Custom shaders
 Objects must be written by the DepthNormals pass to appear in depth/normals. In a hand-written shader add

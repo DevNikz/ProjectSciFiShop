@@ -190,6 +190,41 @@ namespace SSGICore
         )]
         public ClampedFloatParameter motionRejection = new ClampedFloatParameter(8f, 0f, 64f);
 
+        [Header("Light response")]
+        [Tooltip(
+            "Per-light GI control and dynamic lights. Lights with an SSGICore Light component scale their bounce, and lights that move, change, toggle, spawn or despawn flush the affected temporal history so GI follows them without ghosting. Needs Forward+. Costs nothing while every light has scale 1 and nothing changes."
+        )]
+        public BoolParameter lightResponse = new BoolParameter(true);
+
+        [Tooltip(
+            "Share of the bounce light that ignores per-light GI scale (emissive surfaces, lightmaps, anything not from a realtime light). 0 = all of it follows the lights."
+        )]
+        public ClampedFloatParameter lightGiFloor = new ClampedFloatParameter(0f, 0f, 1f);
+
+        [Tooltip(
+            "How strongly a light change resets temporal history in its range. 0 = keep history (ghosting), 1 = reset fully."
+        )]
+        public ClampedFloatParameter lightChangeFlush = new ClampedFloatParameter(0.5f, 0f, 1f);
+
+        [Header("Quality")]
+        [Tooltip(
+            "Darkens contact areas using the distance to the first hit, so corners and creases are not lit by bounce light that could not reach them. 0 = off."
+        )]
+        public ClampedFloatParameter contactOcclusion = new ClampedFloatParameter(0.5f, 0f, 1f);
+
+        [Tooltip("Distance in world units over which a nearby hit darkens the surface. Not used by ReSTIR.")]
+        public ClampedFloatParameter contactRadius = new ClampedFloatParameter(0.5f, 0.05f, 2f);
+
+        [Tooltip(
+            "Rejects grazing and thick-depth hits that let light leak through thin geometry."
+        )]
+        public BoolParameter leakReduction = new BoolParameter(true);
+
+        [Tooltip(
+            "Pixels with long, stable history trace one ray instead of Ray Count. Saves time when Ray Count is above 1."
+        )]
+        public BoolParameter adaptiveRays = new BoolParameter(true);
+
         [Header("Advanced")]
         [Tooltip(
             "Auto picks raw / octahedral / depth-reconstructed normals per pixel, so objects whose shaders pack normals differently all work."

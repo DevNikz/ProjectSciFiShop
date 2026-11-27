@@ -115,6 +115,13 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
     float brandLoyaltyChance = 0.4f;
 
     [Tooltip(
+        "Only look for products that belong to an item group (branded products). A product with no group "
+            + "(a leftover or test asset) is never wanted unless it is already on a shelf."
+    )]
+    [SerializeField]
+    bool onlyWantGroupedProducts = true;
+
+    [Tooltip(
         "Seconds a customer keeps looking for a preferred brand before accepting another brand of the same item."
     )]
     [SerializeField, Min(0f)]
@@ -176,6 +183,10 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
     Transform shoppingMarker;
     Coroutine shoppingRoutine;
     Coroutine deliveryRoutine;
+    readonly HashSet<ShelfInventory> watchedShelves = new();
+    readonly HashSet<ShelfInventory> staleShelves = new(); // visited, nothing taken: skipped until stock changes
+    int stockChanges; // counts Changed events from watched shelves
+    bool didLogNoMatch;
 
     NavMeshAgent agent;
     Transform destination;
@@ -334,29 +345,21 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
         if (!StoreBounds.IsInsideStore(transform.position))
             yield return WalkIntoStoreRoutine(deadline);
 
-        var unvisited = new List<ShelfInventory>(shelves);
+        WatchShelves(shelves);
+        var matches = new List<ShelfInventory>();
         while (IsStillLooking(deadline) && !IsTicketPatienceOver())
         {
             yield return null; // a frame every pass, so a customer that is already there never spins
-            ShelfInventory shelf = null;
-            Vector3 point;
-            if (unvisited.Count > 0)
+            var shelf = PickNextShelf(matches, out bool hasFreeTicket);
+            if (shelf == null)
             {
-                int index = UnityEngine.Random.Range(0, unvisited.Count);
-                shelf = unvisited[index];
-                unvisited.RemoveAt(index);
-                if (shelf == null)
-                    continue;
-                point = shelf.CustomerPickupPosition;
-            }
-            else
-            {
-                point = PickWanderPoint(shelves);
-                RefreshBrowsableShelves(shelves); // a bought expansion adds its shelves
-                unvisited.AddRange(shelves); // after the wander, look at every shelf again
+                // Nothing in the store holds a wanted item right now: wait for restocking, then wander.
+                StartPreferredBrandWaits();
+                yield return WaitForStockRoutine(shelves, deadline);
+                continue;
             }
 
-            yield return WalkToRoutine(point, deadline);
+            yield return WalkToRoutine(shelf.CustomerPickupPosition, deadline);
             if (!didReachPoint)
             {
                 if (Time.time < deadline)
@@ -366,24 +369,26 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
                     );
                 continue;
             }
-            if (shelf == null)
-                continue;
 
             if (!shelf.TryGetComponent(out ShelfTickets tickets) || tickets.TryTake(this))
             {
                 heldTicket = tickets;
                 ticketWaitStart = -1f;
+                int itemsBefore = shoppingItems.Count;
                 yield return LookAtShelfRoutine(shelf);
                 ReleaseTicket();
+                if (shoppingItems.Count == itemsBefore)
+                    staleShelves.Add(shelf); // it held nothing for us after all
             }
             else
             {
                 if (ticketWaitStart < 0f)
                     ticketWaitStart = Time.time;
-                unvisited.Add(shelf); // try it again after the wander
-                yield return WalkToRoutine(PickWanderPoint(shelves), deadline);
+                if (!hasFreeTicket) // every matching shelf is busy: wander, then try again
+                    yield return WalkToRoutine(PickWanderPoint(shelves), deadline);
             }
         }
+        UnwatchShelves();
 
         ReleaseReservations();
         RebuildCollectedOrder();
@@ -419,6 +424,169 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
 
     bool IsTicketPatienceOver() =>
         ticketWaitStart >= 0f && Time.time - ticketWaitStart >= ticketPatience;
+
+    bool IsWantedDefinition(ProductDefinition definition) =>
+        wants.Exists(want => want.remaining > 0 && IsAcceptable(want, definition));
+
+    // Nearest shelf in the store that holds a wanted item. A shelf with a free ticket beats a nearer busy one.
+    ShelfInventory PickNextShelf(List<ShelfInventory> matches, out bool hasFreeTicket)
+    {
+        hasFreeTicket = false;
+        ShelfStockFinder.FindShelves(transform.position, IsWantedDefinition, matches);
+        ShelfInventory nearestBusy = null;
+        foreach (var shelf in matches)
+        {
+            if (staleShelves.Contains(shelf))
+                continue;
+            if (!shelf.TryGetComponent(out ShelfTickets tickets) || tickets.HasFreeTicket)
+            {
+                hasFreeTicket = true;
+                return shelf;
+            }
+            nearestBusy ??= shelf;
+        }
+        return nearestBusy;
+    }
+
+    // No shelf holds the preferred brand: its wait before accepting another brand starts now.
+    void StartPreferredBrandWaits()
+    {
+        foreach (var want in wants)
+            if (want.remaining > 0 && want.preferred != null && want.brandWaitStart < 0f)
+                want.brandWaitStart = Time.time;
+    }
+
+    // Stands still until a shelf changes or brandWaitSeconds pass, then wanders before the next look.
+    IEnumerator WaitForStockRoutine(List<ShelfInventory> shelves, float deadline)
+    {
+        RefreshBrowsableShelves(shelves); // a bought expansion adds its shelves
+        WatchShelves(shelves);
+        if (!didLogNoMatch)
+        {
+            didLogNoMatch = true;
+            Debug.LogWarning(
+                $"{name}: no shelf in the store holds a wanted item, waiting for stock. {DescribeNoMatch(shelves)}",
+                this
+            );
+        }
+
+        int seen = stockChanges;
+        float end = Mathf.Min(Time.time + brandWaitSeconds, deadline);
+        while (Time.time < end && stockChanges == seen)
+            yield return null;
+        if (stockChanges == seen && Time.time < deadline)
+            yield return WalkToRoutine(PickWanderPoint(shelves), deadline);
+    }
+
+    // For the no-match warning: what this customer still wants and what each browsable shelf holds.
+    string DescribeNoMatch(List<ShelfInventory> shelves)
+    {
+        var text = new StringBuilder("Wants: ");
+        foreach (var want in wants)
+        {
+            if (want.remaining <= 0)
+                continue;
+            text.Append(want.groupKey != null ? want.groupKey.name : "?")
+                .Append(" x")
+                .Append(want.remaining);
+            if (want.preferred != null)
+                text.Append(" (brand ").Append(want.preferred.DisplayName).Append(')');
+            text.Append("; ");
+        }
+        text.Append("Browsable shelves: ").Append(shelves.Count).Append(". ");
+
+        var stock = new Dictionary<string, int>();
+        var names = new Dictionary<string, string>();
+        foreach (var shelf in shelves)
+        {
+            if (shelf == null)
+                continue;
+            shelf.GetStock(stock, names);
+            text.Append(shelf.ShelfName).Append(": ");
+            if (stock.Count == 0)
+                text.Append("empty");
+            foreach (var pair in stock)
+                text.Append(names[pair.Key]).Append(" x").Append(pair.Value).Append(", ");
+            text.Append("| ");
+        }
+        AppendWantMatchDetail(text, shelves);
+        return text.ToString();
+    }
+
+    // Debug: why a want that looks stocked still matches nothing (units filtered out, or a group key mismatch).
+    void AppendWantMatchDetail(StringBuilder text, List<ShelfInventory> shelves)
+    {
+        var available = new List<ProductCarriable>();
+        int shelved = 0;
+        foreach (var shelf in shelves)
+        {
+            if (shelf == null)
+                continue;
+            shelved += shelf.Count;
+            shelf.GetAvailableProducts(available);
+        }
+        text.Append("\nDEBUG units on shelves: ")
+            .Append(shelved)
+            .Append(", free and usable: ")
+            .Append(available.Count)
+            .Append(".");
+
+        foreach (var want in wants)
+        {
+            if (want.remaining <= 0 || want.groupKey == null)
+                continue;
+            int sameName = 0,
+                sameKey = 0,
+                acceptable = 0;
+            foreach (var product in available)
+            {
+                var key = product.Definition.GroupKey;
+                if (key != null && key.name == want.groupKey.name)
+                    sameName++;
+                if (key == want.groupKey)
+                    sameKey++;
+                if (IsAcceptable(want, product.Definition))
+                    acceptable++;
+            }
+            text.Append("\nDEBUG ")
+                .Append(want.groupKey.name)
+                .Append(" (")
+                .Append(want.groupKey.GetType().Name)
+                .Append(", id ")
+                .Append(want.groupKey.GetInstanceID())
+                .Append("): same name ")
+                .Append(sameName)
+                .Append(", same key ")
+                .Append(sameKey)
+                .Append(", acceptable ")
+                .Append(acceptable)
+                .Append(", brand wait over ")
+                .Append(IsBrandWaitOver(want))
+                .Append(".");
+        }
+    }
+
+    void WatchShelves(List<ShelfInventory> shelves)
+    {
+        foreach (var shelf in shelves)
+            if (shelf != null && watchedShelves.Add(shelf))
+                shelf.Changed += HandleShelfChanged;
+    }
+
+    void UnwatchShelves()
+    {
+        foreach (var shelf in watchedShelves)
+            if (shelf != null)
+                shelf.Changed -= HandleShelfChanged;
+        watchedShelves.Clear();
+        staleShelves.Clear();
+    }
+
+    void HandleShelfChanged()
+    {
+        stockChanges++;
+        staleShelves.Clear();
+    }
 
     // Browsable = has Shelf Tickets and its pickup point is inside an open store area.
     static void RefreshBrowsableShelves(List<ShelfInventory> shelves)
@@ -571,6 +739,7 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
     /// <summary>Called by CustomerQueue after a successful cashier transaction.</summary>
     public void LeaveStore()
     {
+        UnwatchShelves();
         if (shoppingRoutine != null)
             StopCoroutine(shoppingRoutine);
         shoppingRoutine = null;
@@ -774,11 +943,15 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
 
     // Free products plus anything on a shelf now (stocked products are unlocked).
     // Resources only finds definitions that are loaded, so swap in the product catalog when it is known.
-    static List<ProductDefinition> CollectWantableDefinitions(List<ShelfInventory> shelves)
+    List<ProductDefinition> CollectWantableDefinitions(List<ShelfInventory> shelves)
     {
         var result = new List<ProductDefinition>();
         foreach (var definition in Resources.FindObjectsOfTypeAll<ProductDefinition>())
-            if (definition.UnlockCost <= 0 && !result.Contains(definition))
+            if (
+                definition.UnlockCost <= 0
+                && !result.Contains(definition)
+                && !(onlyWantGroupedProducts && IsUngrouped(definition))
+            )
                 result.Add(definition);
         var stock = new List<ProductCarriable>();
         foreach (var shelf in shelves)
@@ -789,6 +962,10 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
                 result.Add(product.Definition);
         return result;
     }
+
+    // A product with no group is its own item: its group key is the definition itself.
+    static bool IsUngrouped(ProductDefinition definition) =>
+        definition.GroupKey == (UnityEngine.Object)definition;
 
     void RebuildCollectedOrder()
     {
@@ -812,8 +989,8 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
                 item.shelf.ReleaseCustomerReservations(this);
     }
 
-    // Items leave the customer one at a time, arc onto their slot in the register's lanes, and wait there,
-    // frozen, for the player to pick up and scan. An item that has not landed yet stays undelivered, so
+    // Items leave the customer one at a time, arc onto their slot in the register's lanes, and wait there
+    // (frozen in grid mode, dropped with physics in free-drop mode) for the player to pick up and scan. An item that has not landed yet stays undelivered, so
     // leaving mid-way sends it back to its shelf.
     IEnumerator DeliverBasketRoutine(Register register)
     {
@@ -833,7 +1010,7 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
             var product = pending[i].product;
             if (product == null)
                 continue;
-            yield return FlyToSlot(product, slots[i]);
+            yield return FlyToSlot(product, slots[i], register);
             if (product == null)
                 continue;
             pending[i].delivered = true;
@@ -843,7 +1020,7 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
         deliveryRoutine = null;
     }
 
-    IEnumerator FlyToSlot(ProductCarriable product, BasketSlot slot)
+    IEnumerator FlyToSlot(ProductCarriable product, BasketSlot slot, Register register)
     {
         product.transform.SetParent(null, true);
         product.transform.position = transform.position + Vector3.up;
@@ -870,7 +1047,10 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
             yield break;
 
         product.transform.SetPositionAndRotation(slot.position, slot.rotation);
-        product.Carriable.FreezeInPlace(); // the player's pickup or drag lifts the freeze
+        if (register != null && register.UsesFreeDrop)
+            register.ReleaseOnCounter(product); // physics takes over; the Register puts it back if it falls off
+        else
+            product.Carriable.FreezeInPlace(); // the player's pickup or drag lifts the freeze
     }
 
     void ReturnUndeliveredItems()
@@ -987,6 +1167,7 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
 
     void OnDisable()
     {
+        UnwatchShelves();
         if (shoppingRoutine != null)
             StopCoroutine(shoppingRoutine);
         shoppingRoutine = null;

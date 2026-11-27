@@ -6,7 +6,7 @@ OcclusionCullingSettings:
   serializedVersion: 2
   m_OcclusionBakeSettings:
     smallestOccluder: 0.5
-    smallestHole: 0.1
+    smallestHole: 0.05
     backfaceThreshold: 100
   m_SceneGUID: bcd7b15559bbeb74792b1c221cb3d946
   m_OcclusionCullingData: {fileID: 36300000, guid: 8d495af9cdcffe043b0bdadc85bae11b, type: 2}
@@ -37,7 +37,7 @@ RenderSettings:
   m_ReflectionBounces: 2
   m_ReflectionIntensity: 0.5
   m_CustomReflection: {fileID: 8900000, guid: 90378027bbfa934459304c02c24711f2, type: 3}
-  m_Sun: {fileID: 1933965996}
+  m_Sun: {fileID: 0}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -591,6 +591,27 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 6699476407767244329, guid: de4aa6eb70559034b8cf1c96e221a9e3, type: 3}
   m_PrefabInstance: {fileID: 123216447}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &157695962 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 5202985823473025126, guid: 0d7048fa4f86cc147baffb2822ff6f7f, type: 3}
+  m_PrefabInstance: {fileID: 790899971}
+  m_PrefabAsset: {fileID: 0}
+--- !u!208 &157695967
+NavMeshObstacle:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 157695962}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Shape: 1
+  m_Extents: {x: 0.5, y: 0.5, z: 0.5}
+  m_MoveThreshold: 0.1
+  m_Carve: 1
+  m_CarveOnlyStationary: 1
+  m_Center: {x: 0, y: 0, z: 0}
+  m_TimeToStationary: 0.5
 --- !u!1001 &196856675
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -664,6 +685,7 @@ GameObject:
   - component: {fileID: 198987097}
   - component: {fileID: 198987099}
   - component: {fileID: 198987098}
+  - component: {fileID: 198987100}
   m_Layer: 0
   m_Name: Spot Light
   m_TagString: Untagged
@@ -780,6 +802,20 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &198987100
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 198987096}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cffb10d5d6c7fed4eba9365d36276d98, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: SSGICore.Runtime::SSGICore.SSGICoreLight
+  giEnabled: 1
+  giIntensity: 1
 --- !u!1001 &201700301
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -1155,6 +1191,7 @@ GameObject:
   - component: {fileID: 307115147}
   - component: {fileID: 307115149}
   - component: {fileID: 307115148}
+  - component: {fileID: 307115150}
   m_Layer: 0
   m_Name: Spot Light
   m_TagString: Untagged
@@ -1271,6 +1308,20 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &307115150
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 307115146}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cffb10d5d6c7fed4eba9365d36276d98, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: SSGICore.Runtime::SSGICore.SSGICoreLight
+  giEnabled: 1
+  giIntensity: 1
 --- !u!1001 &315524257
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -2474,6 +2525,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 2399348922657108555, guid: 0d7048fa4f86cc147baffb2822ff6f7f, type: 3}
+      propertyPath: m_Enabled
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5202985823473025126, guid: 0d7048fa4f86cc147baffb2822ff6f7f, type: 3}
       propertyPath: m_Name
       value: EntranceDoor
@@ -2484,7 +2539,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5599292443832268813, guid: 0d7048fa4f86cc147baffb2822ff6f7f, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 10.7
+      value: 12.8
       objectReference: {fileID: 0}
     - target: {fileID: 5599292443832268813, guid: 0d7048fa4f86cc147baffb2822ff6f7f, type: 3}
       propertyPath: m_LocalPosition.y
@@ -2492,7 +2547,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5599292443832268813, guid: 0d7048fa4f86cc147baffb2822ff6f7f, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 20.5
+      value: 19.2
       objectReference: {fileID: 0}
     - target: {fileID: 5599292443832268813, guid: 0d7048fa4f86cc147baffb2822ff6f7f, type: 3}
       propertyPath: m_LocalRotation.w
@@ -2525,7 +2580,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 5202985823473025126, guid: 0d7048fa4f86cc147baffb2822ff6f7f, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 157695967}
   m_SourcePrefab: {fileID: 100100000, guid: 0d7048fa4f86cc147baffb2822ff6f7f, type: 3}
 --- !u!1 &793474944
 GameObject:
@@ -3243,6 +3301,7 @@ GameObject:
   - component: {fileID: 948473281}
   - component: {fileID: 948473283}
   - component: {fileID: 948473282}
+  - component: {fileID: 948473284}
   m_Layer: 0
   m_Name: Spot Light
   m_TagString: Untagged
@@ -3344,7 +3403,7 @@ Light:
     serializedVersion: 2
     m_Bits: 4294967295
   m_RenderingLayerMask: 1
-  m_Lightmapping: 4
+  m_Lightmapping: 1
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 1
@@ -3359,6 +3418,20 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &948473284
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 948473280}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cffb10d5d6c7fed4eba9365d36276d98, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: SSGICore.Runtime::SSGICore.SSGICoreLight
+  giEnabled: 1
+  giIntensity: 1
 --- !u!1 &971906116
 GameObject:
   m_ObjectHideFlags: 0
@@ -3370,6 +3443,7 @@ GameObject:
   - component: {fileID: 971906117}
   - component: {fileID: 971906119}
   - component: {fileID: 971906118}
+  - component: {fileID: 971906120}
   m_Layer: 0
   m_Name: Spot Light 2
   m_TagString: Untagged
@@ -3471,7 +3545,7 @@ Light:
     serializedVersion: 2
     m_Bits: 4294967295
   m_RenderingLayerMask: 1
-  m_Lightmapping: 4
+  m_Lightmapping: 1
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 1
@@ -3486,6 +3560,20 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &971906120
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 971906116}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cffb10d5d6c7fed4eba9365d36276d98, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: SSGICore.Runtime::SSGICore.SSGICoreLight
+  giEnabled: 1
+  giIntensity: 1
 --- !u!1001 &971985362
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -4929,6 +5017,7 @@ GameObject:
   - component: {fileID: 1463020632}
   - component: {fileID: 1463020634}
   - component: {fileID: 1463020633}
+  - component: {fileID: 1463020635}
   m_Layer: 0
   m_Name: Point Light
   m_TagString: Untagged
@@ -4997,8 +5086,8 @@ Light:
   m_InnerSpotAngle: 21.80208
   m_CookieSize2D: {x: 0.5, y: 0.5}
   m_Shadows:
-    m_Type: 0
-    m_Resolution: -1
+    m_Type: 2
+    m_Resolution: 128
     m_CustomResolution: -1
     m_Strength: 1
     m_Bias: 0.05
@@ -5045,6 +5134,20 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1463020635
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1463020631}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cffb10d5d6c7fed4eba9365d36276d98, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: SSGICore.Runtime::SSGICore.SSGICoreLight
+  giEnabled: 1
+  giIntensity: 1
 --- !u!1 &1479994421
 GameObject:
   m_ObjectHideFlags: 0
@@ -5172,6 +5275,10 @@ PrefabInstance:
     - target: {fileID: 8883838254665842138, guid: 4d9424a07fcdb344dbd428d6950b460c, type: 3}
       propertyPath: m_Layer
       value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 8883838254665842138, guid: 4d9424a07fcdb344dbd428d6950b460c, type: 3}
+      propertyPath: m_IsActive
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 9096313444481401863, guid: 4d9424a07fcdb344dbd428d6950b460c, type: 3}
       propertyPath: m_LocalPosition.x
@@ -5645,19 +5752,19 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4416834602189438255, guid: 48ad5f01b804cf546ab05e6280ebc8fb, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 9.700024
+      value: 8.300032
       objectReference: {fileID: 0}
     - target: {fileID: 4416834602189438255, guid: 48ad5f01b804cf546ab05e6280ebc8fb, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -9.055133
+      value: -10.855137
       objectReference: {fileID: 0}
     - target: {fileID: 8052787630399251390, guid: 48ad5f01b804cf546ab05e6280ebc8fb, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 9.700025
+      value: 8.300033
       objectReference: {fileID: 0}
     - target: {fileID: 8052787630399251390, guid: 48ad5f01b804cf546ab05e6280ebc8fb, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -9.055133
+      value: -10.855137
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -6086,6 +6193,7 @@ GameObject:
   - component: {fileID: 1918051733}
   - component: {fileID: 1918051735}
   - component: {fileID: 1918051734}
+  - component: {fileID: 1918051736}
   m_Layer: 0
   m_Name: Spot Light 2
   m_TagString: Untagged
@@ -6187,7 +6295,7 @@ Light:
     serializedVersion: 2
     m_Bits: 4294967295
   m_RenderingLayerMask: 1
-  m_Lightmapping: 4
+  m_Lightmapping: 1
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 1
@@ -6202,6 +6310,20 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &1918051736
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1918051732}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cffb10d5d6c7fed4eba9365d36276d98, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: SSGICore.Runtime::SSGICore.SSGICoreLight
+  giEnabled: 1
+  giIntensity: 1
 --- !u!1001 &1926769734
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -6263,11 +6385,6 @@ PrefabInstance:
 Transform:
   m_CorrespondingSourceObject: {fileID: 6699476407767244329, guid: de4aa6eb70559034b8cf1c96e221a9e3, type: 3}
   m_PrefabInstance: {fileID: 1926769734}
-  m_PrefabAsset: {fileID: 0}
---- !u!108 &1933965996 stripped
-Light:
-  m_CorrespondingSourceObject: {fileID: 4432301033068413673, guid: 96af1945e8bda2947bf27902b1ad41fb, type: 3}
-  m_PrefabInstance: {fileID: 2341638579638360117}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &1966676484
 PrefabInstance:
@@ -6487,6 +6604,7 @@ GameObject:
   - component: {fileID: 2043595187}
   - component: {fileID: 2043595189}
   - component: {fileID: 2043595188}
+  - component: {fileID: 2043595190}
   m_Layer: 0
   m_Name: Spot Light
   m_TagString: Untagged
@@ -6588,7 +6706,7 @@ Light:
     serializedVersion: 2
     m_Bits: 4294967295
   m_RenderingLayerMask: 1
-  m_Lightmapping: 4
+  m_Lightmapping: 1
   m_LightShadowCasterMode: 0
   m_AreaSize: {x: 1, y: 1}
   m_BounceIntensity: 1
@@ -6603,6 +6721,20 @@ Light:
   m_LightUnit: 1
   m_LuxAtDistance: 1
   m_EnableSpotReflector: 1
+--- !u!114 &2043595190
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2043595186}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cffb10d5d6c7fed4eba9365d36276d98, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: SSGICore.Runtime::SSGICore.SSGICoreLight
+  giEnabled: 1
+  giIntensity: 1
 --- !u!1001 &2049530082
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -7335,6 +7467,10 @@ PrefabInstance:
       propertyPath: m_SizeDelta.y
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 4432301033068413673, guid: 96af1945e8bda2947bf27902b1ad41fb, type: 3}
+      propertyPath: m_Lightmapping
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 5500723063432156499, guid: 96af1945e8bda2947bf27902b1ad41fb, type: 3}
       propertyPath: m_AnchorMax.y
       value: 0
@@ -7370,6 +7506,10 @@ PrefabInstance:
     - target: {fileID: 5552364144496839826, guid: 96af1945e8bda2947bf27902b1ad41fb, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: -125
+      objectReference: {fileID: 0}
+    - target: {fileID: 7247562205306517367, guid: 96af1945e8bda2947bf27902b1ad41fb, type: 3}
+      propertyPath: dayLengthSeconds
+      value: 60
       objectReference: {fileID: 0}
     - target: {fileID: 7788092336619851897, guid: 96af1945e8bda2947bf27902b1ad41fb, type: 3}
       propertyPath: m_AnchorMax.y
@@ -8644,7 +8784,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 7899679184525588672, guid: 7626e08f4fcee4d43b6c17710170014c, type: 3}
       propertyPath: m_Antialiasing
-      value: 0
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 7899679184525588672, guid: 7626e08f4fcee4d43b6c17710170014c, type: 3}
+      propertyPath: m_TaaSettings.m_Quality
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 7899679184525588672, guid: 7626e08f4fcee4d43b6c17710170014c, type: 3}
       propertyPath: m_TaaSettings.m_ContrastAdaptiveSharpening

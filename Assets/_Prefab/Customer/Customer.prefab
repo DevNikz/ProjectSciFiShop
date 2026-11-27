@@ -164,7 +164,7 @@ MonoBehaviour:
   checkoutQueue: {fileID: 0}
   exitPoint: {fileID: 0}
   arrivalTolerance: 0.15
-  spawnPause: 1
+  spawnPause: 0.5
   useNavMeshAgent: 1
   walkSpeed: 3.5
   turnSpeed: 540
@@ -176,17 +176,18 @@ MonoBehaviour:
   minimumCashOverpay: 1
   maximumCashOverpay: 19
   minimumProductTypes: 1
-  maximumProductTypes: 4
-  maximumQuantityPerProduct: 5
+  maximumProductTypes: 2
+  maximumQuantityPerProduct: 2
   shelfPickupDelay: 0.3
   shelfTravelTimeout: 25
-  shelfLeaveDelay: 0.4
+  shelfLeaveDelay: 0.3
   minimumLifetime: 15
-  maximumLifetime: 30
+  maximumLifetime: 45
   brandLoyaltyChance: 0.4
-  brandWaitSeconds: 6
-  wanderRadius: 10
-  shelfLookDelay: 0.5
+  onlyWantGroupedProducts: 1
+  brandWaitSeconds: 12
+  wanderRadius: 5
+  shelfLookDelay: 0.6
   ticketPatience: 20
   flightDuration: 0.3
   placeInterval: 0.05
@@ -204,7 +205,7 @@ NavMeshAgent:
   m_Speed: 3.5
   m_Acceleration: 8
   avoidancePriority: 50
-  m_AngularSpeed: 120
+  m_AngularSpeed: 540
   m_StoppingDistance: 0.2
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1

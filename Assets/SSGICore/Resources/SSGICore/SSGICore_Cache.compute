@@ -69,6 +69,9 @@ void CacheResolve(uint3 id : SV_DispatchThreadID)
     int3 pc = cell + (int3)_SSGI_CacheDelta.xyz; // same world cell in last frame's grid
     bool prevOk = _SSGI_CacheDelta.w > 0.5 && all(pc >= 0) && all(pc < SSGI_CACHE_N);
 
+    // cells inside the range of a light that changed hold radiance lit by the old lights: forget most of it
+    float keep = 1.0 - DirtyAt((cell + _SSGI_CacheBase.xyz + 0.5) * _SSGI_CacheBase.w);
+
     [unroll]
     for (int face = 0; face < 6; face++)
     {
@@ -80,7 +83,7 @@ void CacheResolve(uint3 id : SV_DispatchThreadID)
         _SSGI_CacheAcc[i0 + 3] = 0;
 
         float4 prev = prevOk ? _SSGI_CachePrev.Load(int4(face * SSGI_CACHE_N + pc.x, pc.y, pc.z, 0)) : 0;
-        float4 v = prev * SSGI_CACHE_DECAY + acc;
+        float4 v = prev * (SSGI_CACHE_DECAY * keep) + acc;
         if (v.w > SSGI_CACHE_MAXW) v *= SSGI_CACHE_MAXW / v.w;
 
         _SSGI_CacheCur[int3(face * SSGI_CACHE_N + cell.x, cell.y, cell.z)] = v;

@@ -165,10 +165,10 @@ MonoBehaviour:
   promptText: 
   prompts:
   - action: 1
-    text: Pickup Fresh Cream
+    text: Pickup <b>{GetComponent<ProductCarriable>().definition.displayName}</b>
     when: 1
   - action: 2
-    text: Grab Fresh Cream
+    text: Grab <b>{GetComponent<ProductCarriable>().definition.displayName}</b>
     when: 1
   IsDebugEnabled: 0
 --- !u!114 &5789167913800884461

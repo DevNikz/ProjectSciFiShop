@@ -91,7 +91,7 @@ Phase 1/2 items still apply (orientation, `Invert Culling`, recursion, clip, Sce
 - [ ] Mips mode: roughness LOD range works (mips are generated after the request is submitted).
 - [ ] Frame Debugger: the Blurred-mode blur event sits inside the reflection camera's submit, before the source camera draws.
       If the warning `blur-no-end-callback` shows, `endCameraRendering` did not fire and blur ran outside the context.
-- [ ] Jitter alignment: `GetPlanarReflectionScreenUV` relies on `_PlanarNonJitteredVP` (set by the manager per source camera, so it works without TAA, STP or SSR). If the reflection is
+- [ ] Jitter alignment: `GetPlanarReflectionScreenUV` relies on `_NonJitteredViewProjMatrix`. If the reflection is
       flipped or missing, the matrix is not set that way in your URP version. Report it.
 - [ ] Resolution scale 0.5 halves the reflection texture in the Frame Debugger.
 - [ ] Fade: the reflection fades toward the set end distance.

@@ -63,6 +63,8 @@ public enum PromptContext
 public struct PromptEntry
 {
     public PromptAction action;
+
+    [RichTextPreview]
     public string text;
 
     [Tooltip("States this line is shown in. Nothing selected = Any.")]

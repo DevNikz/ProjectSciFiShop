@@ -3,7 +3,8 @@
 #include "SSGICore_Common.hlsl"
 
 Texture2D<float4>   _SSGI_FilterIn;
-RWTexture2D<float4> _SSGI_GIOut;
+Texture2D<float4>   _SSGI_MomIn;       // history moments; w = temporally accumulated contact openness
+RWTexture2D<float4> _SSGI_GIOut;       // rgb = indirect light, a = contact openness (1 = open)
 
 // Depth + normal aware bilateral upsample from trace resolution to full resolution.
 [numthreads(8, 8, 1)]
@@ -16,7 +17,7 @@ void Upsample(uint3 id : SV_DispatchThreadID)
     float raw = _SSGI_Depth.Load(int3(fp, 0));
     if (IsSkyRaw(raw))
     {
-        _SSGI_GIOut[fp] = 0;
+        _SSGI_GIOut[fp] = float4(0, 0, 0, 1);
         return;
     }
 
@@ -30,6 +31,7 @@ void Upsample(uint3 id : SV_DispatchThreadID)
     float2 f = lowF - b;
 
     float3 acc = 0;
+    float occAcc = 0;
     float wsum = 0;
 
     [unroll]
@@ -48,18 +50,22 @@ void Upsample(uint3 id : SV_DispatchThreadID)
         float w = wb * wZ * wN;
 
         acc += w * _SSGI_FilterIn.Load(int3(q, 0)).rgb;
+        occAcc += w * _SSGI_MomIn.Load(int3(q, 0)).w;
         wsum += w;
     }
 
     float3 gi;
+    float occ;
     if (wsum > 1e-4)
     {
         gi = acc / wsum;
+        occ = occAcc / wsum;
     }
     else
     {
         int2 nearest = clamp((int2)(lowF + 0.5), int2(0, 0), lowDim - 1);
         gi = _SSGI_FilterIn.Load(int3(nearest, 0)).rgb;
+        occ = _SSGI_MomIn.Load(int3(nearest, 0)).w;
     }
-    _SSGI_GIOut[fp] = float4(gi, 1.0);
+    _SSGI_GIOut[fp] = float4(gi, saturate(occ));
 }

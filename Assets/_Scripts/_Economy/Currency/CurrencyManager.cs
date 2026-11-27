@@ -35,7 +35,7 @@ public class CurrencyManager : MonoBehaviour
 
     public float GetRateMultiplier() => rateMultiplier;
 
-    public event Action<int> OnCoinsChanged; // passes the amount gained/lost
+    public event Action<int> OnCoinsChanged; // passes the new total
     public event Action<float> OnCoinRateChanged;
 
     void Awake()
@@ -63,7 +63,7 @@ public class CurrencyManager : MonoBehaviour
             return;
 
         Coins = Math.Max(0, Coins + amount);
-        OnCoinsChanged?.Invoke(amount);
+        OnCoinsChanged?.Invoke(Coins);
     }
 
     public bool TrySpendCoins(int amount)
@@ -72,7 +72,7 @@ public class CurrencyManager : MonoBehaviour
             return false;
 
         Coins -= amount;
-        OnCoinsChanged?.Invoke(-amount);
+        OnCoinsChanged?.Invoke(Coins);
         return true;
     }
 
@@ -108,14 +108,13 @@ public class CurrencyManager : MonoBehaviour
         if (state == null)
             return;
 
-        int previousCoins = Coins;
         Coins = Math.Max(0, state.coins);
 
         rateMultiplier = 1f;
         baseCoinsPerSecond = state.coinRate;
         OnCoinRateChanged?.Invoke(GetCoinsPerSecond());
 
-        OnCoinsChanged?.Invoke(Coins - previousCoins);
+        OnCoinsChanged?.Invoke(Coins);
     }
 
     public int ComputeEarnedCoins(double seconds)

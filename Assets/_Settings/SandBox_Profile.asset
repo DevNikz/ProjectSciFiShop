@@ -86,16 +86,16 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   active: 0
   mode:
-    m_OverrideState: 0
-    m_Value: 0
+    m_OverrideState: 1
+    m_Value: 1
   quality:
     m_OverrideState: 1
     m_Value: 2
   intensity:
     m_OverrideState: 1
-    m_Value: 0.6
+    m_Value: 0.1
   clamp:
-    m_OverrideState: 0
+    m_OverrideState: 1
     m_Value: 0.05
 --- !u!114 &-1685472347828302579
 MonoBehaviour:
@@ -209,7 +209,7 @@ MonoBehaviour:
     m_Value: 3
   resolution:
     m_OverrideState: 1
-    m_Value: 3
+    m_Value: 4
   rayCount:
     m_OverrideState: 1
     m_Value: 2
@@ -242,13 +242,13 @@ MonoBehaviour:
     m_Value: 1
   restirHistoryCap:
     m_OverrideState: 1
-    m_Value: 64
+    m_Value: 32
   maxDistance:
     m_OverrideState: 1
     m_Value: 50
   thickness:
     m_OverrideState: 1
-    m_Value: 1
+    m_Value: 2
   edgeFade:
     m_OverrideState: 1
     m_Value: 32
@@ -273,6 +273,27 @@ MonoBehaviour:
   motionRejection:
     m_OverrideState: 1
     m_Value: 12
+  lightResponse:
+    m_OverrideState: 1
+    m_Value: 1
+  lightGiFloor:
+    m_OverrideState: 1
+    m_Value: 0
+  lightChangeFlush:
+    m_OverrideState: 1
+    m_Value: 0.5
+  contactOcclusion:
+    m_OverrideState: 1
+    m_Value: 0.5
+  contactRadius:
+    m_OverrideState: 1
+    m_Value: 0.5
+  leakReduction:
+    m_OverrideState: 1
+    m_Value: 1
+  adaptiveRays:
+    m_OverrideState: 1
+    m_Value: 1
   normalSource:
     m_OverrideState: 1
     m_Value: 3

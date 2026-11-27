@@ -186,6 +186,14 @@ public class DayManager : MonoBehaviour
         _cost += cost;
     }
 
+    /// <summary>Adds money the shop spent outside a sale (e.g. drawer coins) to today's cost.</summary>
+    public void RecordExpense(int cost)
+    {
+        if (cost <= 0)
+            return;
+        _cost += cost;
+    }
+
     /// <summary>While any registered blocker has CanDayEnd false, a closing store keeps waiting.</summary>
     public void RegisterBlocker(IDayEndBlocker blocker)
     {

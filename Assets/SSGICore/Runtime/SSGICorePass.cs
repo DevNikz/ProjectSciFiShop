@@ -22,8 +22,9 @@ namespace SSGICore
             public BufferHandle buffer;
             public bool hasBuffer;
             public SSGIFrameConstants constants;
-            public readonly int[] ids = new int[16];
-            public readonly TextureHandle[] tex = new TextureHandle[16];
+            public SSGICoreLightHistory lights;   // when set, the per-light arrays are uploaded before the dispatch
+            public readonly int[] ids = new int[24];
+            public readonly TextureHandle[] tex = new TextureHandle[24];
 
             public void Begin(ComputeShader shader, int kernelIndex, int width, int height, SSGIFrameConstants c, int step)
             {
@@ -36,6 +37,7 @@ namespace SSGICore
                 stepSize = step;
                 count = 0;
                 hasBuffer = false;
+                lights = null;
             }
 
             public void BeginGroups(ComputeShader shader, int kernelIndex, int groupsInX, int groupsInY, SSGIFrameConstants c, int step)
@@ -49,6 +51,7 @@ namespace SSGICore
                 stepSize = step;
                 count = 0;
                 hasBuffer = false;
+                lights = null;
             }
 
             public void Add(int id, TextureHandle handle)
@@ -68,6 +71,8 @@ namespace SSGICore
             public void Execute(ComputeCommandBuffer cmd)
             {
                 constants.Apply(cmd, cs);
+                if (lights != null)
+                    constants.ApplyLights(cmd, cs, lights);
                 cmd.SetComputeIntParam(cs, SSGICoreIds.StepSize, stepSize);
                 for (int i = 0; i < count; i++)
                     cmd.SetComputeTextureParam(cs, kernel, ids[i], tex[i]);
@@ -83,7 +88,7 @@ namespace SSGICore
             public Material material;
             public MaterialPropertyBlock block;
             public int passIndex;
-            public Vector4 prm, size;
+            public Vector4 prm, prm2, size;
         }
 
         // ---- state ----------------------------------------------------------------------------------------
@@ -217,6 +222,20 @@ namespace SSGICore
 
             SSGICoreSettings cfg = SSGICoreQuality.Resolve(vol);
 
+            // Light response: per-light GI scale + light change detection. The history is CPU-only and available from the second frame on.
+            SSGICoreLightHistory lightHist = null;
+            bool lightPass = false;
+            if (vol.lightResponse.value && SSGICoreResources.LightSupported && frameData.Contains<UniversalLightData>())
+            {
+                historyManager.RequestAccess<SSGICoreLightHistory>();
+                lightHist = historyManager.GetHistoryForWrite<SSGICoreLightHistory>();
+                if (lightHist != null)
+                {
+                    lightHist.Update(frameData.Get<UniversalLightData>(), Time.frameCount);
+                    lightPass = lightHist.hasWork;
+                }
+            }
+
             // previous-frame colour (bounce feedback)
             RTHandle prevColorRT = null;
             if (vol.lightingSource.value != SSGICoreLightingSource.CurrentFrame)
@@ -316,6 +335,14 @@ namespace SSGICore
             c.cacheDelta = new Vector4(cacheDelta.x, cacheDelta.y, cacheDelta.z, cacheShiftValid ? 1f : 0f);
             c.resMaxM = vol.restirHistoryCap.value;
             c.resSpatial = vol.restirSpatial.value ? 1 : 0;
+            c.lightFlush = vol.lightChangeFlush.value;
+            c.lightFloor = vol.lightGiFloor.value;
+            c.contactRadius = vol.contactRadius.value;
+            c.adaptiveRays = vol.adaptiveRays.value ? 1 : 0;
+            c.leakReduction = vol.leakReduction.value ? 1 : 0;
+            c.mainScale = lightHist != null ? lightHist.mainScale : 1f;
+            c.mainDelta = lightHist != null ? lightHist.mainDelta : 0f;
+            c.dirtyCount = lightHist != null ? lightHist.dirtyCount : 0;
             FillAmbient(c.ambient, 1f);
 
             // ---- resources -------------------------------------------------------------------------------
@@ -323,6 +350,8 @@ namespace SSGICore
             TextureHandle normalsIn = hasNormals ? normals : black;
             TextureHandle motionIn = hasMotion ? motion : black;
             TextureHandle prevColorIn = usePrevColor ? renderGraph.ImportTexture(prevColorRT) : black;
+            // black = ratio 1, delta 0, so every reader behaves exactly as before when the Light Response pass does not run
+            TextureHandle lightTex = lightPass ? CreateUav(renderGraph, lowW, lowH, GraphicsFormat.R16G16_SFloat, "SSGICore_Light") : black;
 
             const GraphicsFormat kRgba = GraphicsFormat.R16G16B16A16_SFloat;
             TextureHandle lowGeo = CreateUav(renderGraph, lowW, lowH, kRgba, "SSGICore_LowGeo");
@@ -375,6 +404,7 @@ namespace SSGICore
                     const int groups = SSGICoreCacheHistory.GridSize / 4;
                     d.BeginGroups(SSGICoreResources.Cache, SSGICoreResources.KCacheResolve, groups, groups, c, 0);
                     d.groupsZ = groups;
+                    d.lights = lightHist; // cells inside the range of a changed light forget their history
                     d.Add(SSGICoreIds.CachePrev, cachePrev);    b.UseTexture(cachePrev, AccessFlags.Read);
                     d.Add(SSGICoreIds.CacheCur, cacheCur);      b.UseTexture(cacheCur, AccessFlags.Write);
                     d.AddBuffer(SSGICoreIds.CacheAcc, cacheAcc); b.UseBuffer(cacheAcc, AccessFlags.ReadWrite);
@@ -383,6 +413,21 @@ namespace SSGICore
                 }
 
                 cacheTex = cacheCur;
+            }
+
+            // ---- 1c. Light response (low-res): per-light GI scale ratio + "lighting just changed" delta ------
+            if (lightPass)
+            {
+                using (var b = renderGraph.AddComputePass("SSGICore Light Response", out StepData d))
+                {
+                    d.Begin(SSGICoreResources.LightShader, SSGICoreResources.KLight, lowW, lowH, c, 0);
+                    d.lights = lightHist;
+                    d.Add(SSGICoreIds.Depth, depth);            b.UseTexture(depth, AccessFlags.Read);
+                    d.Add(SSGICoreIds.NormalsRes, normalsRes);  b.UseTexture(normalsRes, AccessFlags.Read);
+                    d.Add(SSGICoreIds.LightOut, lightTex);      b.UseTexture(lightTex, AccessFlags.Write);
+                    b.AllowPassCulling(false);
+                    b.SetRenderFunc(static (StepData data, ComputeGraphContext ctx) => data.Execute(ctx.cmd));
+                }
             }
 
             // ---- 2. Trace (low-res, dithered, multi-bounce); also writes the low-res geometry buffer ------
@@ -398,6 +443,8 @@ namespace SSGICore
                     d.Add(SSGICoreIds.PrevColor, prevColorIn);  b.UseTexture(prevColorIn, AccessFlags.Read);
                     d.Add(SSGICoreIds.HzbAtlas, hzbAtlas);      b.UseTexture(hzbAtlas, AccessFlags.Read);
                     d.Add(SSGICoreIds.CacheTex, cacheTex);      b.UseTexture(cacheTex, AccessFlags.Read);
+                    d.Add(SSGICoreIds.LightTex, lightTex);      b.UseTexture(lightTex, AccessFlags.Read);
+                    d.Add(SSGICoreIds.HistMomPrev, histMomPrev); b.UseTexture(histMomPrev, AccessFlags.Read);
                     d.Add(SSGICoreIds.TraceOut, trace);         b.UseTexture(trace, AccessFlags.Write);
                     d.Add(SSGICoreIds.LowGeoOut, lowGeo);       b.UseTexture(lowGeo, AccessFlags.Write);
                     b.SetRenderFunc(static (StepData data, ComputeGraphContext ctx) => data.Execute(ctx.cmd));
@@ -423,6 +470,7 @@ namespace SSGICore
                     d.Add(SSGICoreIds.PrevColor, prevColorIn);  b.UseTexture(prevColorIn, AccessFlags.Read);
                     d.Add(SSGICoreIds.HzbAtlas, hzbAtlas);      b.UseTexture(hzbAtlas, AccessFlags.Read);
                     d.Add(SSGICoreIds.CacheTex, cacheTex);      b.UseTexture(cacheTex, AccessFlags.Read);
+                    d.Add(SSGICoreIds.LightTex, lightTex);      b.UseTexture(lightTex, AccessFlags.Read);
                     d.Add(SSGICoreIds.HistGeoPrev, histGeoPrev); b.UseTexture(histGeoPrev, AccessFlags.Read);
                     d.Add(SSGICoreIds.ResAPrev, resAPrev);      b.UseTexture(resAPrev, AccessFlags.Read);
                     d.Add(SSGICoreIds.ResBPrev, resBPrev);      b.UseTexture(resBPrev, AccessFlags.Read);
@@ -452,6 +500,7 @@ namespace SSGICore
             {
                 d.Begin(SSGICoreResources.Temporal, SSGICoreResources.KTemporal, lowW, lowH, c, 0);
                 d.Add(SSGICoreIds.TraceIn, trace);              b.UseTexture(trace, AccessFlags.Read);
+                d.Add(SSGICoreIds.LightTex, lightTex);          b.UseTexture(lightTex, AccessFlags.Read);
                 d.Add(SSGICoreIds.LowGeo, lowGeo);              b.UseTexture(lowGeo, AccessFlags.Read);
                 d.Add(SSGICoreIds.Motion, motionIn);            b.UseTexture(motionIn, AccessFlags.Read);
                 d.Add(SSGICoreIds.HistColorPrev, histColorPrev); b.UseTexture(histColorPrev, AccessFlags.Read);
@@ -505,6 +554,7 @@ namespace SSGICore
                 d.Add(SSGICoreIds.NormalsRes, normalsRes);  b.UseTexture(normalsRes, AccessFlags.Read);
                 d.Add(SSGICoreIds.LowGeo, lowGeo);      b.UseTexture(lowGeo, AccessFlags.Read);
                 d.Add(SSGICoreIds.FilterIn, filtered);  b.UseTexture(filtered, AccessFlags.Read);
+                d.Add(SSGICoreIds.MomIn, histMomCur);   b.UseTexture(histMomCur, AccessFlags.Read);
                 d.Add(SSGICoreIds.GIOut, giFull);       b.UseTexture(giFull, AccessFlags.Write);
                 b.SetRenderFunc(static (StepData data, ComputeGraphContext ctx) => data.Execute(ctx.cmd));
             }
@@ -527,6 +577,7 @@ namespace SSGICore
                 d.block = m_Block;
                 d.passIndex = debug == SSGICoreDebugView.None ? 0 : 1;
                 d.prm = new Vector4(vol.intensity.value, vol.albedoLevel.value, (float)debug, ds);
+                d.prm2 = new Vector4(vol.contactOcclusion.value, 0f, 0f, 0f);
                 d.size = c.fullSize;
 
                 b.SetRenderAttachment(resourceData.activeColorTexture, 0, AccessFlags.ReadWrite);
@@ -543,6 +594,7 @@ namespace SSGICore
                     if (data.age.IsValid()) cmd.SetGlobalTexture(SSGICoreIds.CompAge, data.age);
                     if (data.normals.IsValid()) cmd.SetGlobalTexture(SSGICoreIds.CompNormals, data.normals);
                     data.block.SetVector(SSGICoreIds.CompParams, data.prm);
+                    data.block.SetVector(SSGICoreIds.CompParams2, data.prm2);
                     data.block.SetVector(SSGICoreIds.CompSize, data.size);
                     cmd.DrawProcedural(Matrix4x4.identity, data.material, data.passIndex, MeshTopology.Triangles, 3, 1, data.block);
                 });
