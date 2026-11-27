@@ -20,6 +20,7 @@ Shader "Hidden/SSGICore/Composite"
         Texture2D<float4> _SSGICore_Normals;
         float4 _SSGICore_Params; // x intensity, y albedo level, z debug mode, w downsample
         float4 _SSGICore_Size;   // w, h, 1/w, 1/h
+        float4 _SSGICore_Params2; // x contact occlusion strength
 
         struct Varyings { float4 positionCS : SV_POSITION; };
 
@@ -44,10 +45,12 @@ Shader "Hidden/SSGICore/Composite"
 
         // Pass 0: additive indirect light. Albedo is approximated from scene colour chroma because Forward+
         // has no albedo buffer. Custom shaders can instead read _SSGICore_GITexture (see SSGICoreSampling.hlsl).
+        // The GI texture's alpha is contact openness (1 = open): the existing colour is scaled by
+        // 1 - strength * (1 - openness), so creases darken. Alpha of the target is left untouched.
         Pass
         {
             Name "SSGICoreAdditive"
-            Blend One One
+            Blend One SrcAlpha, Zero One
 
             HLSLPROGRAM
             #pragma vertex Vert
@@ -56,14 +59,16 @@ Shader "Hidden/SSGICore/Composite"
             float4 Frag(Varyings i) : SV_Target
             {
                 int2 px = (int2)i.positionCS.xy;
-                if (IsSky(px)) return 0;
+                if (IsSky(px)) return float4(0, 0, 0, 1);
 
-                float3 gi = _SSGICore_GI.Load(int3(px, 0)).rgb;
+                float4 giSample = _SSGICore_GI.Load(int3(px, 0));
+                float3 gi = giSample.rgb;
+                float keep = 1.0 - _SSGICore_Params2.x * (1.0 - giSample.a);
                 float2 uv = (px + 0.5) * _SSGICore_Size.zw;
                 float3 col = _SSGICore_Opaque.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
                 float m = max(max(col.r, col.g), col.b);
                 float3 albedo = saturate(col / max(m, 1e-3)) * _SSGICore_Params.y;
-                return float4(gi * albedo * _SSGICore_Params.x, 0.0);
+                return float4(gi * albedo * _SSGICore_Params.x, keep);
             }
             ENDHLSL
         }

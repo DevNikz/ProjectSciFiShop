@@ -76,17 +76,22 @@ float3 FallbackRadianceAt(float3 dirVS, float3 originVS)
 }
 
 // Lit scene colour at a hit pixel: current frame, previous frame (reprojected), or a blend of both.
+// The light response scales what the hit picks up (per-light GI scale) and, where a light just changed, stops the
+// previous frame (lit by the old lights) from feeding the bounce.
 float3 SampleLighting(int2 px, float3 posVS)
 {
+    float2 lr = LoadLightResponse(px);
+    float k = ApplyLightFloor(lr.x);
+
     float2 uv = PixelToUV(px);
     float3 cur = _SSGI_Color.SampleLevel(sampler_linear_clamp, uv, 0).rgb;
-    if (_SSGI_UsePrevColor == 0) return cur;
+    if (_SSGI_UsePrevColor == 0) return cur * k;
 
     float2 puv = PrevUV(px, posVS);
-    if (puv.x <= 0.0 || puv.y <= 0.0 || puv.x >= 1.0 || puv.y >= 1.0) return cur;
+    if (puv.x <= 0.0 || puv.y <= 0.0 || puv.x >= 1.0 || puv.y >= 1.0) return cur * k;
 
     float3 prev = _SSGI_PrevColor.SampleLevel(sampler_linear_clamp, puv, 0).rgb;
-    return lerp(cur, prev, _SSGI_PrevWeight);
+    return lerp(cur, prev, _SSGI_PrevWeight * (1.0 - lr.y)) * k;
 }
 
 float3 ApproxAlbedo(float3 litColor)
@@ -146,11 +151,14 @@ bool MarchRay(float3 originVS, float3 dirVS, float jitter, out int2 hitPx)
         {
             if (level == 0)
             {
-                float thick = _SSGI_Thickness * max(1.0, zScene * 0.1);
+                // Leak reduction: thickness grows slowly with distance (it used to grow 5x by 50 m) and grazing hits are rejected.
+                float thick = _SSGI_LeakReduction != 0
+                    ? _SSGI_Thickness * (1.0 + zScene * 0.02)
+                    : _SSGI_Thickness * max(1.0, zScene * 0.1);
                 if (zRay - zScene < thick)
                 {
                     // reject back-facing surfaces
-                    if (dot(LoadNormalVS(px), dirVS) < 0.0)
+                    if (dot(LoadNormalVS(px), dirVS) < (_SSGI_LeakReduction != 0 ? -0.02 : 0.0))
                     {
                         hitPx = px;
                         return true;
@@ -173,11 +181,12 @@ bool MarchRay(float3 originVS, float3 dirVS, float jitter, out int2 hitPx)
 }
 
 // Same estimator as before; additionally reports the first-bounce sample point (view space) and the normal there.
+// The returned alpha is the contact openness of the first bounce: 1 = nothing close, towards 0 = a surface right at the origin.
 float4 TracePathEx(int2 fp, float3 origin, float3 normalVS, int ray, out float3 firstPosVS, out float3 firstNormalVS)
 {
     float3 radiance = 0;
     float3 throughput = 1;
-    float hitFlag = 0;
+    float openness = 1.0;
     float3 o = origin;
     float3 n = normalVS;
     firstPosVS = origin;
@@ -211,7 +220,7 @@ float4 TracePathEx(int2 fp, float3 origin, float3 normalVS, int ray, out float3 
         Lh = lerp(FallbackRadianceAt(d, o), Lh, fade);
 
         radiance += throughput * Lh;
-        if (b == 0) hitFlag = 1.0;
+        if (b == 0) openness = saturate(length(posH - o) * rcp(max(_SSGI_ContactRadius, 1e-3)));
 
         throughput *= ApproxAlbedo(Lh);
         n = LoadNormalVS(hitPx);
@@ -222,13 +231,30 @@ float4 TracePathEx(int2 fp, float3 origin, float3 normalVS, int ray, out float3 
         }
         o = posH + n * (0.01 + eyeH * 0.002);
     }
-    return float4(radiance, hitFlag);
+    return float4(radiance, openness);
 }
 
 float4 TracePath(int2 fp, float3 origin, float3 normalVS, int ray)
 {
     float3 firstPos, firstNormal;
     return TracePathEx(fp, origin, normalVS, ray, firstPos, firstNormal);
+}
+
+Texture2D<float4> _SSGI_HistMomPrev;   // Trace only: previous history age lives in z
+
+// Adaptive ray count: pixels whose history is long and whose lighting did not change trace a single ray.
+int RayBudget(int2 fp, float3 posVS, float lightDelta)
+{
+    if (_SSGI_AdaptiveRays == 0 || _SSGI_HistoryValid == 0 || _SSGI_RayCount <= 1)
+        return _SSGI_RayCount;
+
+    float2 puv = PrevUV(fp, posVS);
+    if (puv.x <= 0.0 || puv.y <= 0.0 || puv.x >= 1.0 || puv.y >= 1.0)
+        return _SSGI_RayCount;
+
+    int2 q = min((int2)(puv * _SSGI_LowSize.xy), (int2)_SSGI_LowSize.xy - 1);
+    float age = _SSGI_HistMomPrev.Load(int3(q, 0)).z;
+    return (age >= max(4.0, 0.5 * (float)_SSGI_MaxAge) && lightDelta < 0.05) ? 1 : _SSGI_RayCount;
 }
 
 [numthreads(8, 8, 1)]
@@ -252,16 +278,17 @@ void Trace(uint3 id : SV_DispatchThreadID)
     _SSGI_LowGeoOut[lp] = float4(nVS, eye);
     float3 origin = posVS + nVS * (0.01 + eye * 0.002);
 
+    int rays = RayBudget(fp, posVS, LoadLightResponseLow(lp).y);
     float3 sum = 0;
-    float hits = 0;
-    for (int r = 0; r < _SSGI_RayCount; r++)
+    float open = 0;
+    for (int r = 0; r < rays; r++)
     {
         float4 res = TracePath(fp, origin, nVS, r);
         sum += res.rgb;
-        hits += res.a;
+        open += res.a;
     }
-    float inv = rcp((float)_SSGI_RayCount);
-    _SSGI_TraceOut[lp] = float4(sum * inv, hits * inv);
+    float inv = rcp((float)rays);
+    _SSGI_TraceOut[lp] = float4(sum * inv, open * inv); // a = contact openness, carried through the temporal pass
 }
 
 // ---- ReSTIR-lite: initial candidates + temporal reuse ------------------------------------------------------
@@ -317,9 +344,11 @@ void TraceRestir(uint3 id : SV_DispatchThreadID)
             if (dz < 0.05 && dot(g.xyz, nWS) > 0.8)
             {
                 SSGIReservoir p = ReadReservoir(_SSGI_ResAPrev, _SSGI_ResBPrev, _SSGI_ResCPrev, q);
-                if (p.M > 0.0 && p.W > 0.0)
+                // where a light just changed, the stored radiance is stale: shrink its confidence
+                float mPrevScale = 1.0 - LoadLightResponseLow(lp).y;
+                if (p.M > 0.0 && p.W > 0.0 && mPrevScale > 0.01)
                 {
-                    float mPrev = min(p.M, (float)_SSGI_ResMaxM * acc.M);
+                    float mPrev = min(p.M, (float)_SSGI_ResMaxM * acc.M) * mPrevScale;
                     float pHatP = ResTargetPdf(p.Lo, ResCos(posWS, nWS, p.xs));
                     ResAccUpdate(acc, p.xs, p.Lo, p.ns, pHatP, pHatP * p.W * mPrev, mPrev, ResRand(fp, 7));
                 }

@@ -9,6 +9,7 @@
 // Phase 5 adds Pixelation, Dither and Dissolve foldouts and their keyword rules.
 // Phase 6 adds Triplanar, Wind, Vertex Displacement and Hatching foldouts, and public UpdateKeywords for scripts.
 // Phase 7 adds the Planar Reflection foldout (_PLANAR_REFLECTION_ON); the effect needs the "Planar Reflections" asset folder.
+// Phase 8 adds the Screen Space Reflection foldout (_SSR_REFLECTION_ON); it writes SSR smoothness/intensity into the normals texture alpha.
 // Phase 3+ adds stylized foldouts through FillAdditionalFoldouts.
 #if UNITY_EDITOR
 using System;
@@ -38,10 +39,13 @@ namespace StylizedLit.Editor
         const uint DisplaceFoldoutBit = 1u << 13;
         const uint HatchFoldoutBit = 1u << 14;
         const uint PlanarReflectionFoldoutBit = 1u << 15;
+        const uint SSRReflectionFoldoutBit = 1u << 16;
         // Keep in sync with the #include path in StylizedEffects.hlsl.
         const string PlanarReflectionHlslPath = "Assets/Planar Reflections/Shaders/PlanarReflection.hlsl";
         const string PlanarReflectionMissingMessage =
             "Planar Reflections was not found at Assets/Planar Reflections. Shaders with this enabled fail to compile until it is there.";
+        const string SSRReflectionTransparentMessage =
+            "Transparent materials are not drawn into the normals texture, so SSR does not apply. Planar reflection is unaffected.";
         const string OutlinePassName = "SRPDefaultUnlit";
 
         LitGUI.LitProperties _litProperties;
@@ -77,6 +81,7 @@ namespace StylizedLit.Editor
             materialScopesList.RegisterHeaderScope(new GUIContent("Vertex Displacement"), DisplaceFoldoutBit, _ => DrawDisplaceInputs());
             materialScopesList.RegisterHeaderScope(new GUIContent("Hatching / Halftone"), HatchFoldoutBit, _ => DrawHatchInputs());
             materialScopesList.RegisterHeaderScope(new GUIContent("Planar Reflection"), PlanarReflectionFoldoutBit, _ => DrawPlanarReflectionInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Screen Space Reflection"), SSRReflectionFoldoutBit, _ => DrawSSRReflectionInputs());
         }
 
         // Material changed check. Keywords must stay in sync with the shader_feature list in StylizedLit.shader.
@@ -114,8 +119,18 @@ namespace StylizedLit.Editor
         {
             base.DrawSurfaceInputs(material);
             LitGUI.Inputs(_litProperties, materialEditor, material);
+            DrawSmoothnessInvert(material);
             DrawEmissionProperties(material, true);
             DrawTileOffset(materialEditor, baseMapProp);
+        }
+
+        // Roughness-map workflow: flips the smoothness map / albedo alpha. Ignored when smoothness is a constant.
+        void DrawSmoothnessInvert(Material material)
+        {
+            var invert = FindProperty("_SmoothnessInvert", _properties, false);
+            if (invert == null) return;
+            materialEditor.ShaderProperty(invert, new GUIContent("Invert Smoothness Source",
+                "Use when the smoothness source is a roughness map (white = rough). Affects lighting and SSR. Only applies with a Metallic/Specular map or Albedo-alpha smoothness."));
         }
 
         // Material main advanced options.
@@ -277,6 +292,17 @@ namespace StylizedLit.Editor
             return !string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(PlanarReflectionHlslPath));
         }
 
+        void DrawSSRReflectionInputs()
+        {
+            DrawSection("_SSRReflectionEnabled", "Enable Screen Space Reflection", "Marks this surface as reflective for the SSR renderer feature. Needs the feature's Surface Mode set to NormalsAlpha.",
+                ("_SSRReflectionIntensity", "Intensity", "Per-material reflection amount, stored in 4 bits (16 steps). Smoothness is stored the same way."));
+
+            var enabled = FindProperty("_SSRReflectionEnabled", _properties, false);
+            var surface = FindProperty("_Surface", _properties, false);
+            if (enabled != null && enabled.floatValue > 0.5f && surface != null && surface.floatValue > 0.5f)
+                EditorGUILayout.HelpBox(SSRReflectionTransparentMessage, MessageType.Warning, true);
+        }
+
         void DrawOutlineInputs()
         {
             DrawSection("_OutlineEnabled", "Enable Outline", "Draws an inverted-hull outline pass (SRPDefaultUnlit). Disabled materials skip the pass entirely.",
@@ -339,6 +365,7 @@ namespace StylizedLit.Editor
             SetToggleKeyword(material, "_DisplaceEnabled", "_VERTEX_DISPLACE_ON");
             SetToggleKeyword(material, "_HatchEnabled", "_HATCH_ON");
             SetToggleKeyword(material, "_PlanarReflectionEnabled", "_PLANAR_REFLECTION_ON");
+            SetToggleKeyword(material, "_SSRReflectionEnabled", "_SSR_REFLECTION_ON");
             SetDissolveKeywords(material);
             SetOutlinePass(material);
         }

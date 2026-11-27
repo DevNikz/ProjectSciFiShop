@@ -1,0 +1,70 @@
+#pragma kernel LightResponse
+// URP sets _CLUSTER_LIGHT_LOOP as a global keyword every frame when the renderer is Forward+ (ForwardLights.SetupLights).
+#pragma multi_compile _ _CLUSTER_LIGHT_LOOP
+
+#include "SSGICore_Common.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RealtimeLights.hlsl"
+
+RWTexture2D<float2> _SSGI_LightOut;   // x = ratio - 1, y = delta (see LoadLightResponseLow)
+float4 _SSGI_LightScale[64];          // GI scale per additional light, 4 per float4, in URP's additional-light index order
+
+float LightScaleAt(uint i) { return _SSGI_LightScale[i >> 2][i & 3]; }
+
+float LightIrradiance(float3 nWS, float3 toLight, float3 color, float attenuation)
+{
+    return saturate(dot(nWS, toLight)) * SSGILuma(color) * attenuation;
+}
+
+// Per trace-resolution pixel:
+//   ratio = sum(scale_i * E_i) / sum(E_i) over the main light and every point / spot light the Forward+ cluster of this pixel
+//           holds, with E_i the unshadowed irradiance. Shadows are not evaluated: the scene colour that the trace reads is
+//           already shadowed, and only this relative quantity is needed.
+//   delta = how much the lighting here changed since last frame (CPU-built dirty spheres of changed lights, plus the main
+//           light's own change weighted by its share of the light here).
+[numthreads(8, 8, 1)]
+void LightResponse(uint3 id : SV_DispatchThreadID)
+{
+    int2 lp = (int2)id.xy;
+    if (any(lp >= (int2)_SSGI_LowSize.xy)) return;
+
+    int2 fp = LowToFull(lp);
+    float raw = _SSGI_Depth.Load(int3(fp, 0));
+    if (IsSkyRaw(raw))
+    {
+        _SSGI_LightOut[lp] = 0;
+        return;
+    }
+
+    float eye = EyeDepthFromRaw(raw);
+    float3 posWS = mul(_SSGI_InvView, float4(ViewPosFromPixel(fp, eye), 1.0)).xyz;
+    float3 nWS = normalize(ViewToWorldDir(LoadNormalVS(fp)));
+
+    Light mainLight = GetMainLight();
+    float eMain = LightIrradiance(nWS, mainLight.direction, mainLight.color, mainLight.distanceAttenuation);
+    float total = eMain;
+    float scaled = eMain * _SSGI_MainScale;
+
+#if USE_CLUSTER_LIGHT_LOOP
+    InputData inputData = (InputData)0;
+    inputData.positionWS = posWS;
+    inputData.normalizedScreenSpaceUV = (fp + 0.5) * _SSGI_FullSize.zw;
+
+    uint lightCount = 0u; // unused by the cluster loop
+    LIGHT_LOOP_BEGIN(lightCount)
+        Light l = GetAdditionalLight(lightIndex, posWS);
+        float e = LightIrradiance(nWS, l.direction, l.color, l.distanceAttenuation);
+        total += e;
+        scaled += e * LightScaleAt(lightIndex);
+    LIGHT_LOOP_END
+    float ratio = total > 1e-4 ? scaled / total : 1.0;
+#else
+    // Not Forward+: the additional lights are unknown here, so no ratio (1) - only the change signal below stays active.
+    float ratio = 1.0;
+#endif
+
+    float mainShare = total > 1e-4 ? eMain / total : 0.0;
+    float delta = max(DirtyAt(posWS), _SSGI_MainDelta * mainShare);
+
+    _SSGI_LightOut[lp] = float2(clamp(ratio, 0.0, 8.0) - 1.0, saturate(delta));
+}

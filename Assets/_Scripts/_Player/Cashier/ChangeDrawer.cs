@@ -59,6 +59,7 @@ public class ChangeDrawer : MonoBehaviour
             return false;
 
         _nextTime = Time.time + cooldown;
+        DayManager.Instance?.RecordExpense(value); // the coin is a cost to the shop
         Vector3 pos =
             spawnPoint != null ? spawnPoint.position : transform.position + Vector3.up * 0.3f;
         Quaternion rot = spawnPoint != null ? spawnPoint.rotation : transform.rotation;

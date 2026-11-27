@@ -99,6 +99,8 @@ half _PlanarReflectionMin;
 half _PlanarReflectionFresnelPower;
 half _PlanarReflectionDistortion;
 half _PlanarReflectionShadow;
+half _SSRReflectionIntensity;
+half _SmoothnessInvert;
 UNITY_TEXTURE_STREAMING_DEBUG_VARS;
 CBUFFER_END
 
@@ -185,6 +187,8 @@ UNITY_DOTS_INSTANCING_START(MaterialPropertyMetadata)
     UNITY_DOTS_INSTANCED_PROP(float , _PlanarReflectionFresnelPower)
     UNITY_DOTS_INSTANCED_PROP(float , _PlanarReflectionDistortion)
     UNITY_DOTS_INSTANCED_PROP(float , _PlanarReflectionShadow)
+    UNITY_DOTS_INSTANCED_PROP(float , _SSRReflectionIntensity)
+    UNITY_DOTS_INSTANCED_PROP(float , _SmoothnessInvert)
 UNITY_DOTS_INSTANCING_END(MaterialPropertyMetadata)
 
 // Here, we want to avoid overriding a property like e.g. _BaseColor with something like this:
@@ -274,6 +278,8 @@ static float  unity_DOTS_Sampled_PlanarReflectionMin;
 static float  unity_DOTS_Sampled_PlanarReflectionFresnelPower;
 static float  unity_DOTS_Sampled_PlanarReflectionDistortion;
 static float  unity_DOTS_Sampled_PlanarReflectionShadow;
+static float  unity_DOTS_Sampled_SSRReflectionIntensity;
+static float  unity_DOTS_Sampled_SmoothnessInvert;
 
 void SetupDOTSStylizedMaterialPropertyCaches()
 {
@@ -354,6 +360,8 @@ void SetupDOTSStylizedMaterialPropertyCaches()
     unity_DOTS_Sampled_PlanarReflectionFresnelPower = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _PlanarReflectionFresnelPower);
     unity_DOTS_Sampled_PlanarReflectionDistortion = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _PlanarReflectionDistortion);
     unity_DOTS_Sampled_PlanarReflectionShadow = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _PlanarReflectionShadow);
+    unity_DOTS_Sampled_SSRReflectionIntensity = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _SSRReflectionIntensity);
+    unity_DOTS_Sampled_SmoothnessInvert = UNITY_ACCESS_DOTS_INSTANCED_PROP_WITH_DEFAULT(float , _SmoothnessInvert);
 }
 
 #undef UNITY_SETUP_DOTS_MATERIAL_PROPERTY_CACHES
@@ -436,6 +444,8 @@ void SetupDOTSStylizedMaterialPropertyCaches()
 #define _PlanarReflectionFresnelPower   unity_DOTS_Sampled_PlanarReflectionFresnelPower
 #define _PlanarReflectionDistortion     unity_DOTS_Sampled_PlanarReflectionDistortion
 #define _PlanarReflectionShadow         unity_DOTS_Sampled_PlanarReflectionShadow
+#define _SSRReflectionIntensity         unity_DOTS_Sampled_SSRReflectionIntensity
+#define _SmoothnessInvert               unity_DOTS_Sampled_SmoothnessInvert
 
 #endif
 
@@ -464,9 +474,9 @@ half4 SampleMetallicSpecGloss(float2 uv, half albedoAlpha)
 #ifdef _METALLICSPECGLOSSMAP
     specGloss = half4(SAMPLE_METALLICSPECULAR(uv));
     #ifdef _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
-        specGloss.a = albedoAlpha * _Smoothness;
+        specGloss.a = lerp(albedoAlpha, 1.0h - albedoAlpha, _SmoothnessInvert) * _Smoothness;
     #else
-        specGloss.a *= _Smoothness;
+        specGloss.a = lerp(specGloss.a, 1.0h - specGloss.a, _SmoothnessInvert) * _Smoothness;
     #endif
 #else // _METALLICSPECGLOSSMAP
     #if _SPECULAR_SETUP
@@ -476,9 +486,9 @@ half4 SampleMetallicSpecGloss(float2 uv, half albedoAlpha)
     #endif
 
     #ifdef _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
-        specGloss.a = albedoAlpha * _Smoothness;
+        specGloss.a = lerp(albedoAlpha, 1.0h - albedoAlpha, _SmoothnessInvert) * _Smoothness;
     #else
-        specGloss.a = _Smoothness;
+        specGloss.a = _Smoothness;   // constant: never inverted
     #endif
 #endif
 

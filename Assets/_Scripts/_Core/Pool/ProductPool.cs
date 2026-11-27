@@ -4,7 +4,9 @@ using UnityEngine;
 
 /// <summary>
 /// Spawns and returns products by their ProductDefinition. A thin layer over CarriablePool:
-/// the definition's Carriable Prefab is the pool key. Use this instead of Instantiate/Destroy for products.
+/// the definition's Carriable Prefab is the pool key, so brands that share a prefab share one pool and
+/// each spawned unit is stamped with the definition it was asked for. Use this instead of
+/// Instantiate/Destroy for products.
 /// </summary>
 public static class ProductPool
 {
@@ -25,7 +27,10 @@ public static class ProductPool
             return null;
 
         var carriable = CarriablePool.Spawn(prefab, position, rotation, parent);
-        return carriable != null ? carriable.GetComponent<ProductCarriable>() : null;
+        if (carriable == null || !carriable.TryGetComponent(out ProductCarriable product))
+            return null;
+        product.SetDefinition(definition); // a reused unit may have been another brand
+        return product;
     }
 
     /// <summary>
@@ -83,14 +88,8 @@ public static class ProductPool
         prefab = definition.CarriablePrefab;
         if (prefab == null)
             return Reject(definition, "has no Carriable Prefab.");
-        if (
-            !prefab.TryGetComponent(out ProductCarriable product)
-            || product.Definition != definition
-        )
-            return Reject(
-                definition,
-                "Carriable Prefab needs a ProductCarriable using this definition."
-            );
+        if (!prefab.TryGetComponent(out ProductCarriable _))
+            return Reject(definition, "Carriable Prefab needs a ProductCarriable.");
         return true;
     }
 

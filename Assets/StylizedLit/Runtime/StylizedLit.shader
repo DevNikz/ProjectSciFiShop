@@ -16,6 +16,7 @@ Shader "Stylized/Master Lit"
 
         _Smoothness("Smoothness", Range(0.0, 1.0)) = 0.5
         _SmoothnessTextureChannel("Smoothness texture channel", Float) = 0
+        [ToggleUI] _SmoothnessInvert("Invert Smoothness Source (Roughness Map)", Float) = 0.0
 
         _Metallic("Metallic", Range(0.0, 1.0)) = 0.0
         _MetallicGlossMap("Metallic", 2D) = "white" {}
@@ -153,6 +154,12 @@ Shader "Stylized/Master Lit"
         _PlanarReflectionTint("Tint", Color) = (1, 1, 1, 1)
         _PlanarReflectionDistortion("Distortion", Range(0.0, 0.2)) = 0.03
         _PlanarReflectionShadow("Shadow On Reflection", Range(0.0, 1.0)) = 0.5
+
+        // Screen space reflection (Phase 8, DepthNormalsOnly). _SSRReflectionEnabled drives _SSR_REFLECTION_ON.
+        // Writes smoothness + intensity into the alpha of _CameraNormalsTexture. The "Screen Space Reflections" asset folder
+        // must use its NormalsAlpha surface mode to read it; there is no compile-time dependency on that folder.
+        [ToggleUI] _SSRReflectionEnabled("Enable Screen Space Reflection", Float) = 0.0
+        _SSRReflectionIntensity("Intensity", Range(0.0, 1.0)) = 1.0
 
         // Blending state
         _Surface("__surface", Float) = 0.0
@@ -426,6 +433,11 @@ Shader "Stylized/Master Lit"
             #pragma shader_feature_local _ _DETAIL_MULX2 _DETAIL_SCALED
             #pragma shader_feature_local _ALPHATEST_ON
             #pragma shader_feature_local_fragment _SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A
+
+            // Phase 8: smoothness for the SSR alpha must match ForwardLit (gloss map, albedo alpha, specular setup).
+            #pragma shader_feature_local_fragment _SSR_REFLECTION_ON
+            #pragma shader_feature_local_fragment _METALLICSPECGLOSSMAP
+            #pragma shader_feature_local_fragment _SPECULAR_SETUP
 
             #pragma multi_compile_fragment _ _GBUFFER_NORMALS_OCT // forward-only variant
             #include_with_pragmas "Packages/com.unity.render-pipelines.universal/ShaderLibrary/RenderingLayers.hlsl"

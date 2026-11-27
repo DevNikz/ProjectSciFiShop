@@ -1,0 +1,506 @@
+// StylizedLitShaderGUI.cs  (Phase 1)
+// Lives in Editor/ (no asmdef), so it compiles into the editor-only assembly. The #if UNITY_EDITOR wrapper is kept as a safeguard.
+// Subclasses URP's public BaseShaderGUI and reuses the public LitGUI helpers, mirroring URP's internal LitShader GUI.
+// Phases 1-6 draw: Surface Options (+ Workflow Mode), Surface Inputs (base, metallic/specular, smoothness, normal,
+//                height, occlusion, emission, tiling/offset) and Advanced Options (highlights, reflections, base advanced).
+// Phase 2 adds the Detail Inputs foldout; Clear Coat comes from LitGUI.Inputs once the shader declares its properties.
+// Phase 3 adds the Toon Lighting foldout and the _TOON_ON / _TOON_RAMPMAP keyword rules.
+// Phase 4 adds Rim Light, Matcap and Outline foldouts; Outline works by enabling/disabling the "SRPDefaultUnlit" pass.
+// Phase 5 adds Pixelation, Dither and Dissolve foldouts and their keyword rules.
+// Phase 6 adds Triplanar, Wind, Vertex Displacement and Hatching foldouts, and public UpdateKeywords for scripts.
+// Phase 7 adds the Planar Reflection foldout (_PLANAR_REFLECTION_ON); the effect needs the "Planar Reflections" asset folder.
+// Phase 8 adds the Screen Space Reflection foldout (_SSR_REFLECTION_ON); it writes SSR smoothness/intensity into the normals texture alpha.
+// Phase 3+ adds stylized foldouts through FillAdditionalFoldouts.
+#if UNITY_EDITOR
+using System;
+using UnityEditor;
+using UnityEditor.Rendering;
+using UnityEditor.Rendering.Universal.ShaderGUI;
+using UnityEngine;
+using UnityEngine.Experimental.Rendering;
+using UnityEngine.Rendering;
+
+namespace StylizedLit.Editor
+{
+    public class StylizedLitShaderGUI : BaseShaderGUI
+    {
+        static readonly string[] WorkflowModeNames = Enum.GetNames(typeof(LitGUI.WorkflowMode));
+
+        // Custom foldout bit; BaseShaderGUI.Expandable uses bits 0-3.
+        const uint ToonFoldoutBit = 1u << 4;
+        const uint RimFoldoutBit = 1u << 5;
+        const uint MatcapFoldoutBit = 1u << 6;
+        const uint OutlineFoldoutBit = 1u << 7;
+        const uint PixelateFoldoutBit = 1u << 8;
+        const uint DitherFoldoutBit = 1u << 9;
+        const uint DissolveFoldoutBit = 1u << 10;
+        const uint TriplanarFoldoutBit = 1u << 11;
+        const uint WindFoldoutBit = 1u << 12;
+        const uint DisplaceFoldoutBit = 1u << 13;
+        const uint HatchFoldoutBit = 1u << 14;
+        const uint PlanarReflectionFoldoutBit = 1u << 15;
+        const uint SSRReflectionFoldoutBit = 1u << 16;
+        // Keep in sync with the #include path in StylizedEffects.hlsl.
+        const string PlanarReflectionHlslPath = "Assets/Planar Reflections/Shaders/PlanarReflection.hlsl";
+        const string PlanarReflectionMissingMessage =
+            "Planar Reflections was not found at Assets/Planar Reflections. Shaders with this enabled fail to compile until it is there.";
+        const string SSRReflectionTransparentMessage =
+            "Transparent materials are not drawn into the normals texture, so SSR does not apply. Planar reflection is unaffected.";
+        const string OutlinePassName = "SRPDefaultUnlit";
+
+        LitGUI.LitProperties _litProperties;
+        MaterialProperty[] _properties;
+        MaterialProperty _detailMask, _detailAlbedoMapScale, _detailAlbedoMap, _detailNormalMapScale, _detailNormalMap;
+
+        // Collect properties from the material properties.
+        public override void FindProperties(MaterialProperty[] properties)
+        {
+            base.FindProperties(properties);
+            _properties = properties;
+            _litProperties = new LitGUI.LitProperties(properties);
+            _detailMask = FindProperty("_DetailMask", properties, false);
+            _detailAlbedoMapScale = FindProperty("_DetailAlbedoMapScale", properties, false);
+            _detailAlbedoMap = FindProperty("_DetailAlbedoMap", properties, false);
+            _detailNormalMapScale = FindProperty("_DetailNormalMapScale", properties, false);
+            _detailNormalMap = FindProperty("_DetailNormalMap", properties, false);
+        }
+
+        // Adds the "Detail Inputs" foldout (Expandable.Details), same slot and order as URP Lit.
+        public override void FillAdditionalFoldouts(MaterialHeaderScopeList materialScopesList)
+        {
+            materialScopesList.RegisterHeaderScope(DetailStyles.DetailInputs, Expandable.Details, _ => DrawDetailInputs());
+            materialScopesList.RegisterHeaderScope(ToonStyles.Header, ToonFoldoutBit, _ => DrawToonInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Rim Light"), RimFoldoutBit, _ => DrawRimInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Matcap"), MatcapFoldoutBit, _ => DrawMatcapInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Outline"), OutlineFoldoutBit, _ => DrawOutlineInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Pixelation"), PixelateFoldoutBit, _ => DrawPixelateInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Dither"), DitherFoldoutBit, _ => DrawDitherInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Dissolve"), DissolveFoldoutBit, _ => DrawDissolveInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Triplanar"), TriplanarFoldoutBit, _ => DrawTriplanarInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Wind"), WindFoldoutBit, _ => DrawWindInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Vertex Displacement"), DisplaceFoldoutBit, _ => DrawDisplaceInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Hatching / Halftone"), HatchFoldoutBit, _ => DrawHatchInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Planar Reflection"), PlanarReflectionFoldoutBit, _ => DrawPlanarReflectionInputs());
+            materialScopesList.RegisterHeaderScope(new GUIContent("Screen Space Reflection"), SSRReflectionFoldoutBit, _ => DrawSSRReflectionInputs());
+        }
+
+        // Material changed check. Keywords must stay in sync with the shader_feature list in StylizedLit.shader.
+        public override void ValidateMaterial(Material material)
+        {
+            if (material == null)
+                throw new ArgumentNullException(nameof(material));
+
+            UpdateKeywords(material);
+        }
+
+        // Recomputes every keyword and the outline pass state. Use from scripts after changing properties.
+        public static void UpdateKeywords(Material material)
+        {
+            if (material == null)
+                throw new ArgumentNullException(nameof(material));
+
+            SetMaterialKeywords(material, LitGUI.SetMaterialKeywords, SetStylizedKeywords);
+        }
+
+        // Material main surface options.
+        public override void DrawSurfaceOptions(Material material)
+        {
+            // Use default labelWidth
+            EditorGUIUtility.labelWidth = 0f;
+
+            if (_litProperties.workflowMode != null)
+                DoPopup(LitGUI.Styles.workflowModeText, _litProperties.workflowMode, WorkflowModeNames);
+
+            base.DrawSurfaceOptions(material);
+        }
+
+        // Material main surface inputs.
+        public override void DrawSurfaceInputs(Material material)
+        {
+            base.DrawSurfaceInputs(material);
+            LitGUI.Inputs(_litProperties, materialEditor, material);
+            DrawSmoothnessInvert(material);
+            DrawEmissionProperties(material, true);
+            DrawTileOffset(materialEditor, baseMapProp);
+        }
+
+        // Roughness-map workflow: flips the smoothness map / albedo alpha. Ignored when smoothness is a constant.
+        void DrawSmoothnessInvert(Material material)
+        {
+            var invert = FindProperty("_SmoothnessInvert", _properties, false);
+            if (invert == null) return;
+            materialEditor.ShaderProperty(invert, new GUIContent("Invert Smoothness Source",
+                "Use when the smoothness source is a roughness map (white = rough). Affects lighting and SSR. Only applies with a Metallic/Specular map or Albedo-alpha smoothness."));
+        }
+
+        // Material main advanced options.
+        public override void DrawAdvancedOptions(Material material)
+        {
+            if (_litProperties.reflections != null && _litProperties.highlights != null)
+            {
+                materialEditor.ShaderProperty(_litProperties.highlights, LitGUI.Styles.highlightsText);
+                materialEditor.ShaderProperty(_litProperties.reflections, LitGUI.Styles.reflectionsText);
+            }
+
+            base.DrawAdvancedOptions(material);
+        }
+
+        // Switching a material from URP/Lit (or Legacy shaders) to this shader keeps shared property names.
+        public override void AssignNewShaderToMaterial(Material material, Shader oldShader, Shader newShader)
+        {
+            if (material == null)
+                throw new ArgumentNullException(nameof(material));
+
+            // _Emission property is lost after assigning Standard shader to the material,
+            // thus transfer it before assigning the new shader.
+            if (material.HasProperty("_Emission"))
+                material.SetColor("_EmissionColor", material.GetColor("_Emission"));
+
+            base.AssignNewShaderToMaterial(material, oldShader, newShader);
+            SetupMaterialBlendMode(material);
+        }
+
+        // Draws a property by name if the shader declares it.
+        void Draw(string name, GUIContent label)
+        {
+            var prop = FindProperty(name, _properties, false);
+            if (prop != null)
+                materialEditor.ShaderProperty(prop, label);
+        }
+
+        // Draws an enable toggle followed by rows that are greyed out while the toggle is off.
+        void DrawSection(string enableProp, string enableLabel, string enableTip, params (string name, string label, string tip)[] rows)
+        {
+            var enabled = FindProperty(enableProp, _properties, false);
+            if (enabled == null)
+                return;
+
+            materialEditor.ShaderProperty(enabled, new GUIContent(enableLabel, enableTip));
+            using (new EditorGUI.DisabledScope(enabled.floatValue < 0.5f))
+            {
+                foreach (var row in rows)
+                    Draw(row.name, new GUIContent(row.label, row.tip));
+            }
+        }
+
+        void DrawRimInputs()
+        {
+            DrawSection("_RimEnabled", "Enable Rim Light", "Adds a fresnel rim to the lit color.",
+                ("_RimColor", "Color", "HDR rim color."),
+                ("_RimThreshold", "Threshold", "Fresnel value where the rim starts. Higher values give a thinner rim."),
+                ("_RimSoftness", "Softness", "Edge softness. 0 is a hard cel-style edge."),
+                ("_RimLightMask", "Light Direction Mask", "0 = rim all around, 1 = rim only on the side facing the main light."),
+                ("_RimShadowAware", "Hide In Main Light Shadow", "Fades the rim where the main light's shadow falls."));
+        }
+
+        void DrawMatcapInputs()
+        {
+            DrawSection("_MatcapEnabled", "Enable Matcap", "Adds a view-space material capture on top of the lit color.",
+                ("_MatcapMap", "Matcap", "Material capture texture, sampled with the view-space normal."),
+                ("_MatcapTint", "Tint", "Color multiplied into the matcap."),
+                ("_MatcapStrength", "Strength", "Blend amount."),
+                ("_MatcapBlend", "Blend Mode", "Additive, Multiply or Replace."));
+        }
+
+        void DrawPixelateInputs()
+        {
+            DrawSection("_PixelateEnabled", "Enable Pixelation", "Snaps all texture lookups to a pixel grid for a pixel-art look.",
+                ("_PixelSize", "Pixel Grid Size", "Number of pixels across the UV 0-1 range (after tiling)."));
+        }
+
+        void DrawDitherInputs()
+        {
+            DrawSection("_DitherEnabled", "Enable Dither", "Ordered (Bayer) dithering: stippled fade-out and optional color quantizing.",
+                ("_DitherAmount", "Coverage", "1 = fully visible, 0 = fully hidden. Values in between stipple the surface."),
+                ("_DitherScale", "Pattern Scale", "Size of one dither cell in screen pixels."),
+                ("_DitherFadeNear", "Camera Fade Hidden Below", "Perspective cameras only. Closer than this distance the object is fully dithered away."),
+                ("_DitherFadeFar", "Camera Fade Visible Above", "Fully visible beyond this distance. Must be greater than the hidden distance to enable the fade."),
+                ("_DitherColorLevels", "Color Levels", "0 = off. 2-32 quantizes the final color with a Bayer pattern (clamps HDR to 0-1)."));
+        }
+
+        void DrawDissolveInputs()
+        {
+            DrawSection("_DissolveEnabled", "Enable Dissolve", "Noise-driven dissolve with a glowing edge. Clips shadows, depth and outline too.",
+                ("_DissolveAmount", "Amount", "0 = intact, 1 = fully dissolved."),
+                ("_DissolveNoiseMap", "Noise Map", "Optional. Without a map a procedural noise is used."),
+                ("_DissolveNoiseScale", "Noise Scale", "Tiling of the noise over the UVs."),
+                ("_DissolveEdgeWidth", "Edge Width", "Width of the glowing edge band."),
+                ("_DissolveEdgeColor", "Edge Color", "HDR emission color of the edge."),
+                ("_DissolveDirectional", "Directional", "Dissolve front moves along a world-space axis instead of pure noise."),
+                ("_DissolveAxis", "Direction (World)", "Axis the front travels along (xyz)."),
+                ("_DissolveStart", "Start Position", "Position along the axis where dissolving begins."),
+                ("_DissolveLength", "Length", "Distance along the axis the front covers."),
+                ("_DissolveNoiseStrength", "Noise Strength", "How much noise roughens the directional front."));
+        }
+
+        void DrawTriplanarInputs()
+        {
+            DrawSection("_TriplanarEnabled", "Enable Triplanar", "Projects the Base Map along three axes instead of using the mesh UVs. Albedo only; alpha still comes from the UVs.",
+                ("_TriplanarScale", "Scale", "Texture repeats per world or object unit."),
+                ("_TriplanarSharpness", "Blend Sharpness", "Higher values give tighter transitions between projections."),
+                ("_TriplanarSpace", "Projection Space", "World space keeps the texture fixed when the object moves; Object space moves with it."));
+        }
+
+        void DrawWindInputs()
+        {
+            DrawSection("_WindEnabled", "Enable Wind", "Vertex sway that grows with object-space height. Applies to shadows, depth and outline too.",
+                ("_WindDirection", "Direction (Object)", "Sway direction in object space (xyz)."),
+                ("_WindStrength", "Strength", "Maximum displacement in object units."),
+                ("_WindSpeed", "Speed", "Animation speed."),
+                ("_WindFrequency", "Frequency", "How quickly the wave changes along the mesh."),
+                ("_WindBaseHeight", "Base Height (Object Y)", "Vertices at or below this height stay still."),
+                ("_WindHeightRange", "Height Range", "Height above the base over which the sway ramps to full strength."));
+        }
+
+        void DrawDisplaceInputs()
+        {
+            DrawSection("_DisplaceEnabled", "Enable Vertex Displacement", "Animated procedural wobble along the vertex normal. Normals are not recomputed.",
+                ("_DisplaceStrength", "Strength", "Maximum displacement in object units."),
+                ("_DisplaceFrequency", "Frequency", "Spatial frequency of the wobble."),
+                ("_DisplaceSpeed", "Speed", "Animation speed."));
+        }
+
+        void DrawHatchInputs()
+        {
+            DrawSection("_HatchEnabled", "Enable Hatching / Halftone", "Screen-space dots or lines whose weight follows how dark the lit color is.",
+                ("_HatchMode", "Mode", "Halftone dots, hatching lines, or cross-hatching."),
+                ("_HatchScale", "Cell Size (pixels)", "Size of one dot cell or line period on screen."),
+                ("_HatchAngle", "Angle (degrees)", "Rotation of the pattern."),
+                ("_HatchColor", "Ink Color", "Color of the dots or lines."),
+                ("_HatchStrength", "Strength", "Blend amount of the ink."),
+                ("_HatchBias", "Darkness Bias", "Positive values add ink in lighter areas, negative values remove it."),
+                ("_HatchSoftness", "Edge Softness", "Anti-aliasing and softness of the pattern edges."));
+        }
+
+        void DrawPlanarReflectionInputs()
+        {
+            DrawSection("_PlanarReflectionEnabled", "Enable Planar Reflection", "Mixes a planar reflection into the lit color. Needs a PlanarReflector on this object or a parent.",
+                ("_PlanarReflectionStrength", "Strength", "Overall reflection amount. Scaled by smoothness, and roughness (1 - smoothness) sets the blur."),
+                ("_PlanarReflectionMin", "Min Reflectance", "Reflection amount facing the camera head-on. Fresnel raises it toward grazing angles."),
+                ("_PlanarReflectionFresnelPower", "Fresnel Power", "Higher values keep the reflection to grazing angles."),
+                ("_PlanarReflectionTint", "Tint", "Color multiplied into the reflection."),
+                ("_PlanarReflectionDistortion", "Distortion", "Offsets the lookup with the normal map."),
+                ("_PlanarReflectionShadow", "Shadow On Reflection", "How much the main light shadow also dims the reflection."));
+
+            var enabled = FindProperty("_PlanarReflectionEnabled", _properties, false);
+            if (enabled != null && enabled.floatValue > 0.5f && !IsPlanarReflectionAssetPresent())
+                EditorGUILayout.HelpBox(PlanarReflectionMissingMessage, MessageType.Warning, true);
+        }
+
+        static bool IsPlanarReflectionAssetPresent()
+        {
+            return !string.IsNullOrEmpty(AssetDatabase.AssetPathToGUID(PlanarReflectionHlslPath));
+        }
+
+        void DrawSSRReflectionInputs()
+        {
+            DrawSection("_SSRReflectionEnabled", "Enable Screen Space Reflection", "Marks this surface as reflective for the SSR renderer feature. Needs the feature's Surface Mode set to NormalsAlpha.",
+                ("_SSRReflectionIntensity", "Intensity", "Per-material reflection amount, stored in 4 bits (16 steps). Smoothness is stored the same way."));
+
+            var enabled = FindProperty("_SSRReflectionEnabled", _properties, false);
+            var surface = FindProperty("_Surface", _properties, false);
+            if (enabled != null && enabled.floatValue > 0.5f && surface != null && surface.floatValue > 0.5f)
+                EditorGUILayout.HelpBox(SSRReflectionTransparentMessage, MessageType.Warning, true);
+        }
+
+        void DrawOutlineInputs()
+        {
+            DrawSection("_OutlineEnabled", "Enable Outline", "Draws an inverted-hull outline pass (SRPDefaultUnlit). Disabled materials skip the pass entirely.",
+                ("_OutlineColor", "Color", "Outline color. Fog is applied."),
+                ("_OutlineWidth", "Width", "Centimeters in world space, or pixels when Screen Space Width is 1."),
+                ("_OutlineDistanceScaling", "Screen Space Width", "0 = width fixed in world space, 1 = width fixed in screen pixels."),
+                ("_OutlineSmoothing", "Smoothing", "Blends outline direction toward radial. Closes gaps on hard-edged convex meshes such as cubes."));
+        }
+
+        void DrawToonInputs()
+        {
+            var enabled = FindProperty("_ToonEnabled", _properties, false);
+            if (enabled == null)
+                return;
+
+            materialEditor.ShaderProperty(enabled, ToonStyles.Enable);
+
+            using (new EditorGUI.DisabledScope(enabled.floatValue < 0.5f))
+            {
+                Draw("_ToonStrength", ToonStyles.Strength);
+
+                var ramp = FindProperty("_ToonRampMap", _properties, false);
+                if (ramp != null)
+                {
+                    materialEditor.TexturePropertySingleLine(ToonStyles.RampMap, ramp);
+                    if (ramp.textureValue != null && ramp.textureValue.wrapMode != TextureWrapMode.Clamp)
+                        EditorGUILayout.HelpBox(ToonStyles.RampWrapWarning.text, MessageType.Warning, true);
+                }
+
+                // Procedural steps are only used when no ramp texture is assigned.
+                using (new EditorGUI.DisabledScope(ramp != null && ramp.textureValue != null))
+                {
+                    Draw("_ToonSteps", ToonStyles.Steps);
+                    Draw("_ToonStepSmoothness", ToonStyles.StepSmoothness);
+                }
+
+                Draw("_ToonThreshold", ToonStyles.Threshold);
+                Draw("_ToonHalfLambert", ToonStyles.HalfLambert);
+                Draw("_ToonShadowColor", ToonStyles.ShadowTint);
+                Draw("_ToonAdditionalLights", ToonStyles.AdditionalLights);
+
+                EditorGUILayout.Space();
+                Draw("_ToonSpecularColor", ToonStyles.SpecularColor);
+                Draw("_ToonSpecularStrength", ToonStyles.SpecularStrength);
+                Draw("_ToonSpecularSize", ToonStyles.SpecularSize);
+                Draw("_ToonSpecularSmoothness", ToonStyles.SpecularSmoothness);
+            }
+        }
+
+        static void SetStylizedKeywords(Material material)
+        {
+            SetDetailKeywords(material);
+            SetToonKeywords(material);
+            SetToggleKeyword(material, "_RimEnabled", "_RIM_ON");
+            SetToggleKeyword(material, "_MatcapEnabled", "_MATCAP_ON");
+            SetToggleKeyword(material, "_PixelateEnabled", "_PIXELATE_ON");
+            SetToggleKeyword(material, "_DitherEnabled", "_DITHER_ON");
+            SetToggleKeyword(material, "_TriplanarEnabled", "_TRIPLANAR_ON");
+            SetToggleKeyword(material, "_WindEnabled", "_WIND_ON");
+            SetToggleKeyword(material, "_DisplaceEnabled", "_VERTEX_DISPLACE_ON");
+            SetToggleKeyword(material, "_HatchEnabled", "_HATCH_ON");
+            SetToggleKeyword(material, "_PlanarReflectionEnabled", "_PLANAR_REFLECTION_ON");
+            SetToggleKeyword(material, "_SSRReflectionEnabled", "_SSR_REFLECTION_ON");
+            SetDissolveKeywords(material);
+            SetOutlinePass(material);
+        }
+
+        static void SetDissolveKeywords(Material material)
+        {
+            if (!material.HasProperty("_DissolveEnabled"))
+                return;
+
+            bool dissolve = material.GetFloat("_DissolveEnabled") > 0.5f;
+            bool directional = material.HasProperty("_DissolveDirectional") && material.GetFloat("_DissolveDirectional") > 0.5f;
+            bool hasNoiseMap = material.HasProperty("_DissolveNoiseMap") && material.GetTexture("_DissolveNoiseMap") != null;
+            CoreUtils.SetKeyword(material, "_DISSOLVE_ON", dissolve);
+            CoreUtils.SetKeyword(material, "_DISSOLVE_DIRECTIONAL", dissolve && directional);
+            CoreUtils.SetKeyword(material, "_DISSOLVE_NOISEMAP", dissolve && hasNoiseMap);
+        }
+
+        static void SetToggleKeyword(Material material, string toggleProperty, string keyword)
+        {
+            if (!material.HasProperty(toggleProperty))
+                return;
+
+            CoreUtils.SetKeyword(material, keyword, material.GetFloat(toggleProperty) > 0.5f);
+        }
+
+        // The outline pass is the only SRPDefaultUnlit pass in the shader, so it can be toggled per material.
+        static void SetOutlinePass(Material material)
+        {
+            if (!material.HasProperty("_OutlineEnabled"))
+                return;
+
+            bool enabled = material.GetFloat("_OutlineEnabled") > 0.5f;
+            if (material.GetShaderPassEnabled(OutlinePassName) != enabled)
+                material.SetShaderPassEnabled(OutlinePassName, enabled);
+        }
+
+        static void SetToonKeywords(Material material)
+        {
+            if (!material.HasProperty("_ToonEnabled"))
+                return;
+
+            bool toon = material.GetFloat("_ToonEnabled") > 0.5f;
+            bool hasRamp = material.HasProperty("_ToonRampMap") && material.GetTexture("_ToonRampMap") != null;
+            CoreUtils.SetKeyword(material, "_TOON_ON", toon);
+            CoreUtils.SetKeyword(material, "_TOON_RAMPMAP", toon && hasRamp);
+        }
+
+        // URP's LitDetailGUI is internal, so its drawing and keyword rules are reproduced here.
+        void DrawDetailInputs()
+        {
+            if (_detailMask == null || _detailAlbedoMap == null || _detailAlbedoMapScale == null ||
+                _detailNormalMap == null || _detailNormalMapScale == null)
+                return;
+
+            materialEditor.TexturePropertySingleLine(DetailStyles.Mask, _detailMask);
+            materialEditor.TexturePropertySingleLine(DetailStyles.AlbedoMap, _detailAlbedoMap,
+                _detailAlbedoMap.textureValue != null ? _detailAlbedoMapScale : null);
+
+            if (_detailAlbedoMapScale.floatValue != 1.0f)
+                EditorGUILayout.HelpBox(DetailStyles.AlbedoScaleInfo.text, MessageType.Info, true);
+
+            var detailAlbedoTexture = _detailAlbedoMap.textureValue as Texture2D;
+            if (detailAlbedoTexture != null && GraphicsFormatUtility.IsSRGBFormat(detailAlbedoTexture.graphicsFormat))
+                EditorGUILayout.HelpBox(DetailStyles.AlbedoFormatError.text, MessageType.Warning, true);
+
+            materialEditor.TexturePropertySingleLine(DetailStyles.NormalMap, _detailNormalMap,
+                _detailNormalMap.textureValue != null ? _detailNormalMapScale : null);
+            materialEditor.TextureScaleOffsetProperty(_detailAlbedoMap);
+        }
+
+        static void SetDetailKeywords(Material material)
+        {
+            if (!material.HasProperty("_DetailAlbedoMap") ||
+                !material.HasProperty("_DetailNormalMap") ||
+                !material.HasProperty("_DetailAlbedoMapScale"))
+                return;
+
+            bool isScaled = material.GetFloat("_DetailAlbedoMapScale") != 1.0f;
+            bool hasDetailMap = material.GetTexture("_DetailAlbedoMap") || material.GetTexture("_DetailNormalMap");
+            CoreUtils.SetKeyword(material, "_DETAIL_MULX2", !isScaled && hasDetailMap);
+            CoreUtils.SetKeyword(material, "_DETAIL_SCALED", isScaled && hasDetailMap);
+        }
+
+        static class DetailStyles
+        {
+            public static readonly GUIContent DetailInputs = EditorGUIUtility.TrTextContent("Detail Inputs",
+                "These settings define the surface details by tiling and overlaying additional maps on the surface.");
+
+            public static readonly GUIContent Mask = EditorGUIUtility.TrTextContent("Mask",
+                "Select a mask for the Detail map. The mask uses the alpha channel of the selected texture. The Tiling and Offset settings have no effect on the mask.");
+
+            public static readonly GUIContent AlbedoMap = EditorGUIUtility.TrTextContent("Base Map",
+                "Select the surface detail texture. The alpha of your texture determines surface hue and intensity.");
+
+            public static readonly GUIContent NormalMap = EditorGUIUtility.TrTextContent("Normal Map",
+                "Designates a Normal Map to create the illusion of bumps and dents in the details of this Material's surface.");
+
+            public static readonly GUIContent AlbedoScaleInfo = EditorGUIUtility.TrTextContent(
+                "Setting the scaling factor to a value other than 1 results in a less performant shader variant.");
+
+            public static readonly GUIContent AlbedoFormatError = EditorGUIUtility.TrTextContent(
+                "This texture is not in linear space.");
+        }
+
+        static class ToonStyles
+        {
+            public static readonly GUIContent Header = EditorGUIUtility.TrTextContent("Toon Lighting",
+                "Cel-shaded lighting that can be blended with the physically based result.");
+            public static readonly GUIContent Enable = EditorGUIUtility.TrTextContent("Enable Toon Lighting",
+                "Compiles the toon light path. Disabled materials use plain PBR lighting.");
+            public static readonly GUIContent Strength = EditorGUIUtility.TrTextContent("Toon Strength",
+                "0 = physically based lighting, 1 = fully toon. Values in between blend per light.");
+            public static readonly GUIContent RampMap = EditorGUIUtility.TrTextContent("Ramp Texture",
+                "Optional horizontal gradient: left = shadow, right = lit. Overrides Steps and Step Smoothness. Set Wrap Mode to Clamp.");
+            public static readonly GUIContent RampWrapWarning = EditorGUIUtility.TrTextContent(
+                "Set the ramp texture's Wrap Mode to Clamp to avoid edge bleeding.");
+            public static readonly GUIContent Steps = EditorGUIUtility.TrTextContent("Steps",
+                "Number of light bands (2 = classic two-tone).");
+            public static readonly GUIContent StepSmoothness = EditorGUIUtility.TrTextContent("Step Smoothness",
+                "How soft the transition between bands is.");
+            public static readonly GUIContent Threshold = EditorGUIUtility.TrTextContent("Shadow Threshold",
+                "Moves where the shadow begins. Higher values give more shadow.");
+            public static readonly GUIContent HalfLambert = EditorGUIUtility.TrTextContent("Half Lambert",
+                "Wraps the light so the unlit side is not fully dark.");
+            public static readonly GUIContent ShadowTint = EditorGUIUtility.TrTextContent("Shadow Tint",
+                "Color of the main light's shadowed regions.");
+            public static readonly GUIContent AdditionalLights = EditorGUIUtility.TrTextContent("Apply To Additional Lights",
+                "When off, additional (point/spot) lights keep PBR shading.");
+            public static readonly GUIContent SpecularColor = EditorGUIUtility.TrTextContent("Specular Color");
+            public static readonly GUIContent SpecularStrength = EditorGUIUtility.TrTextContent("Specular Strength",
+                "0 removes the toon highlight.");
+            public static readonly GUIContent SpecularSize = EditorGUIUtility.TrTextContent("Specular Size");
+            public static readonly GUIContent SpecularSmoothness = EditorGUIUtility.TrTextContent("Specular Smoothness",
+                "Edge softness of the toon highlight.");
+        }
+    }
+}
+#endif

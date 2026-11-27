@@ -1,0 +1,7 @@
+{
+    "name": "SSR.Editor",
+    "rootNamespace": "SSRFeature.Editor",
+    "references": [ "SSR.Runtime" ],
+    "includePlatforms": [ "Editor" ],
+    "autoReferenced": true
+}

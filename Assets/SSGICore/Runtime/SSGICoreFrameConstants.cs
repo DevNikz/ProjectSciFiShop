@@ -16,6 +16,16 @@ namespace SSGICore
         public int downsample, rayCount, maxSteps, bounces, frame, normalMode,
                    usePrevColor, historyValid, maxAge, hasMotion, enhanced, resValid, resMaxM, resSpatial, cacheEnabled;
         public Vector4 cacheBase, cacheDelta;
+        public float lightFlush, lightFloor, contactRadius, mainScale, mainDelta;
+        public int adaptiveRays, leakReduction, dirtyCount;
+
+        /// <summary>Per-light data; only the Light Response and Cache Resolve steps read it.</summary>
+        public void ApplyLights(ComputeCommandBuffer cmd, ComputeShader cs, SSGICoreLightHistory lights)
+        {
+            cmd.SetComputeVectorArrayParam(cs, SSGICoreIds.LightScale, lights.scale4);
+            cmd.SetComputeVectorArrayParam(cs, SSGICoreIds.DirtySphere, lights.dirtySphere);
+            cmd.SetComputeVectorArrayParam(cs, SSGICoreIds.DirtyAmount, lights.dirtyAmount);
+        }
 
         public void Apply(ComputeCommandBuffer cmd, ComputeShader cs)
         {
@@ -59,6 +69,14 @@ namespace SSGICore
             cmd.SetComputeVectorParam(cs, SSGICoreIds.CacheDelta, cacheDelta);
             cmd.SetComputeIntParam(cs, SSGICoreIds.ResMaxM, resMaxM);
             cmd.SetComputeIntParam(cs, SSGICoreIds.ResSpatial, resSpatial);
+            cmd.SetComputeFloatParam(cs, SSGICoreIds.LightFlush, lightFlush);
+            cmd.SetComputeFloatParam(cs, SSGICoreIds.LightFloor, lightFloor);
+            cmd.SetComputeFloatParam(cs, SSGICoreIds.ContactRadius, contactRadius);
+            cmd.SetComputeFloatParam(cs, SSGICoreIds.MainScale, mainScale);
+            cmd.SetComputeFloatParam(cs, SSGICoreIds.MainDelta, mainDelta);
+            cmd.SetComputeIntParam(cs, SSGICoreIds.AdaptiveRays, adaptiveRays);
+            cmd.SetComputeIntParam(cs, SSGICoreIds.LeakReduction, leakReduction);
+            cmd.SetComputeIntParam(cs, SSGICoreIds.DirtyCount, dirtyCount);
         }
     }
 }

@@ -7,6 +7,7 @@ public class HudCoins : MonoBehaviour
     private TextMeshProUGUI coinText;
     private RectTransform poolTransform;
     private int displayedCoins;
+    private int _lastTotal;
 
     //Tweening
     [Header("Tween")]
@@ -22,32 +23,53 @@ public class HudCoins : MonoBehaviour
             poolTransform = transform.Find("Pool").GetComponent<RectTransform>();
     }
 
-    private void OnEnable() => CurrencyManager.Instance.OnCoinsChanged += OnCoinsChanged;
+    private void OnEnable()
+    {
+        var wallet = CurrencyManager.Instance;
+        if (wallet == null)
+        {
+            Debug.LogError($"{name}: CurrencyManager missing.", this);
+            return;
+        }
+        _lastTotal = displayedCoins = wallet.GetCoins();
+        RefreshTextInstant();
+        wallet.OnCoinsChanged += OnCoinsChanged;
+    }
 
-    private void OnDestroy() => CurrencyManager.Instance.OnCoinsChanged -= OnCoinsChanged;
+    private void OnDisable()
+    {
+        _countTween?.Kill();
+        var wallet = CurrencyManager.Instance; // null only while quitting
+        if (wallet != null)
+            wallet.OnCoinsChanged -= OnCoinsChanged;
+    }
 
-    private void OnCoinsChanged(int coins)
+    // The event passes the new total. The popup shows how much it changed by.
+    private void OnCoinsChanged(int total)
     {
         int startValue = displayedCoins;
-        int targetValue = CurrencyManager.Instance.GetCoins();
-
-        CoinUIPool.Instance.SpawnAtUIElement(poolTransform, coins);
+        int delta = total - _lastTotal;
+        _lastTotal = total;
 
         _countTween?.Kill();
         float t = 0f;
 
+        // Tween first: a popup problem must never leave the label stale.
         _countTween = DOTween
             .To(() => t, v => t = v, 1f, countDuration)
             .OnUpdate(() =>
             {
-                displayedCoins = startValue + (int)((targetValue - startValue) * t);
+                displayedCoins = startValue + (int)((total - startValue) * t);
                 RefreshTextInstant();
             })
             .OnComplete(() =>
             {
-                displayedCoins = targetValue; // snap to exact value
+                displayedCoins = total; // snap to exact value
                 RefreshTextInstant();
             });
+
+        if (delta != 0 && CoinUIPool.Instance != null)
+            CoinUIPool.Instance.SpawnAtUIElement(poolTransform, delta);
     }
 
     private void RefreshTextInstant()

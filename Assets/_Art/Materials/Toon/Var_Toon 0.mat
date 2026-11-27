@@ -38,7 +38,7 @@ Material:
     m_Floats:
     - _DisplaceEnabled: 0
     - _DisplaceFrequency: 4
-    - _DisplaceSpeed: 0
+    - _DisplaceSpeed: 1
     - _DisplaceStrength: 0.05
     - _Metallic: 0
     - _PlanarReflectionEnabled: 0
@@ -57,6 +57,7 @@ Material:
     - _TriplanarEnabled: 0
     - _TriplanarScale: 1.21
     - _WindEnabled: 0
+    - _WindStrength: 1
     m_Colors:
     - _BaseColor: {r: 0.76862746, g: 0.8862745, b: 0.47058824, a: 1}
     - _Color: {r: 0.76862746, g: 0.8862745, b: 0.47058815, a: 1}

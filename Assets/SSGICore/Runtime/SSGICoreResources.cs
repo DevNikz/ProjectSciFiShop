@@ -7,12 +7,15 @@ namespace SSGICore
     /// <summary>Loads the compute shaders and composite material from Resources/SSGICore.</summary>
     internal static class SSGICoreResources
     {
-        public static ComputeShader Normals, Hzb, Trace, Temporal, Filter, Upsample, Restir, Cache;
+        public static ComputeShader Normals, Hzb, Trace, Temporal, Filter, Upsample, Restir, Cache, LightShader;
         public static Material Composite;
+
+        /// <summary>True when the optional Light Response kernel compiled and is supported on this GPU / API.</summary>
+        public static bool LightSupported;
 
         /// <summary>1x1x1 stand-in bound to the radiance cache slot while the cache is off (the shader never reads it then).</summary>
         public static RTHandle DummyVolume;
-        public static int KNormalsHzb1, KHzbDownMulti, KTrace, KTraceRestir, KTemporal, KAtrous, KUpsample, KRestirSpatial, KCacheInject, KCacheResolve;
+        public static int KNormalsHzb1, KHzbDownMulti, KTrace, KTraceRestir, KTemporal, KAtrous, KUpsample, KRestirSpatial, KCacheInject, KCacheResolve, KLight;
 
         public static bool TryLoad(out string error)
         {
@@ -73,6 +76,17 @@ namespace SSGICore
                     return false;
                 }
             }
+
+            // Light Response is optional (needs URP's Forward+ light includes to compile); everything else works without it.
+            LightShader = Resources.Load<ComputeShader>("SSGICore/SSGICore_Light");
+            LightSupported = false;
+            if (LightShader != null)
+            {
+                KLight = LightShader.FindKernel("LightResponse");
+                LightSupported = LightShader.IsSupported(KLight);
+            }
+            if (!LightSupported)
+                SSGICoreLog.WarnOnce("lightShader", "The Light Response shader is unavailable on this GPU / API or failed to compile; per-light GI control and light-change flushing are disabled.");
 
             Composite = new Material(composite) { hideFlags = HideFlags.HideAndDontSave };
             return true;

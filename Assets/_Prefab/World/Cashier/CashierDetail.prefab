@@ -9,7 +9,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 5682583593791863872}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Spawn
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -121,7 +121,7 @@ GameObject:
   - component: {fileID: 2010007513941255368}
   - component: {fileID: 1482007706963231660}
   - component: {fileID: 5449111541013651904}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: 10_Coin
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -343,7 +343,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8963457888154183786}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Spawn
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -515,7 +515,8 @@ GameObject:
   - component: {fileID: 8757339081324873106}
   - component: {fileID: 8696489029518647621}
   - component: {fileID: 2634516385710225328}
-  m_Layer: 0
+  - component: {fileID: 23590580870040192}
+  m_Layer: 9
   m_Name: Counter
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -633,6 +634,23 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 64
   settleSpeed: 0.1
+  settleSpin: 0.5
+--- !u!208 &23590580870040192
+NavMeshObstacle:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3293569602622463262}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Shape: 1
+  m_Extents: {x: 0.5, y: 0.5, z: 0.5}
+  m_MoveThreshold: 0.1
+  m_Carve: 1
+  m_CarveOnlyStationary: 1
+  m_Center: {x: 0, y: 0, z: 0}
+  m_TimeToStationary: 0.5
 --- !u!1 &3416222675433686373
 GameObject:
   m_ObjectHideFlags: 0
@@ -644,7 +662,7 @@ GameObject:
   - component: {fileID: 3698781848946524993}
   - component: {fileID: 5331382977836950501}
   - component: {fileID: 6771315612945375129}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Spawn
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -785,7 +803,7 @@ GameObject:
   - component: {fileID: 4940570662409454278}
   - component: {fileID: 3565353072002192548}
   - component: {fileID: 6122381201400734053}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: 5_Coin
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -935,7 +953,8 @@ GameObject:
   - component: {fileID: 5518169051309789446}
   - component: {fileID: 4918736844740934538}
   - component: {fileID: 7629003874714980678}
-  m_Layer: 0
+  - component: {fileID: 3222006873475602660}
+  m_Layer: 9
   m_Name: Change
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -951,8 +970,8 @@ Transform:
   m_GameObject: {fileID: 4032743871400886354}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0.2529948, y: 0, z: 1.213001}
-  m_LocalScale: {x: 1, y: 0.1, z: 0.7}
+  m_LocalPosition: {x: 0.25299424, y: 0, z: 1.4130011}
+  m_LocalScale: {x: 1, y: 0.1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 5035306957357082834}
@@ -1048,11 +1067,28 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PickupZone
   center: {x: 0, y: 0.19, z: 0}
-  halfExtents: {x: 0.48, y: 0.15, z: 0.35}
+  halfExtents: {x: 0.45, y: 0.15, z: 0.45}
   mask:
     serializedVersion: 2
     m_Bits: 64
   settleSpeed: 0.1
+  settleSpin: 0.5
+--- !u!208 &3222006873475602660
+NavMeshObstacle:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4032743871400886354}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Shape: 1
+  m_Extents: {x: 0.5, y: 0.5, z: 0.5}
+  m_MoveThreshold: 0.1
+  m_Carve: 1
+  m_CarveOnlyStationary: 1
+  m_Center: {x: 0, y: 0, z: 0}
+  m_TimeToStationary: 0.5
 --- !u!1 &4380533911081165883
 GameObject:
   m_ObjectHideFlags: 0
@@ -1154,7 +1190,7 @@ GameObject:
   - component: {fileID: 307852809027416178}
   - component: {fileID: 7656943179165963099}
   - component: {fileID: 4092866744447819686}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: 1_Coin
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1301,7 +1337,7 @@ GameObject:
   m_Component:
   - component: {fileID: 5035306957357082834}
   - component: {fileID: 4856844509224628532}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: CashierDetail
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1343,7 +1379,12 @@ MonoBehaviour:
   customerBasketPoint: {fileID: 4330830615922897501}
   basketAreaSize: {x: 0.9, y: 1.6}
   layoutGap: 0.03
+  useGridLayout: 0
+  dropHeight: 0.1
+  placementAttempts: 8
+  yawJitter: 30
   showLayoutGizmos: 1
+  dropWatchSeconds: 6
   changeTray: {fileID: 7629003874714980678}
   scanInterval: 0.1
   consumeItemsOnSale: 1
@@ -1356,7 +1397,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 4330830615922897501}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: CustomerBasketPoint
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1524,7 +1565,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6810325385313468580}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: Spawn
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -1907,7 +1948,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1618010756586121937}
-  m_Layer: 0
+  m_Layer: 9
   m_Name: ChangeDrawer
   m_TagString: Untagged
   m_Icon: {fileID: 0}

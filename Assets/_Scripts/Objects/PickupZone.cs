@@ -20,6 +20,10 @@ public class PickupZone : MonoBehaviour
     [SerializeField]
     float settleSpeed = 0.1f;
 
+    [Tooltip("Items spinning faster than this (rad/s) are still moving and are ignored.")]
+    [SerializeField]
+    float settleSpin = 0.5f;
+
     public Vector3 CustomerStagingOrigin =>
         transform.TransformPoint(center) + transform.right * (halfExtents.x + 0.7f);
 
@@ -57,7 +61,11 @@ public class PickupZone : MonoBehaviour
         if (!p.isActiveAndEnabled || p.IsHeld || p.IsClaimed)
             return false;
         var rb = p.Body;
-        return rb == null || rb.linearVelocity.sqrMagnitude <= settleSpeed * settleSpeed;
+        return rb == null
+            || (
+                rb.linearVelocity.sqrMagnitude <= settleSpeed * settleSpeed
+                && rb.angularVelocity.sqrMagnitude <= settleSpin * settleSpin
+            );
     }
 
     void OnDrawGizmos()
@@ -71,5 +79,6 @@ public class PickupZone : MonoBehaviour
     {
         halfExtents = Vector3.Max(halfExtents, Vector3.one * 0.05f);
         settleSpeed = Mathf.Max(0f, settleSpeed);
+        settleSpin = Mathf.Max(0f, settleSpin);
     }
 }

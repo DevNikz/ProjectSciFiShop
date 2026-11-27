@@ -19,7 +19,7 @@
 #define REQUIRES_WORLD_SPACE_TANGENT_INTERPOLATOR
 #endif
 
-#if defined(STYLIZED_CLIP_REQUIRES_UV) || defined(_PARALLAXMAP) || defined(_NORMALMAP) || defined(_DETAIL)
+#if defined(STYLIZED_CLIP_REQUIRES_UV) || defined(_PARALLAXMAP) || defined(_NORMALMAP) || defined(_DETAIL) || defined(_SSR_REFLECTION_ON)
 #define REQUIRES_UV_INTERPOLATOR
 #endif
 
@@ -149,13 +149,24 @@ void StylizedDepthNormalsFragment(
 
     normalWS = NormalizeNormalPerPixel(normalWS);
 
+    // Phase 8: alpha carries SSR smoothness (high nibble) and intensity (low nibble), 0 = not reflective.
+    // Keep in sync with the _SSR_MASK_NORMALS_A unpack in _ScreenSpaceReflections/Shaders/SSR.shader.
+    #if defined(_SSR_REFLECTION_ON)
+        half ssrAlbedoAlpha = SampleAlbedoAlpha(input.uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap)).a;
+        half ssrSmoothness = saturate(SampleMetallicSpecGloss(input.uv, ssrAlbedoAlpha).a);
+        float ssrPackedByte = round(ssrSmoothness * 15.0) * 16.0 + round(saturate(_SSRReflectionIntensity) * 15.0);
+        half ssrAlpha = half(ssrPackedByte / 255.0);
+    #else
+        half ssrAlpha = 0.0;
+    #endif
+
     #if defined(_GBUFFER_NORMALS_OCT)
         float2 octNormalWS = PackNormalOctQuadEncode(normalWS);           // values between [-1, +1], must use fp32 on some platforms
         float2 remappedOctNormalWS = saturate(octNormalWS * 0.5 + 0.5);   // values between [ 0,  1]
         half3 packedNormalWS = PackFloat2To888(remappedOctNormalWS);      // values between [ 0,  1]
-        outNormalWS = half4(packedNormalWS, 0.0);
+        outNormalWS = half4(packedNormalWS, ssrAlpha);
     #else
-        outNormalWS = half4(normalWS, 0.0);
+        outNormalWS = half4(normalWS, ssrAlpha);
     #endif
 
     #ifdef _WRITE_RENDERING_LAYERS

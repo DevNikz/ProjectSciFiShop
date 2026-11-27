@@ -46,5 +46,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ProgressionManager
   catalog: {fileID: 11400000, guid: 324be3e442a8d1a4287dc4f07a51329f, type: 2}
   upgrades: []
-  expansions: []
+  expansions:
+  - {fileID: 11400000, guid: 1556574a2c5bdfa4099495612331b72e, type: 2}
   furnitureCatalog: {fileID: 11400000, guid: 988c7d469e3440440b366c4996e337f9, type: 2}

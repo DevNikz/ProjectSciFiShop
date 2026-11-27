@@ -12,10 +12,10 @@ TagManager:
   - Water
   - UI
   - PhysicsObject
-  - 
-  - 
-  - 
-  - 
+  - StoreFloor
+  - StoreFurniture
+  - StoreRegister
+  - StoreBounds
   - 
   - 
   - 

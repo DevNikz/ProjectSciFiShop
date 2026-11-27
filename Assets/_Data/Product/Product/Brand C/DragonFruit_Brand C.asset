@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7d91d1dbd29b18468f67b4c0a8364f3, type: 3}
+  m_Name: DragonFruit_Brand C
+  m_EditorClassIdentifier: Assembly-CSharp::ProductDefinition
+  id: DragonFruit_Brand C
+  displayName: DragonFruit_Brand C
+  icon: {fileID: 0}
+  category: 0
+  group: {fileID: 11400000, guid: 35f131339b63e9746affa25df537c6b5, type: 2}
+  brand: 
+  baseMarketPrice: 1
+  unitCost: 1
+  unitsPerBox: 1
+  unlockCost: 0
+  prefab: {fileID: 1096332653333590833, guid: 3198b0fd9fdb4c847bbc8d59b8eea58a, type: 3}
+  prewarmCount: 0
+  baseId: DragonFruit
+  baseDisplayName: DragonFruit
+  appliedId: DragonFruit_Brand C
+  appliedDisplayName: DragonFruit_Brand C
+  baseAssetName: DragonFruit
+  appliedAssetName: DragonFruit_Brand C

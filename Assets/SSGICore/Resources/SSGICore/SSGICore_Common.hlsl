@@ -49,6 +49,16 @@ int _SSGI_ResValid;       // reservoir history usable this frame
 int _SSGI_ResMaxM;        // history confidence cap, multiples of the current candidate count
 int _SSGI_ResSpatial;     // 1 = spatial reservoir reuse
 int _SSGI_Enhanced;       // 1 = enhanced denoiser paths (Volume: Denoiser Mode)
+float _SSGI_LightFlush;   // 0..1, how strongly a light change resets temporal history
+float _SSGI_LightFloor;   // 0..1, share of the radiance that ignores per-light GI scale
+float _SSGI_ContactRadius;// world units, hit distance below which a bounce hit darkens the surface
+float _SSGI_MainScale;    // GI scale of the main light
+float _SSGI_MainDelta;    // 0..1, change of the main light since last frame
+int _SSGI_AdaptiveRays;   // 1 = pixels with long stable history trace one ray
+int _SSGI_LeakReduction;  // 1 = tighter thickness and grazing-hit rejection in the ray march
+int _SSGI_DirtyCount;     // number of valid _SSGI_DirtySphere entries
+float4 _SSGI_DirtySphere[16]; // xyz = world centre, w = radius of a light that changed
+float4 _SSGI_DirtyAmount[4];  // 4 amounts (0..1) per float4, same order as the spheres
 
 // ---- inputs ---------------------------------------------------------------------------------------------
 Texture2D<float>  _SSGI_Depth;     // raw device depth
@@ -59,6 +69,7 @@ Texture2D<float4> _SSGI_Color;
 Texture2D<float4> _SSGI_PrevColor;
 Texture2D<float>  _SSGI_HzbAtlas;  // min eye-depth pyramid, levels 1..5 packed into one texture (see _SSGI_HzbRects)
 Texture2D<float4> _SSGI_LowGeo;    // trace-resolution geometry: view-space normal (xyz) + eye depth (w, <= 0 for sky)
+Texture2D<float4> _SSGI_LightTex;  // trace-resolution light response: x = ratio - 1, y = delta (black = ratio 1, delta 0)
 
 // ---- helpers --------------------------------------------------------------------------------------------
 float SSGILuma(float3 c) { return dot(c, float3(0.2126, 0.7152, 0.0722)); }
@@ -227,6 +238,34 @@ bool LoadLowGeo(int2 lp, out float eye, out float3 posVS, out float3 nVS)
     posVS = ViewPosFromPixel(LowToFull(lp), eye);
     nVS = g.xyz;
     return true;
+}
+
+// ---- light response ---------------------------------------------------------------------------------------
+// x = ratio (1 = unchanged; scales the radiance picked up at a hit), y = delta (0..1, 1 = the lighting here just changed).
+float2 LoadLightResponseLow(int2 lp)
+{
+    float2 r = _SSGI_LightTex.Load(int3(lp, 0)).xy;
+    return float2(clamp(1.0 + r.x, 0.0, 8.0), saturate(r.y));
+}
+
+float2 LoadLightResponse(int2 fp)
+{
+    return LoadLightResponseLow(min(fp / _SSGI_Downsample, (int2)_SSGI_LowSize.xy - 1));
+}
+
+float ApplyLightFloor(float ratio) { return lerp(ratio, 1.0, _SSGI_LightFloor); }
+
+// Strongest change of any dirty light at a world position (falls off to 0 at the light's range).
+float DirtyAt(float3 posWS)
+{
+    float d = 0.0;
+    for (int i = 0; i < _SSGI_DirtyCount; i++)
+    {
+        float4 s = _SSGI_DirtySphere[i];
+        float fall = saturate(1.0 - distance(posWS, s.xyz) * rcp(max(s.w, 1e-3)));
+        d = max(d, _SSGI_DirtyAmount[i >> 2][i & 3] * fall);
+    }
+    return d;
 }
 
 // x^8 and x^32 by repeated squaring (exact replacement for pow with those constant exponents).

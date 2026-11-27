@@ -44,8 +44,8 @@ public class Register : MonoBehaviour
     Transform customerBasketPoint;
 
     [Tooltip(
-        "Area where customers lay out their shopping, from the basket point, as the customer sees it (metres). "
-            + "X = top (far) to bottom (near), Y = left to right. Items start at the top-left corner and fill X first (down a column), then Y (the next column to the right). When the area is full, the next items stack on top."
+        "Area where customers put their shopping, from the basket point, as the customer sees it (metres). Free drop picks random spots inside it. "
+            + "Grid layout: X = top (far) to bottom (near), Y = left to right. Items start at the top-left corner and fill X first (down a column), then Y (the next column to the right). When the area is full, the next items stack on top."
     )]
     [SerializeField]
     private Vector2 basketAreaSize = new(0.5f, 0.9f);
@@ -55,12 +55,57 @@ public class Register : MonoBehaviour
     private float layoutGap = 0.03f;
 
     [Tooltip(
-        "While the register is selected, draw the last basket layout: columns, the start corner, each product's footprint (spacing) and stack layers."
+        "Off = free drop: customers let products fall onto the counter and physics settles them. "
+            + "On = the old tidy grid, where products are placed exactly in their slots."
+    )]
+    [SerializeField]
+    private bool useGridLayout;
+
+    [Tooltip(
+        "Free drop: how high above the counter each product is released (metres). Higher = a livelier tumble."
+    )]
+    [SerializeField]
+    private float dropHeight = 0.1f;
+
+    [Tooltip(
+        "Free drop: random spots tried to find one clear of other products. If none is found, the product is dropped on top of them."
+    )]
+    [SerializeField]
+    private int placementAttempts = 8;
+
+    [Tooltip(
+        "Free drop: each product is turned a random amount left or right of facing the customer (degrees)."
+    )]
+    [SerializeField]
+    private float yawJitter = 30f;
+
+    [Tooltip(
+        "Grid layout only. While the register is selected, draw the last basket layout: columns, the start corner, each product's footprint (spacing) and stack layers."
     )]
     [SerializeField]
     private bool showLayoutGizmos = true;
 
+    [Tooltip(
+        "Free drop: seconds after release that a product is watched. One that falls off the counter in that time is put back."
+    )]
+    [SerializeField]
+    private float dropWatchSeconds = 6f;
+
     private const float SurfaceClearance = 0.015f;
+
+    // Free drop: how far below the counter a product must fall to count as lost, and how high it is put back.
+    private const float FallRecoverDistance = 0.3f;
+    private const float RecoverLift = 0.2f;
+
+    // A product released with physics, watched for a while in case it rolls off the counter.
+    private struct DropWatch
+    {
+        public ProductCarriable product;
+        public float until;
+    }
+
+    private readonly List<DropWatch> _watched = new();
+    private Vector3 _lastCustomerPosition;
 
     // The last PlanCustomerBasket result, kept only so the gizmos can draw it.
     private struct LayoutDebugItem
@@ -74,6 +119,14 @@ public class Register : MonoBehaviour
     {
         public Vector3 center; // world middle of the column's floor strip
         public Vector2 size; // width, depth
+    }
+
+    // A product already planned in this free drop: the circle it covers on the counter and where its top rests.
+    private struct DropSpot
+    {
+        public Vector2 xz;
+        public float radius;
+        public float top;
     }
 
     // One column of the basket grid: the items stacked top to bottom, and the room they use.
@@ -123,7 +176,15 @@ public class Register : MonoBehaviour
     private float AreaWidth => basketAreaSize.y;
 
     /// <summary>
-    /// Lays the customer's products out on the counter as the customer sees it: from the top-left corner
+    /// True in free-drop mode. The caller should then release each product at its slot with physics on
+    /// (not snap it into place) and let it settle. False in grid mode.
+    /// </summary>
+    public bool UsesFreeDrop => !useGridLayout;
+
+    /// <summary>
+    /// Free drop (default): gives each product a random spot in the basket area, a little above the counter,
+    /// for the caller to release with physics. With Use Grid Layout on, it lays the customer's products out
+    /// on the counter as the customer sees it: from the top-left corner
     /// of the basket area, down each column from the far edge to the near edge, then on to the next
     /// column to the right. Products of one type sit together. When the area is full, the next items
     /// start a new layer on top. Returns one slot per product, in the same order. Products keep their
@@ -134,6 +195,7 @@ public class Register : MonoBehaviour
         Vector3 customerPosition
     )
     {
+        _lastCustomerPosition = customerPosition;
         var rotation = GetBasketRotation(customerPosition);
         var frame = BasketFrame;
         _debugItems.Clear();
@@ -172,7 +234,10 @@ public class Register : MonoBehaviour
         var order = new List<int>(products.Count); // one product type after another
         foreach (var group in groups)
             order.AddRange(group);
-        LayGrid(order, footprints, rotation, customerPosition, slots);
+        if (useGridLayout)
+            LayGrid(order, footprints, rotation, customerPosition, slots);
+        else
+            PlanFreeDrop(order, footprints, rotation, slots);
         return slots;
     }
 
@@ -289,6 +354,160 @@ public class Register : MonoBehaviour
                     }
                 );
         }
+    }
+
+    /// <summary>
+    /// Free drop: call when a product reaches its slot. Turns its physics on so it falls and settles, and
+    /// watches it for a few seconds. One that falls off the counter is put back above the basket area.
+    /// </summary>
+    public void ReleaseOnCounter(ProductCarriable product)
+    {
+        if (product == null)
+            return;
+        var body = product.Carriable.Body;
+        if (body == null)
+        {
+            Debug.LogWarning(
+                $"{name}: '{product.name}' has no Rigidbody, so it can't be dropped.",
+                this
+            );
+            return;
+        }
+        body.isKinematic = false;
+        body.useGravity = true;
+        body.linearVelocity = Vector3.zero;
+        body.angularVelocity = Vector3.zero;
+        body.WakeUp();
+        _watched.Add(new DropWatch { product = product, until = Time.time + dropWatchSeconds });
+    }
+
+    // Stops watching a product that is gone, picked up or past its time. One that fell is put back.
+    private void WatchDrops()
+    {
+        for (int i = _watched.Count - 1; i >= 0; i--)
+        {
+            var watch = _watched[i];
+            var product = watch.product;
+            if (
+                product == null
+                || !product.gameObject.activeInHierarchy
+                || product.Carriable.IsHeld
+                || product.Carriable.IsClaimed
+                || Time.time > watch.until
+            )
+            {
+                _watched.RemoveAt(i);
+                continue;
+            }
+            if (product.transform.position.y < BasketOrigin.y - FallRecoverDistance)
+            {
+                PutBack(product);
+                watch.until = Time.time + dropWatchSeconds;
+                _watched[i] = watch;
+            }
+        }
+    }
+
+    // A product that fell off the counter drops again from above a random spot in the basket area.
+    private void PutBack(ProductCarriable product)
+    {
+        var slot = PlanCustomerBasket(new[] { product }, _lastCustomerPosition)[0];
+        product.transform.SetPositionAndRotation(
+            slot.position + Vector3.up * RecoverLift,
+            slot.rotation
+        );
+        var body = product.Carriable.Body;
+        if (body != null)
+        {
+            body.linearVelocity = Vector3.zero;
+            body.angularVelocity = Vector3.zero;
+        }
+    }
+
+    // Each product gets a random spot clear of the ones already planned, a random turn, and a start a little
+    // above the counter. A product that finds no clear spot is dropped on top of what is under it.
+    private void PlanFreeDrop(
+        List<int> order,
+        ProductFootprint[] footprints,
+        Quaternion rotation,
+        List<BasketSlot> slots
+    )
+    {
+        var frame = BasketFrame;
+        var origin = BasketOrigin;
+        var placed = new List<DropSpot>(order.Count);
+        bool warnedCrowded = false;
+
+        foreach (int i in order)
+        {
+            var footprint = footprints[i];
+            var size = footprint.Size;
+            if (size.x > AreaWidth || size.z > AreaDepth)
+                Debug.LogWarning(
+                    $"{name}: a product ({size.x:0.00} x {size.z:0.00} m) is bigger than the basket area.",
+                    this
+                );
+
+            float radius = 0.5f * Mathf.Sqrt(size.x * size.x + size.z * size.z);
+            var point = GetAreaPoint(radius, origin, frame);
+            float overlapTop = GetOverlapTop(point, radius, placed);
+            for (int attempt = 1; attempt < placementAttempts; attempt++)
+            {
+                if (float.IsNegativeInfinity(overlapTop))
+                    break;
+                point = GetAreaPoint(radius, origin, frame);
+                overlapTop = GetOverlapTop(point, radius, placed);
+            }
+            if (!float.IsNegativeInfinity(overlapTop) && !warnedCrowded)
+            {
+                warnedCrowded = true;
+                Debug.LogWarning(
+                    $"{name}: the basket area is crowded, so some products are dropped on top of others.",
+                    this
+                );
+            }
+
+            var turn = Quaternion.Euler(0f, UnityEngine.Random.Range(-yawJitter, yawJitter), 0f);
+            var pivot =
+                point
+                - turn
+                    * (frame * new Vector3(footprint.CenterOffset.x, 0f, footprint.CenterOffset.z));
+            float surfaceY = FindSurfaceY(new Vector3(point.x, origin.y, point.z), origin.y);
+            float floorY = Mathf.Max(surfaceY, overlapTop);
+            float restingBottom = floorY + SurfaceClearance;
+            pivot.y = restingBottom + footprint.BottomOffset + dropHeight;
+
+            slots[i] = new BasketSlot { position = pivot, rotation = turn * rotation };
+            placed.Add(
+                new DropSpot
+                {
+                    xz = new Vector2(point.x, point.z),
+                    radius = radius,
+                    top = restingBottom + size.y,
+                }
+            );
+        }
+    }
+
+    // A random point on the basket area, kept inside it by the product's radius (or its middle if it is wider).
+    private Vector3 GetAreaPoint(float radius, Vector3 origin, Quaternion frame)
+    {
+        float halfWidth = Mathf.Max(0f, AreaWidth * 0.5f - radius);
+        float halfDepth = Mathf.Max(0f, AreaDepth * 0.5f - radius);
+        float x = UnityEngine.Random.Range(-halfWidth, halfWidth);
+        float z = AreaDepth * 0.5f + UnityEngine.Random.Range(-halfDepth, halfDepth);
+        return origin + frame * new Vector3(x, 0f, z);
+    }
+
+    // The highest top among planned products this circle would touch, or negative infinity if it is clear.
+    private float GetOverlapTop(Vector3 point, float radius, List<DropSpot> placed)
+    {
+        float top = float.NegativeInfinity;
+        var xz = new Vector2(point.x, point.z);
+        foreach (var spot in placed)
+            if (Vector2.Distance(xz, spot.xz) < spot.radius + radius + layoutGap)
+                top = Mathf.Max(top, spot.top);
+        return top;
     }
 
     // True when the customer stands on the -forward side of the basket frame.
@@ -489,9 +708,9 @@ public class Register : MonoBehaviour
         _lockedTotal = _runningTotal; // prices are locked from here
         _lockedCost = 0;
 
-        //Get Sale Price from Pricebook instead
+        // Cost is what the shop paid per unit, not what the customer pays.
         foreach (var p in _basket)
-            _lockedCost += PriceBook.Instance.GetSellPrice(p.Definition);
+            _lockedCost += p.Definition.UnitCost;
 
         _cashPaid = Math.Max(_lockedTotal, customer.ChooseCash(_lockedTotal));
         _changeDue = _cashPaid - _lockedTotal;
@@ -529,6 +748,8 @@ public class Register : MonoBehaviour
 
     private void Update()
     {
+        if (_watched.Count > 0)
+            WatchDrops(); // even between customers: products can still be rolling
         if (_state == RegisterState.Idle)
             return;
 
@@ -677,6 +898,7 @@ public class Register : MonoBehaviour
 
         var customer = _customer;
         ResetSale();
+        DayManager.Instance?.RecordSale(receipt.items, receipt.revenue, receipt.cost);
         SaleCompleted?.Invoke(receipt);
         Notify(customer, true);
         Changed?.Invoke();
@@ -720,7 +942,7 @@ public class Register : MonoBehaviour
 
         Gizmos.matrix = previousMatrix;
 
-        if (showLayoutGizmos)
+        if (showLayoutGizmos && useGridLayout)
             DrawLayoutGizmos();
     }
 
@@ -768,5 +990,9 @@ public class Register : MonoBehaviour
         scanInterval = Mathf.Max(0.02f, scanInterval);
         basketAreaSize = Vector2.Max(basketAreaSize, new Vector2(0.1f, 0.1f));
         layoutGap = Mathf.Max(0f, layoutGap);
+        dropHeight = Mathf.Max(0f, dropHeight);
+        placementAttempts = Mathf.Max(1, placementAttempts);
+        yawJitter = Mathf.Clamp(yawJitter, 0f, 180f);
+        dropWatchSeconds = Mathf.Max(0f, dropWatchSeconds);
     }
 }

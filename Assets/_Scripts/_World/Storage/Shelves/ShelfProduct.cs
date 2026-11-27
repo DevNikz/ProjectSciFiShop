@@ -5,7 +5,7 @@ using UnityEngine;
 [DisallowMultipleComponent]
 [CarriableAddon("As Shelf Product")]
 [RequireComponent(typeof(Carriable))]
-public class ShelfProduct : MonoBehaviour
+public class ShelfProduct : MonoBehaviour, ICarriableInteractHandler
 {
     [Tooltip("Optional local offset from the assigned shelf slot.")]
     [SerializeField]
@@ -56,6 +56,15 @@ public class ShelfProduct : MonoBehaviour
         return System.Globalization.CultureInfo.InvariantCulture.TextInfo.ToTitleCase(
             value.ToLowerInvariant()
         );
+    }
+
+    /// <summary>While stocked, E takes this unit off the shelf. Loose products use the normal pickup.</summary>
+    public bool TryHandleInteract(Carriable carriable, Interactor who)
+    {
+        if (Shelf == null || who == null)
+            return false;
+        Shelf.TryTake(carriable, who);
+        return true; // consumed: a shelved item is kinematic, so the normal grab would fail
     }
 
     void OnDisable()

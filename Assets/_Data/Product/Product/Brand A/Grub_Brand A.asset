@@ -1,0 +1,32 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7d91d1dbd29b18468f67b4c0a8364f3, type: 3}
+  m_Name: Grub_Brand A
+  m_EditorClassIdentifier: Assembly-CSharp::ProductDefinition
+  id: Grub_Brand A
+  displayName: Grub_Brand A
+  icon: {fileID: 0}
+  category: 0
+  group: {fileID: 11400000, guid: 287919aa9462de4468f10ebeb4026ed2, type: 2}
+  brand: 
+  baseMarketPrice: 1
+  unitCost: 1
+  unitsPerBox: 1
+  unlockCost: 0
+  prefab: {fileID: 1096332653333590833, guid: a345974d946e312469ab308958349a95, type: 3}
+  prewarmCount: 0
+  baseId: Grub
+  baseDisplayName: Grub
+  appliedId: Grub_Brand A
+  appliedDisplayName: Grub_Brand A
+  baseAssetName: Grub
+  appliedAssetName: Grub_Brand A

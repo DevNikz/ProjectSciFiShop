@@ -57,7 +57,7 @@ MonoBehaviour:
   - {fileID: 351884225398076356}
   - {fileID: 4832040980395455581}
   - {fileID: 6699555188365960492}
-  autoCompleteCheckout: 0
+  autoCompleteCheckout: 1
   automaticCheckoutDelay: 5
 --- !u!114 &2863112117166004368
 MonoBehaviour:
@@ -75,7 +75,7 @@ MonoBehaviour:
   checkoutQueue: {fileID: 6960788563269960902}
   spawnPoints:
   - {fileID: 4416834602189438255}
-  secondsBetweenCustomers: 12
+  secondsBetweenCustomers: 10
   maximumActiveCustomers: 4
   beginSpawningOnStart: 1
 --- !u!1 &2039173297409740593
@@ -104,7 +104,7 @@ Transform:
   m_GameObject: {fileID: 2039173297409740593}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 9.700017, y: -0.083289996, z: -6.4551334}
+  m_LocalPosition: {x: 8.300032, y: -0.083289996, z: -10.855137}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -218,7 +218,7 @@ Transform:
   m_GameObject: {fileID: 7514438793548996520}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 9.699986, y: 0, z: 4.7448664}
+  m_LocalPosition: {x: 8.300033, y: 0, z: -10.855137}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
