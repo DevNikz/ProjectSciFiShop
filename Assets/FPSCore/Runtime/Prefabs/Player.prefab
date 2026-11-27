@@ -219,7 +219,7 @@ MonoBehaviour:
   sprintCancelsToggle: 1
   obstructionMask:
     serializedVersion: 2
-    m_Bits: 4294967295
+    m_Bits: 0
   zoomEnabled: 1
   vcam: {fileID: 1891977660470681219}
   zoomFov: 30
@@ -594,7 +594,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!4 &9184527616180035414
 Transform:
   m_ObjectHideFlags: 0
@@ -927,7 +927,7 @@ MonoBehaviour:
     m_JitterScale: 1
     m_MipBias: 0
     m_VarianceClampScale: 0.9
-    m_ContrastAdaptiveSharpening: 0
+    m_ContrastAdaptiveSharpening: 1
   m_Version: 2
 --- !u!114 &8020456420939940987
 MonoBehaviour:

@@ -44,6 +44,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: af2003eb5bac8d148bc37005bd9b4053, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CurrencyManager
-  startingCoins: 999999
+  startingCoins: 1000
   Coins: 0
   baseCoinsPerSecond: 0

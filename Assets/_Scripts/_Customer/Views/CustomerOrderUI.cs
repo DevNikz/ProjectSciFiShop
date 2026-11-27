@@ -2,9 +2,18 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>Where the customer order panel is drawn.</summary>
+public enum CustomerOrderUIMode
+{
+    ScreenSpace,
+    WorldSpace,
+}
+
 /// <summary>Displays the current customer's requested products while they are at checkout.</summary>
 public class CustomerOrderUI : MonoBehaviour
 {
+    static readonly Vector2 PanelSize = new Vector2(390f, 210f);
+
     static CustomerOrderUI instance;
 
     CustomerAI customer;
@@ -12,6 +21,12 @@ public class CustomerOrderUI : MonoBehaviour
     TMP_Text instructionLabel;
     TMP_Text itemsLabel;
     GameObject panel;
+    Canvas canvas;
+    CanvasScaler scaler;
+    RectTransform canvasRect;
+    RectTransform panelRect;
+    bool isWorldSpaceActive;
+    bool hasWarnedMissingAnchor;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     static void CreateOnSceneLoad() => EnsureExists();
@@ -21,6 +36,7 @@ public class CustomerOrderUI : MonoBehaviour
         var ui = EnsureExists();
         ui.customer = nextCustomer;
         ui.panel.SetActive(nextCustomer != null);
+        ui.ApplyMode();
         ui.Refresh();
     }
 
@@ -46,32 +62,26 @@ public class CustomerOrderUI : MonoBehaviour
 
     void BuildUI()
     {
-        var canvas = gameObject.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 99;
-        var scaler = gameObject.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        canvas = gameObject.AddComponent<Canvas>();
+        canvasRect = GetComponent<RectTransform>();
+        scaler = gameObject.AddComponent<CanvasScaler>();
         gameObject.AddComponent<GraphicRaycaster>();
 
         panel = new GameObject("Order Panel", typeof(RectTransform), typeof(Image));
         panel.transform.SetParent(transform, false);
-        var rect = panel.GetComponent<RectTransform>();
-        rect.anchorMin = new Vector2(1f, 0.5f);
-        rect.anchorMax = new Vector2(1f, 0.5f);
-        rect.pivot = new Vector2(1f, 0.5f);
-        rect.anchoredPosition = new Vector2(-32f, -24f);
-        rect.sizeDelta = new Vector2(390f, 210f);
+        panelRect = panel.GetComponent<RectTransform>();
+        panelRect.sizeDelta = PanelSize;
         panel.GetComponent<Image>().color = new Color(0.018f, 0.045f, 0.09f, 0.94f);
+        ApplyScreenSpaceLayout();
 
-        var accent = new GameObject("Accent", typeof(RectTransform), typeof(Image));
-        accent.transform.SetParent(panel.transform, false);
-        var accentRect = accent.GetComponent<RectTransform>();
-        accentRect.anchorMin = new Vector2(0f, 0f);
-        accentRect.anchorMax = new Vector2(0f, 1f);
-        accentRect.offsetMin = Vector2.zero;
-        accentRect.offsetMax = new Vector2(6f, 0f);
-        accent.GetComponent<Image>().color = new Color(0.28f, 0.87f, 1f, 1f);
+        // var accent = new GameObject("Accent", typeof(RectTransform), typeof(Image));
+        // accent.transform.SetParent(panel.transform, false);
+        // var accentRect = accent.GetComponent<RectTransform>();
+        // accentRect.anchorMin = new Vector2(0f, 0f);
+        // accentRect.anchorMax = new Vector2(0f, 1f);
+        // accentRect.offsetMin = Vector2.zero;
+        // accentRect.offsetMax = new Vector2(6f, 0f);
+        // accent.GetComponent<Image>().color = new Color(0.28f, 0.87f, 1f, 1f);
 
         titleLabel = CreateLabel("Title", new Vector2(22f, -18f), new Vector2(-18f, -52f), 27f);
         titleLabel.fontStyle = FontStyles.Bold;
@@ -116,6 +126,77 @@ public class CustomerOrderUI : MonoBehaviour
         return text;
     }
 
+    bool CanUseWorldSpace()
+    {
+        var register = Register.Instance;
+        return register != null
+            && register.OrderUIMode == CustomerOrderUIMode.WorldSpace
+            && register.ScreenAnchor != null;
+    }
+
+    void ApplyMode()
+    {
+        if (CanUseWorldSpace())
+        {
+            hasWarnedMissingAnchor = false;
+            ApplyWorldSpaceLayout();
+            return;
+        }
+
+        var register = Register.Instance;
+        bool wantsWorldSpace =
+            register != null && register.OrderUIMode == CustomerOrderUIMode.WorldSpace;
+        if (wantsWorldSpace && !hasWarnedMissingAnchor)
+        {
+            hasWarnedMissingAnchor = true;
+            Debug.LogWarning(
+                "CustomerOrderUI: WorldSpace mode needs Register.screenAnchor. Falling back to ScreenSpace.",
+                register
+            );
+        }
+        ApplyScreenSpaceLayout();
+    }
+
+    void ApplyScreenSpaceLayout()
+    {
+        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvas.sortingOrder = 99;
+        scaler.enabled = true;
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+
+        panelRect.anchorMin = new Vector2(1f, 0.5f);
+        panelRect.anchorMax = new Vector2(1f, 0.5f);
+        panelRect.pivot = new Vector2(1f, 0.5f);
+        panelRect.anchoredPosition = new Vector2(-32f, -24f);
+        panelRect.sizeDelta = PanelSize;
+        isWorldSpaceActive = false;
+    }
+
+    void ApplyWorldSpaceLayout()
+    {
+        canvas.renderMode = RenderMode.WorldSpace;
+        scaler.enabled = false;
+
+        canvasRect.sizeDelta = PanelSize;
+        panelRect.anchorMin = new Vector2(0.5f, 0.5f);
+        panelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        panelRect.pivot = new Vector2(0.5f, 0.5f);
+        panelRect.anchoredPosition = Vector2.zero;
+        panelRect.sizeDelta = PanelSize;
+        isWorldSpaceActive = true;
+        SyncToAnchor();
+    }
+
+    /// <summary>Matches the canvas to the register's screen anchor (position, rotation, width).</summary>
+    void SyncToAnchor()
+    {
+        var anchor = Register.Instance.ScreenAnchor;
+        canvasRect.SetPositionAndRotation(anchor.position, anchor.rotation);
+        float scale = anchor.lossyScale.x / PanelSize.x;
+        canvasRect.localScale = new Vector3(scale, scale, scale);
+    }
+
     void LateUpdate()
     {
         if (customer == null)
@@ -124,6 +205,10 @@ public class CustomerOrderUI : MonoBehaviour
                 panel.SetActive(false);
             return;
         }
+        if (CanUseWorldSpace() != isWorldSpaceActive)
+            ApplyMode();
+        if (isWorldSpaceActive)
+            SyncToAnchor();
         Refresh();
     }
 
@@ -132,12 +217,17 @@ public class CustomerOrderUI : MonoBehaviour
         if (itemsLabel == null || customer == null)
             return;
         var register = Register.Instance;
-        if (customer.IsCheckingOut && register != null && register.State == RegisterState.AwaitingChange)
+        if (
+            customer.IsCheckingOut
+            && register != null
+            && register.State == RegisterState.AwaitingChange
+        )
         {
             titleLabel.text = "RETURN CHANGE";
             instructionLabel.text = "Drag drawer coins onto the change tray";
             itemsLabel.fontSize = 22f;
-            itemsLabel.text = $"Total: <b>{register.Total}</b>    Paid: <b>{register.CashPaid}</b>\n"
+            itemsLabel.text =
+                $"Total: <b>{register.Total}</b>    Paid: <b>{register.CashPaid}</b>\n"
                 + $"Change due: <color=#8CEBFF><b>{register.ChangeDue}</b></color>\n"
                 + $"In tray: {register.TrayTotal}    Remaining: <b>{Mathf.Max(0, register.ChangeDue - register.TrayTotal)}</b>";
             return;

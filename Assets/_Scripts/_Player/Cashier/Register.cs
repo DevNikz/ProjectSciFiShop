@@ -33,6 +33,14 @@ public class Register : MonoBehaviour
 {
     public static Register Instance;
 
+    [SerializeField]
+    private CustomerOrderUIMode orderUIMode = CustomerOrderUIMode.WorldSpace;
+    public CustomerOrderUIMode OrderUIMode => orderUIMode;
+
+    [SerializeField]
+    private Transform screenAnchor;
+    public Transform ScreenAnchor => screenAnchor;
+
     [Tooltip("Counter area. Settled products inside it are scanned automatically.")]
     [SerializeField]
     private PickupZone counter;
@@ -925,7 +933,7 @@ public class Register : MonoBehaviour
 
     // Shows the basket area when the register is selected: the width and depth products fill before
     // they stack. The start corner and fill direction show once a layout has been planned.
-    private void OnDrawGizmos()
+    private void OnDrawGizmosSelected()
     {
         if (customerBasketPoint == null && counter == null)
             return;

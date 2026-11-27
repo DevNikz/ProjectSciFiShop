@@ -209,7 +209,7 @@ MonoBehaviour:
     m_Value: 3
   resolution:
     m_OverrideState: 1
-    m_Value: 4
+    m_Value: 3
   rayCount:
     m_OverrideState: 1
     m_Value: 2
