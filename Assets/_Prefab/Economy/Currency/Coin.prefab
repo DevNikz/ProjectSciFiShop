@@ -19,6 +19,8 @@ GameObject:
   - component: {fileID: 9142464506034300670}
   - component: {fileID: 1293733560263189502}
   - component: {fileID: 2827183867949456148}
+  - component: {fileID: -2913782798909683243}
+  - component: {fileID: -5016719806305027191}
   m_Layer: 6
   m_Name: Coin
   m_TagString: Untagged
@@ -245,3 +247,60 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0484fc5cf4fc1e142aa7b12fb8cd8773, type: 3}
   m_Name: 
   m_EditorClassIdentifier: FPSCore::CarriableDragTarget
+--- !u!114 &-2913782798909683243
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7802465085357718917}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: baff8732cd3074ef88b34f9cc487846d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3Internal.ES3Prefab
+  prefabId: 5496703604937191903
+  localRefs:
+    _Keys:
+    - {fileID: 4965440551992973970}
+    - {fileID: -2124705421725058983, guid: 6e6f381c09b5fee41a8f0a0c3c8f3cab, type: 3}
+    - {fileID: -2913782798909683243}
+    - {fileID: 7802465085357718917}
+    - {fileID: 2100000, guid: c1d6d1c1056ca8f41887d066c25474ce, type: 2}
+    - {fileID: 4800000, guid: e6e9a19c3678ded42a3bc431ebef7dbd, type: 3}
+    - {fileID: 4800000, guid: 36e335017ad71d54fbb10842863188ae, type: 3}
+    - {fileID: 2800000, guid: 0e9125c0f8b7d654d8fea39791ca955b, type: 3}
+    - {fileID: 8166944377697290157}
+    - {fileID: 4463755820698382390}
+    - {fileID: 9142464506034300670}
+    - {fileID: 1293733560263189502}
+    - {fileID: 2827183867949456148}
+    - {fileID: 5680945876946206047}
+    - {fileID: 5098924471300831880}
+    - {fileID: 1930424022896406378}
+    - {fileID: 1739873966336644433}
+    - {fileID: 4503675435947919863}
+    - {fileID: 2100000, guid: 070efa1a49f953b49ac2c55c44c4cb8a, type: 2}
+    - {fileID: 4800000, guid: 86f4f74dee463c144828330124ae5e9a, type: 3}
+    - {fileID: -5016719806305027191}
+    _Values: 3389a2914744320bbffc2ced696aae0df16fd6118252b80b60183a56140de759cc46f442a23ad46efebac3dfea68843fdce81b9dd32c9e5757ee6a51419623766da373e61aab780716b5d069c09bb17d8b97aa315dc6e2164476b91a3eb2e93373729ee6f7b7ee763fa3d66f9a6cba62346208b2033479428621ef5af3cf8027c9acbb2578931e648c45a753e17fdc51bd35dd338c9fef6b62b104cebd7c2f2bed64f21c7245fa01
+--- !u!114 &-5016719806305027191
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7802465085357718917}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cfcc9ceea0bf419cb3bcaf548c2600d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3AutoSave
+  saveLayer: 0
+  saveTag: 0
+  saveName: 0
+  saveHideFlags: 0
+  saveActive: 0
+  saveChildren: 0
+  saveDestroyed: 0
+  componentsToSave: []

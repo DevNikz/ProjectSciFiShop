@@ -574,4 +574,10 @@ MonoBehaviour:
   - label: Furniture Store
     icon: {fileID: 21300000, guid: 985780aef30771d4bbeab322624de8c9, type: 3}
     screen: {fileID: 0}
+  - label: Save / Load
+    icon: {fileID: 21300000, guid: 75c77dc8d5839e0439fa299f816ffd32, type: 3}
+    screen: {fileID: 0}
+  - label: Settings
+    icon: {fileID: 21300000, guid: 26833e3e5d8d82345a9118a4924ec8b7, type: 3}
+    screen: {fileID: 0}
   opener: {fileID: 0}

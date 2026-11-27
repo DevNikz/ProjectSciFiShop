@@ -490,6 +490,9 @@ GameObject:
   - component: {fileID: 6434603250003289828}
   - component: {fileID: 710072417648354643}
   - component: {fileID: 2935829388671112816}
+  - component: {fileID: 4638648139401211876}
+  - component: {fileID: -6272677579642998832}
+  - component: {fileID: 299698356385093579}
   m_Layer: 0
   m_Name: DeliveryBox
   m_TagString: Untagged
@@ -785,6 +788,115 @@ MonoBehaviour:
   _highlightedItem: {fileID: 0}
   testProduct: {fileID: 0}
   emptyRemoveDelay: 5
+--- !u!114 &4638648139401211876
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6386074560332185701}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: baff8732cd3074ef88b34f9cc487846d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3Internal.ES3Prefab
+  prefabId: 5068878177388446738
+  localRefs:
+    _Keys:
+    - {fileID: 2100000, guid: a8218986fdd0b934086c3d615454a195, type: 2}
+    - {fileID: 4638648139401211876}
+    - {fileID: 2100000, guid: c1d6d1c1056ca8f41887d066c25474ce, type: 2}
+    - {fileID: 3498983454754467021}
+    - {fileID: -6272677579642998832}
+    - {fileID: 2935829388671112816}
+    - {fileID: 6978718356204250895}
+    - {fileID: 5305863069700315061}
+    - {fileID: 4800000, guid: e6e9a19c3678ded42a3bc431ebef7dbd, type: 3}
+    - {fileID: 4800000, guid: 36e335017ad71d54fbb10842863188ae, type: 3}
+    - {fileID: 2782320400577173915}
+    - {fileID: 479428669744471622}
+    - {fileID: 8631771591058199018}
+    - {fileID: 2700525438757745338}
+    - {fileID: 1660052015151893291}
+    - {fileID: 8565759400291179211}
+    - {fileID: 2800000, guid: 0e9125c0f8b7d654d8fea39791ca955b, type: 3}
+    - {fileID: 4563700532757924149}
+    - {fileID: 2713364523514422033}
+    - {fileID: 6561534875768395865}
+    - {fileID: 656816909286024795, guid: 2c9f6d988e77b8f46919cf52ab0b8ec5, type: 3}
+    - {fileID: 299698356385093579}
+    - {fileID: 2701186310595486550}
+    - {fileID: 2265152316687589999}
+    - {fileID: 4019191726029608536}
+    - {fileID: 3137004291280761904}
+    - {fileID: 6434603250003289828}
+    - {fileID: 710072417648354643}
+    - {fileID: 6386074560332185701}
+    - {fileID: 2485712254175008917}
+    - {fileID: 2138486650489849143}
+    - {fileID: 1296695771841055406}
+    - {fileID: 2254014688970656570}
+    - {fileID: 8390007713294482686}
+    - {fileID: 4637707478770245374}
+    - {fileID: 3338591508467521994}
+    - {fileID: 8944892206710538495}
+    - {fileID: 5930330807817288370}
+    - {fileID: 7549781173620045516}
+    - {fileID: 6292025428226442892}
+    - {fileID: 856936578204389826}
+    - {fileID: 6125881273379807014}
+    - {fileID: 2982973795340444659}
+    - {fileID: 3572482907192610133}
+    - {fileID: 7219403001301104785}
+    - {fileID: 379634310492949839}
+    - {fileID: 4800000, guid: 86f4f74dee463c144828330124ae5e9a, type: 3}
+    - {fileID: 2021147194342673370}
+    - {fileID: 7448630299269683038}
+    - {fileID: 7609293644218791425}
+    - {fileID: 4338086686473069504}
+    - {fileID: 6312689893560904024}
+    - {fileID: 8745745769412578608}
+    - {fileID: 3000901543902331425}
+    - {fileID: 4337166297749014264}
+    - {fileID: 2076686788835866155}
+    - {fileID: 8547447004104238298}
+    - {fileID: 1298915226133262235}
+    _Values: f9dd11e912c671269189d5fa57c6e102567261b91feee3742c34ce4e285fa37ad529222db1632d1178fca50c95b3cf1b1b77b884c680e2404b7062814470c01bfebc77a2d3a30b6e13c8b060ea13c9653e4ef5e5122edf2a49e12fb39cf8ab00b25d9362783fa473bfbfe619246c7a3a193259c71be74e4a5b041f35bb2e615602036823fecd870c6cba37e7a2b61c75bae9d7599ff74a4bdc1d6430522d7b0f62c10b2d5b03fe4ca9b96a7f5e5ebf401fa206ae452b8f32bfadae793e0f444402ad97717b10aa7d8326497e0eb76d3ca4c9399b969b970e3353891ab824e62c8e10c470a681d906f9710d319052bc372cc23bf96536e453615835945ac26e29bb5a5a30663bca58b910a5fc43fad70bc556264908767e132559b0540a03a85ce2cc933499ae3f15af9dd4c88beb822309317bb909d3e9654f18d7d21af479066f5a8ce94fe65c3cc43f30fc64dade29af4f55ac3ec99c6abad6f73be9cda36213cd49a81cf096784aac7742887ecc66593c9c965bcc785136c94d6041514f23f590bd11498fc2035af1817e6ce5065a8d5c4a9ba8c2ea36e53b62ed7cec6374d36fa01ed354bc1e0d752eab8b36c846ebff874c847cb94012c871b8680f0018424c999c04236939a5a602d6dbe82c48
+--- !u!114 &-6272677579642998832
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6386074560332185701}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0009289d03ffc8c44b52a2a29c4a208c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BoxSaveAdapter
+  items: []
+  filledProduct: {fileID: 0}
+  filledUnits: 0
+--- !u!114 &299698356385093579
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6386074560332185701}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cfcc9ceea0bf419cb3bcaf548c2600d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3AutoSave
+  saveLayer: 0
+  saveTag: 0
+  saveName: 0
+  saveHideFlags: 0
+  saveActive: 0
+  saveChildren: 0
+  saveDestroyed: 0
+  componentsToSave: []
 --- !u!1 &6978718356204250895
 GameObject:
   m_ObjectHideFlags: 0

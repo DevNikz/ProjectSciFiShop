@@ -143,6 +143,40 @@ public class Hotbar : MonoBehaviour, ICarrierStorage
         return true;
     }
 
+    /// <summary>
+    /// Every stowed item, slot by slot, including the one in the hands (for saving). Each stack is listed
+    /// from the bottom up, so restoring them in order rebuilds the same stacks.
+    /// </summary>
+    public void GetStoredItems(List<Carriable> results)
+    {
+        results.Clear();
+        if (_slots == null)
+            return;
+        foreach (var stack in _slots)
+        {
+            if (stack == null)
+                continue;
+            for (int i = stack.Items.Count - 1; i >= 0; i--)
+                if (stack.Items[i] != null)
+                    results.Add(stack.Items[i]);
+        }
+    }
+
+    /// <summary>For loading a save: stows an item as if the player had. False if there is no room or it is not a hotbar item.</summary>
+    public bool TryRestoreItem(Carriable item) => _carrier != null && TryStore(_carrier, item);
+
+    /// <summary>For loading a save: forgets every slot, because the items are about to be removed.</summary>
+    public void ClearAll()
+    {
+        if (_slots == null)
+            return;
+        for (int i = 0; i < _slots.Length; i++)
+            _slots[i] = null;
+        _current = 0;
+        _equipPending = false;
+        Changed?.Invoke();
+    }
+
     bool IsValid(int i) => _slots != null && i >= 0 && i < _slots.Length;
 
     static HotbarItemDefinition DefinitionOf(Carriable p) =>

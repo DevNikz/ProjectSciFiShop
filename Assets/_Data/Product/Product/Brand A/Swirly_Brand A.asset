@@ -22,7 +22,7 @@ MonoBehaviour:
   unitCost: 1
   unitsPerBox: 1
   unlockCost: 0
-  prefab: {fileID: 1096332653333590833, guid: 43ec3e507a96d80478d629e1fd6d65c3, type: 3}
+  prefab: {fileID: 1096332653333590833, guid: 6c0edabaf6377264e85688816aeca5a7, type: 3}
   prewarmCount: 0
   baseId: Swirly
   baseDisplayName: Swirly

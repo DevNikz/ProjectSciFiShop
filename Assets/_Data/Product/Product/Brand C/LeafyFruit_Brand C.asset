@@ -22,7 +22,7 @@ MonoBehaviour:
   unitCost: 1
   unitsPerBox: 1
   unlockCost: 0
-  prefab: {fileID: 1096332653333590833, guid: af46ee641ad25d443a748acf7509331a, type: 3}
+  prefab: {fileID: 1096332653333590833, guid: 978954f620015c446997a1c9fdb0883f, type: 3}
   prewarmCount: 0
   baseId: LeafyFruit
   baseDisplayName: LeafyFruit

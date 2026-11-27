@@ -34,6 +34,24 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
     [SerializeField, Min(0f)]
     float spawnPause = 1f;
 
+    [Header("Appearance")]
+    [Tooltip(
+        "Each customer gets a repeatable height between these values (metres). The default NavMeshAgent height is 2."
+    )]
+    [SerializeField, Min(0.5f)]
+    float minimumHeight = 1.6f;
+
+    [SerializeField, Min(0.5f)]
+    float maximumHeight = 2f;
+
+    [Tooltip("Body mesh. Stretched vertically to match the customer's height.")]
+    [SerializeField]
+    Transform capsuleVisual;
+
+    [Tooltip("Head mesh. Scaled uniformly and raised to match the customer's height.")]
+    [SerializeField]
+    Transform headVisual;
+
     [Header("Movement")]
     [Tooltip(
         "Off uses simple direct movement between queue markers. Turn this on later when the store has a reliable NavMesh."
@@ -158,6 +176,8 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
     [SerializeField, Min(0f)]
     float arcHeight = 0.25f;
 
+    const float DefaultHeight = 2f; // default NavMeshAgent height the authored meshes are sized for
+
     sealed class ShoppingItem
     {
         public ShelfInventory shelf;
@@ -224,6 +244,54 @@ public class CustomerAI : MonoBehaviour, IOrderedCheckoutCustomer
         agent = GetComponent<NavMeshAgent>();
         if (agent != null && !useNavMeshAgent)
             agent.enabled = false;
+
+        ApplyHeight(GetDeterministicHeight());
+    }
+
+    // Same customer, same height: seeded by the instance id, so global Random state is untouched.
+    float GetDeterministicHeight()
+    {
+        var seeded = new System.Random(GetInstanceID());
+        float t = (float)seeded.NextDouble();
+        return Mathf.Lerp(minimumHeight, Mathf.Max(minimumHeight, maximumHeight), t);
+    }
+
+    // The meshes are authored for DefaultHeight, so their current scale and Y position are the baseline.
+    void ApplyHeight(float height)
+    {
+        float k = height / DefaultHeight;
+        if (agent != null)
+            agent.height = height;
+
+        if (capsuleVisual != null)
+        {
+            var scale = capsuleVisual.localScale;
+            scale.y *= k; // width stays fixed
+            capsuleVisual.localScale = scale;
+            capsuleVisual.localPosition = ScaleY(capsuleVisual.localPosition, k);
+        }
+        else
+            Debug.LogWarning(
+                $"{name}: Capsule Visual not assigned, so height only changes the agent.",
+                this
+            );
+
+        if (headVisual != null)
+        {
+            headVisual.localScale *= k; // proportional head
+            headVisual.localPosition = ScaleY(headVisual.localPosition, k);
+        }
+        else
+            Debug.LogWarning(
+                $"{name}: Head Visual not assigned, so height only changes the agent.",
+                this
+            );
+    }
+
+    static Vector3 ScaleY(Vector3 position, float factor)
+    {
+        position.y *= factor;
+        return position;
     }
 
     void Start()

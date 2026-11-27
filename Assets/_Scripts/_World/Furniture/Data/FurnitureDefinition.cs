@@ -33,10 +33,10 @@ public class FurnitureDefinition : ScriptableObject
     ExpansionDefinition requiredExpansion;
 
     [Tooltip(
-        "The furniture that gets placed. Needs a SaveableObject with a Prefab Id (also listed in the "
-            + "World Prefab Catalog) and a PlacedFurniture. The pivot sits on the floor, in the middle."
+        "The furniture that gets placed. Needs an ES3 Prefab and an ES3 Auto Save (Easy Save) and a "
+            + "PlacedFurniture. The pivot sits on the floor, in the middle."
     )]
-    [SerializeField]
+    [SerializeField, FolderAsset("Assets/_Prefab")]
     FurnitureCarriable prefab;
 
     [Tooltip(

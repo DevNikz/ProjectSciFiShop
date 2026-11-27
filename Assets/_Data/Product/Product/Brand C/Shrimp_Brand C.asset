@@ -22,7 +22,7 @@ MonoBehaviour:
   unitCost: 1
   unitsPerBox: 1
   unlockCost: 0
-  prefab: {fileID: 1096332653333590833, guid: 595c26d412a7ec647826f412e67054b9, type: 3}
+  prefab: {fileID: 1096332653333590833, guid: 978954f620015c446997a1c9fdb0883f, type: 3}
   prewarmCount: 0
   baseId: Shrimp
   baseDisplayName: Shrimp

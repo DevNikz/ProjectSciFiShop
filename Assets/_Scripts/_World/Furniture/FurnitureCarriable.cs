@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// Put on a furniture prefab (next to its SaveableObject). Interact, even while carrying something,
-/// to pick it up and move it, or sell it. Position and rotation are saved by SaveableObject. The
+/// Put on a furniture prefab (with an ES3 Prefab and ES3 Auto Save). Interact, even while carrying something,
+/// to pick it up and move it, or sell it. Position and rotation are saved by its ES3 Auto Save. The
 /// piece has no Rigidbody and is not a PickupObject.
 /// </summary>
 [CarriableAddon("As Furniture")]

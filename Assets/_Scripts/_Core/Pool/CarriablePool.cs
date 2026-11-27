@@ -66,6 +66,10 @@ public static class CarriablePool
         return true;
     }
 
+    /// <summary>True if this unit belongs to the pool and is waiting unused (not part of the world).</summary>
+    public static bool IsPooledIdle(Carriable pickup) =>
+        pickup != null && s_items.TryGetValue(pickup, out var item) && !item.InUse;
+
     /// <summary>
     /// Pre-creates instances without a frame spike. Run it as a coroutine:
     /// StartCoroutine(PickupPool.Prewarm(prefab, n)).

@@ -284,6 +284,48 @@ public class ShelfInventory : MonoBehaviour
         return null;
     }
 
+    /// <summary>The stocked items and the index of the slot each one sits in (for saving).</summary>
+    public void GetStored(List<Carriable> items, List<int> slotIndices)
+    {
+        items.Clear();
+        slotIndices.Clear();
+        foreach (var entry in entries)
+        {
+            if (entry.item == null)
+                continue;
+            int index = -1;
+            for (int i = 0; i < ActiveSlots.Count; i++)
+                if (ActiveSlots[i] == entry.slot)
+                {
+                    index = i;
+                    break;
+                }
+            if (index < 0)
+                continue;
+            items.Add(entry.item);
+            slotIndices.Add(index);
+        }
+    }
+
+    /// <summary>For loading a save: stocks the item in that slot. False if the slot or item can't take it.</summary>
+    public bool TryRestoreStored(Carriable item, int slotIndex)
+    {
+        if (item == null || item.Body == null || slotIndex < 0 || slotIndex >= ActiveSlots.Count)
+            return false;
+        var slot = ActiveSlots[slotIndex];
+        var product = item.GetComponent<ShelfProduct>();
+        if (
+            slot == null
+            || product == null
+            || product.Shelf != null
+            || entries.Exists(entry => entry.slot == slot)
+        )
+            return false;
+        item.transform.SetParent(null, true); // so "previous parent" is the world, not the saved slot
+        StoreAtSlot(item, product, slot);
+        return true;
+    }
+
     public Transform GetStoredSlot(ShelfProduct product)
     {
         var entry = entries.Find(candidate => candidate.product == product);

@@ -22,7 +22,7 @@ MonoBehaviour:
   unitCost: 1
   unitsPerBox: 1
   unlockCost: 0
-  prefab: {fileID: 1096332653333590833, guid: 241685e1d4e0d694c9770db7f6f27041, type: 3}
+  prefab: {fileID: 1096332653333590833, guid: 978954f620015c446997a1c9fdb0883f, type: 3}
   prewarmCount: 0
   baseId: TentaclePurple
   baseDisplayName: TentaclePurple

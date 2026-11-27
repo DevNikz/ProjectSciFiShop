@@ -15,6 +15,8 @@ GameObject:
   - component: {fileID: 7930955727383377107}
   - component: {fileID: 2267538849746979037}
   - component: {fileID: 629817315933265387}
+  - component: {fileID: -6179688629582332418}
+  - component: {fileID: -3679655003821275666}
   m_Layer: 6
   m_Name: FurnitureCrate
   m_TagString: Untagged
@@ -171,3 +173,54 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8fa3cfe389540f54a82ce1ea5ff1fcd5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FurnitureCrate
+--- !u!114 &-6179688629582332418
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3371749124437084075}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: baff8732cd3074ef88b34f9cc487846d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3Internal.ES3Prefab
+  prefabId: 3877175578037242223
+  localRefs:
+    _Keys:
+    - {fileID: 3362600072512299858}
+    - {fileID: -6179688629582332418}
+    - {fileID: 4800000, guid: e6e9a19c3678ded42a3bc431ebef7dbd, type: 3}
+    - {fileID: 4800000, guid: 36e335017ad71d54fbb10842863188ae, type: 3}
+    - {fileID: 3371749124437084075}
+    - {fileID: -3679655003821275666}
+    - {fileID: 2100000, guid: 6162fb2004d87ff4fad942100c05c814, type: 2}
+    - {fileID: 4800000, guid: 5b6e6cd8ebee39b49ad191d4d1c3bb6c, type: 3}
+    - {fileID: 629817315933265387}
+    - {fileID: 2793245700526648998}
+    - {fileID: 100412675770122335}
+    - {fileID: 1348866198887335263}
+    - {fileID: 7930955727383377107}
+    - {fileID: 2267538849746979037}
+    - {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+    _Values: d856e2a6c1ae065dde70d69ee04fac797afc0a599d49670c158272670a7a106761d62fd356b0247eaccd246e6067b27402c9e947805d0c20beeebb44206d6858823dffb67e80cf35d78c046b6ed56c7ccb19972b9ca717411eaf6ebb9396603d9a3413dc98040a7f054ce1f29d88716ca4c785f829c34326
+--- !u!114 &-3679655003821275666
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3371749124437084075}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cfcc9ceea0bf419cb3bcaf548c2600d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3AutoSave
+  saveLayer: 0
+  saveTag: 0
+  saveName: 0
+  saveHideFlags: 0
+  saveActive: 0
+  saveChildren: 0
+  saveDestroyed: 0
+  componentsToSave: []

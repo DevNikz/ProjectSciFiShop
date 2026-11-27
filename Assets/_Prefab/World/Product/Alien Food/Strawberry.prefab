@@ -21,6 +21,8 @@ GameObject:
   - component: {fileID: 6723651003102093314}
   - component: {fileID: 1096332653333590833}
   - component: {fileID: -2858077689350854117}
+  - component: {fileID: 1106829655113108774}
+  - component: {fileID: 6876654511028516641}
   m_Layer: 6
   m_Name: Strawberry
   m_TagString: Untagged
@@ -277,3 +279,67 @@ MonoBehaviour:
   placementOffset: {x: 0, y: 0.05, z: 0}
   placementRotation: {x: 0, y: 0, z: 0}
   fallbackDisplayName: 
+--- !u!114 &1106829655113108774
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3393862057570696971}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: baff8732cd3074ef88b34f9cc487846d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3Internal.ES3Prefab
+  prefabId: 3195308871391015285
+  localRefs:
+    _Keys:
+    - {fileID: 5634792546478208541}
+    - {fileID: 8597307421951468535}
+    - {fileID: 7324930078204451155}
+    - {fileID: 2100000, guid: c1d6d1c1056ca8f41887d066c25474ce, type: 2}
+    - {fileID: 4800000, guid: e6e9a19c3678ded42a3bc431ebef7dbd, type: 3}
+    - {fileID: 4800000, guid: 36e335017ad71d54fbb10842863188ae, type: 3}
+    - {fileID: -2858077689350854117}
+    - {fileID: 11400000, guid: 8212e0177309e0e469d0b8105fab4feb, type: 2}
+    - {fileID: 480773057162349717}
+    - {fileID: 5789167913800884461}
+    - {fileID: 8187076741080200553}
+    - {fileID: 3369817756515190232}
+    - {fileID: 4453609102522107596}
+    - {fileID: 6723651003102093314}
+    - {fileID: 6699476407767244329}
+    - {fileID: 2800000, guid: 0e9125c0f8b7d654d8fea39791ca955b, type: 3}
+    - {fileID: 1106829655113108774}
+    - {fileID: 6876654511028516641}
+    - {fileID: 1096332653333590833}
+    - {fileID: 2800000, guid: 38446a4fd28ac1f49ad2f82fdcdf4f17, type: 3}
+    - {fileID: 2100000, guid: af578237cff6c284bb377dde947dcf3d, type: 2}
+    - {fileID: 2800000, guid: 58b56f58c726027419a434f9551625fc, type: 3}
+    - {fileID: 4725693104785590705, guid: 90b47d57463d08142bc44f68b05fbc82, type: 3}
+    - {fileID: 4800000, guid: 86f4f74dee463c144828330124ae5e9a, type: 3}
+    - {fileID: 3393862057570696971}
+    - {fileID: 825965983880371714}
+    _Values: f531a294381f096b6ec45ac853e88436414dd0c4837a0b108f8d9a69f1a7e807b4896a40da6c872e95f0681cc7d14f134c265382ebfb467e05d8199c379d5e1f74bc9a50f248914b70c70616eba2ef7fe42a2b8082f5ce2261ce072299ac02583766c6bfeba3fd27da3007773102e810084ccb74e6f37455ca5ede84dc2f94401dabe3bf0bd3501b210b52c94cb88a4657fb72c5c91ade6b9a2d236dfcd92b55e38e5854ef394c4d1d6d70ae033f4864ed77b0c14fb3e41c3de32fd01f66ef3deabb9e8d9b3c652370b71a6850d51302
+--- !u!114 &6876654511028516641
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3393862057570696971}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cfcc9ceea0bf419cb3bcaf548c2600d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3AutoSave
+  saveLayer: 0
+  saveTag: 0
+  saveName: 0
+  saveHideFlags: 0
+  saveActive: 0
+  saveChildren: 0
+  saveDestroyed: 0
+  componentsToSave:
+  - {fileID: 6699476407767244329}
+  - {fileID: 1096332653333590833}

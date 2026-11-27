@@ -21,6 +21,8 @@ GameObject:
   - component: {fileID: 6723651003102093314}
   - component: {fileID: 1096332653333590833}
   - component: {fileID: -2858077689350854117}
+  - component: {fileID: -4406399469570895843}
+  - component: {fileID: 2115721244011978609}
   m_Layer: 6
   m_Name: BlackMeat
   m_TagString: Untagged
@@ -277,3 +279,67 @@ MonoBehaviour:
   placementOffset: {x: 0, y: 0.1, z: 0}
   placementRotation: {x: 0, y: 0, z: 90}
   fallbackDisplayName: 
+--- !u!114 &-4406399469570895843
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3393862057570696971}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: baff8732cd3074ef88b34f9cc487846d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3Internal.ES3Prefab
+  prefabId: 4051931782228787395
+  localRefs:
+    _Keys:
+    - {fileID: 5634792546478208541}
+    - {fileID: 2100000, guid: c1d6d1c1056ca8f41887d066c25474ce, type: 2}
+    - {fileID: 4800000, guid: e6e9a19c3678ded42a3bc431ebef7dbd, type: 3}
+    - {fileID: 4800000, guid: 36e335017ad71d54fbb10842863188ae, type: 3}
+    - {fileID: 11400000, guid: c5cc436388ae00c4692a1a4fec44ddbc, type: 2}
+    - {fileID: 3369817756515190232}
+    - {fileID: 4453609102522107596}
+    - {fileID: 6723651003102093314}
+    - {fileID: -2858077689350854117}
+    - {fileID: 2800000, guid: 0e9125c0f8b7d654d8fea39791ca955b, type: 3}
+    - {fileID: -4406399469570895843}
+    - {fileID: 2115721244011978609}
+    - {fileID: 1096332653333590833}
+    - {fileID: 3393862057570696971}
+    - {fileID: 7324930078204451155}
+    - {fileID: 480773057162349717}
+    - {fileID: 5789167913800884461}
+    - {fileID: 8187076741080200553}
+    - {fileID: 8597307421951468535}
+    - {fileID: -2644775142100125637, guid: 55c9df4216aebbe4095a0bac67ef2078, type: 3}
+    - {fileID: 2800000, guid: 38446a4fd28ac1f49ad2f82fdcdf4f17, type: 3}
+    - {fileID: 2100000, guid: af578237cff6c284bb377dde947dcf3d, type: 2}
+    - {fileID: 2800000, guid: 58b56f58c726027419a434f9551625fc, type: 3}
+    - {fileID: 825965983880371714}
+    - {fileID: 6699476407767244329}
+    - {fileID: 4800000, guid: 86f4f74dee463c144828330124ae5e9a, type: 3}
+    _Values: 3f2ff15c652b2742c5753cafae5aba193888345f88247a5575d9b10ded33b52988b5e17013b3590662e94bfc97695c4a0f8b4e2f43c556225272d213778a1c197deaa1f601079039a47a40a2958d385e3bce151d77c42615f71e07c849b77204ff838312b05f0707cd3d4707c0bffa6ed31ff508a416e24af29d19212965636f9eff3bcee9b9a10b9952ea244647616ac5cd8e5d56d1b47257f28847e58a1e13ccf1d540cd5ce77f48f81c87235d9f47188064bb5b1cbe0099b1d2626f64d74e1be5b09ee6ba1279f4fcee1eab4d4409
+--- !u!114 &2115721244011978609
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3393862057570696971}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cfcc9ceea0bf419cb3bcaf548c2600d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3AutoSave
+  saveLayer: 0
+  saveTag: 0
+  saveName: 0
+  saveHideFlags: 0
+  saveActive: 0
+  saveChildren: 0
+  saveDestroyed: 0
+  componentsToSave:
+  - {fileID: 6699476407767244329}
+  - {fileID: 1096332653333590833}

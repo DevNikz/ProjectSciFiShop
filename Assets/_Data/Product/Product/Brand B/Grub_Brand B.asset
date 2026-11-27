@@ -22,7 +22,7 @@ MonoBehaviour:
   unitCost: 1
   unitsPerBox: 1
   unlockCost: 0
-  prefab: {fileID: 1096332653333590833, guid: a345974d946e312469ab308958349a95, type: 3}
+  prefab: {fileID: 1096332653333590833, guid: 08b15f6acbe9817468582c28cfaef7ce, type: 3}
   prewarmCount: 0
   baseId: Grub
   baseDisplayName: Grub

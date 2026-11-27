@@ -71,6 +71,7 @@ public class InputManager : MonoBehaviour
     //...
 
     private float _lookScale = 1f;
+    private float _lookSensitivity = 1f;
     private int _relockFrame = -1; // frame the cursor was re-locked by a click
     private InputActionAsset _runtimeAsset; // clone of inputAsset
     private InputActionMap _map; // map read from _runtimeAsset (null = code bindings only)
@@ -124,7 +125,16 @@ public class InputManager : MonoBehaviour
     // Gameplay reads. Neutral values when disabled/unlocked.
     public Vector2 Move => Active(_move) ? _move.ReadValue<Vector2>() : Vector2.zero;
     public Vector2 Look =>
-        CursorLocked && Active(_look) ? _look.ReadValue<Vector2>() * _lookScale : Vector2.zero;
+        CursorLocked && Active(_look)
+            ? _look.ReadValue<Vector2>() * _lookScale * _lookSensitivity
+            : Vector2.zero;
+
+    /// <summary>The player's look sensitivity setting (0.05..5, 1 = default). Separate from LookScale, which a grabber lowers.</summary>
+    public float LookSensitivity
+    {
+        get => _lookSensitivity;
+        set => _lookSensitivity = Mathf.Clamp(value, 0.05f, 5f);
+    }
 
     /// <summary>Look sensitivity multiplier 0..1 (a grabber can lower it for heavy objects).</summary>
     public float LookScale

@@ -21,6 +21,8 @@ GameObject:
   - component: {fileID: 6723651003102093314}
   - component: {fileID: 1096332653333590833}
   - component: {fileID: -2858077689350854117}
+  - component: {fileID: 1891456777426130127}
+  - component: {fileID: -9089437236496529542}
   m_Layer: 6
   m_Name: Scarab
   m_TagString: Untagged
@@ -277,3 +279,67 @@ MonoBehaviour:
   placementOffset: {x: 0, y: 0.1, z: 0}
   placementRotation: {x: 0, y: 0, z: 0}
   fallbackDisplayName: 
+--- !u!114 &1891456777426130127
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3393862057570696971}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: baff8732cd3074ef88b34f9cc487846d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3Internal.ES3Prefab
+  prefabId: 8320580002917070644
+  localRefs:
+    _Keys:
+    - {fileID: 5634792546478208541}
+    - {fileID: 6699476407767244329}
+    - {fileID: 2100000, guid: c1d6d1c1056ca8f41887d066c25474ce, type: 2}
+    - {fileID: 825965983880371714}
+    - {fileID: 4800000, guid: e6e9a19c3678ded42a3bc431ebef7dbd, type: 3}
+    - {fileID: 4800000, guid: 36e335017ad71d54fbb10842863188ae, type: 3}
+    - {fileID: 1096332653333590833}
+    - {fileID: 7324930078204451155}
+    - {fileID: 480773057162349717}
+    - {fileID: 5789167913800884461}
+    - {fileID: 8187076741080200553}
+    - {fileID: 3369817756515190232}
+    - {fileID: 4453609102522107596}
+    - {fileID: 6723651003102093314}
+    - {fileID: -2858077689350854117}
+    - {fileID: 2800000, guid: 0e9125c0f8b7d654d8fea39791ca955b, type: 3}
+    - {fileID: 1891456777426130127}
+    - {fileID: -9089437236496529542}
+    - {fileID: 2800000, guid: 38446a4fd28ac1f49ad2f82fdcdf4f17, type: 3}
+    - {fileID: 11400000, guid: 17dcbe850e88dd541b30361045dc58ea, type: 2}
+    - {fileID: 2100000, guid: af578237cff6c284bb377dde947dcf3d, type: 2}
+    - {fileID: 2800000, guid: 58b56f58c726027419a434f9551625fc, type: 3}
+    - {fileID: 3276845548034810804, guid: 761227e8b5822ce48b8cfec5c97193c0, type: 3}
+    - {fileID: 3393862057570696971}
+    - {fileID: 4800000, guid: 86f4f74dee463c144828330124ae5e9a, type: 3}
+    - {fileID: 8597307421951468535}
+    _Values: 707bf3336149476af5843d6198e5c723eb23674de547c27f84c72c0f92bfbc7ee097ed009bb3776ec29aa6e79c99a751ab00d3bf01f4374f385f9b25e33f9e369523c33ff20138069ed8ca6326e7a31561f6bc36deb91d4cbe4354d442359a50cc856f4084a1bc7c8f2570baf4595862123d5db4d40bbe23b339a7b948635865e8beb2beeed38654c019e73f04acf45dd5a12b30444a6060df294bfc3c3ef2784057192d036e28294b6189c684b70f59057780aeac63c4683e7a2fab57e39903f8cefb03f581473b4a92d70342e82b20
+--- !u!114 &-9089437236496529542
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3393862057570696971}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cfcc9ceea0bf419cb3bcaf548c2600d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3AutoSave
+  saveLayer: 0
+  saveTag: 0
+  saveName: 0
+  saveHideFlags: 0
+  saveActive: 0
+  saveChildren: 0
+  saveDestroyed: 0
+  componentsToSave:
+  - {fileID: 6699476407767244329}
+  - {fileID: 1096332653333590833}

@@ -9,6 +9,8 @@ public enum ScreenId
     Furniture,
     Progression,
     Desktop,
+    SaveLoad,
+    Settings,
 }
 
 /// <summary>A full-screen UI that takes the cursor while open. Implemented by OrderScreen, ProgressionScreen.</summary>

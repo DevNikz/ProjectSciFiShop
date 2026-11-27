@@ -3930,6 +3930,9 @@ GameObject:
   - component: {fileID: 6229901252664185446}
   - component: {fileID: 601311704818170080}
   - component: {fileID: 6508048606497662296}
+  - component: {fileID: 8766700157031365527}
+  - component: {fileID: 8889407281949975507}
+  - component: {fileID: 3477612224655281671}
   m_Layer: 8
   m_Name: ShopShelf
   m_TagString: Untagged
@@ -4045,6 +4048,54 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ShelfTickets
   ticketCount: 2
+--- !u!114 &8766700157031365527
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4985206946435025997}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96017affea65dea44b34c37cb35ea50b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FurnitureCarriable
+  definition: {fileID: 11400000, guid: 0dfc9f94451ec2a4d8f1a1251b2b83f3, type: 2}
+--- !u!114 &8889407281949975507
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4985206946435025997}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2f3de491e458d6041b6125cd34f70857, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::ShelfSaveAdapter
+  items: []
+  slotIndices: 
+--- !u!114 &3477612224655281671
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4985206946435025997}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cfcc9ceea0bf419cb3bcaf548c2600d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3AutoSave
+  saveLayer: 0
+  saveTag: 0
+  saveName: 0
+  saveHideFlags: 0
+  saveActive: 0
+  saveChildren: 0
+  saveDestroyed: 0
+  componentsToSave:
+  - {fileID: 8889407281949975507}
 --- !u!1 &4985735876138257859
 GameObject:
   m_ObjectHideFlags: 0

@@ -423,15 +423,36 @@ public class InputRemapper : MonoBehaviour
 
     private string SavePath => Path.Combine(Application.persistentDataPath, saveFileName);
 
+    /// <summary>
+    /// Where the rebinds are kept. Null = the keybinds file in the persistent data folder. Set it before
+    /// the scene loads (e.g. from a RuntimeInitializeOnLoadMethod).
+    /// </summary>
+    public static IRebindStore Store { get; set; }
+
     private void SaveOverrides()
     {
+        var data = new SaveData();
+        foreach (var pair in _playerOverrides)
+            data.items.Add(new SaveItem { id = pair.Key, path = pair.Value });
+        string json = JsonUtility.ToJson(data, true);
+
+        if (Store != null)
+        {
+            try
+            {
+                Store.Save(json);
+            }
+            catch (Exception e)
+            {
+                Debug.LogWarning($"InputRemapper: the rebind store could not save ({e.Message}).", this);
+            }
+            return;
+        }
+
         string path = SavePath;
         try
         {
-            var data = new SaveData();
-            foreach (var pair in _playerOverrides)
-                data.items.Add(new SaveItem { id = pair.Key, path = pair.Value });
-            File.WriteAllText(path, JsonUtility.ToJson(data, true));
+            File.WriteAllText(path, json);
         }
         catch (Exception e)
         {
@@ -442,12 +463,12 @@ public class InputRemapper : MonoBehaviour
     private void LoadOverrides()
     {
         _playerOverrides.Clear();
-        string path = SavePath;
+        string json = ReadStoredJson();
+        if (string.IsNullOrEmpty(json))
+            return;
         try
         {
-            if (!File.Exists(path))
-                return;
-            var data = JsonUtility.FromJson<SaveData>(File.ReadAllText(path));
+            var data = JsonUtility.FromJson<SaveData>(json);
             if (data?.items == null)
                 return;
             foreach (var item in data.items)
@@ -456,7 +477,26 @@ public class InputRemapper : MonoBehaviour
         }
         catch (Exception e)
         {
-            Debug.LogWarning($"InputRemapper: could not read '{path}' ({e.Message}).", this);
+            Debug.LogWarning($"InputRemapper: could not read the saved rebinds ({e.Message}).", this);
+        }
+    }
+
+    // The store first. With nothing stored yet (or no store), the old keybinds file still counts,
+    // so players keep the keys they already changed.
+    private string ReadStoredJson()
+    {
+        string path = SavePath;
+        try
+        {
+            string stored = Store != null ? Store.Load() : null;
+            if (!string.IsNullOrEmpty(stored))
+                return stored;
+            return File.Exists(path) ? File.ReadAllText(path) : null;
+        }
+        catch (Exception e)
+        {
+            Debug.LogWarning($"InputRemapper: could not read the rebinds ({e.Message}).", this);
+            return null;
         }
     }
 

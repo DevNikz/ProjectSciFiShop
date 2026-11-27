@@ -1,26 +1,19 @@
-using System;
 using UnityEngine;
 
 /// <summary>
 /// A delivered piece of furniture, still in its crate. Interact (even while carrying something) to
-/// start placing it. It saves with the world: the definition id is its saved state. It has no
+/// start placing it. Easy Save keeps its definition (ES3 Serializable). It has no
 /// Rigidbody and is not a PickupObject, so it can't be carried or dragged.
 /// </summary>
 [InteractableAddon("As Crate")]
 public class FurnitureCrate : MonoBehaviour
 {
-    [Serializable]
-    class State
-    {
-        public string id;
-    }
-
     Interactable _interactable;
+
+    [ES3Serializable]
     FurnitureDefinition _def;
 
     public FurnitureDefinition Definition => _def;
-
-    public string SaveKey => "furnitureCrate";
 
     void Awake() => _interactable = GetComponent<Interactable>();
 
@@ -55,24 +48,5 @@ public class FurnitureCrate : MonoBehaviour
             return;
         }
         placer.BeginPlace(this, who);
-    }
-
-    public string CaptureState() =>
-        JsonUtility.ToJson(new State { id = _def != null ? _def.Id : null });
-
-    public void RestoreState(string json)
-    {
-        var state = string.IsNullOrEmpty(json) ? null : JsonUtility.FromJson<State>(json);
-        var manager = FurnitureManager.Instance;
-        var catalog = manager != null ? manager.Catalog : null;
-        if (state == null || catalog == null || !catalog.TryGetById(state.id, out var def))
-        {
-            Debug.LogWarning(
-                $"{name}: saved furniture '{state?.id}' is not in the catalog, so this crate does nothing.",
-                this
-            );
-            return;
-        }
-        _def = def;
     }
 }

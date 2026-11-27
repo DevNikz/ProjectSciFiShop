@@ -22,7 +22,7 @@ MonoBehaviour:
   unitCost: 1
   unitsPerBox: 1
   unlockCost: 0
-  prefab: {fileID: 1096332653333590833, guid: 126484f68d8bdf44f9d33a719fc10734, type: 3}
+  prefab: {fileID: 1096332653333590833, guid: 08b15f6acbe9817468582c28cfaef7ce, type: 3}
   prewarmCount: 0
   baseId: Strawberry
   baseDisplayName: Strawberry

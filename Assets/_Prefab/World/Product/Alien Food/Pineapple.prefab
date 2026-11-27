@@ -21,6 +21,8 @@ GameObject:
   - component: {fileID: 6723651003102093314}
   - component: {fileID: 1096332653333590833}
   - component: {fileID: -2858077689350854117}
+  - component: {fileID: 326010400269446377}
+  - component: {fileID: 2330270354448265888}
   m_Layer: 6
   m_Name: Pineapple
   m_TagString: Untagged
@@ -277,3 +279,67 @@ MonoBehaviour:
   placementOffset: {x: 0, y: 0.05, z: 0}
   placementRotation: {x: 0, y: 0, z: 0}
   fallbackDisplayName: 
+--- !u!114 &326010400269446377
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3393862057570696971}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: baff8732cd3074ef88b34f9cc487846d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3Internal.ES3Prefab
+  prefabId: 4994566706970563905
+  localRefs:
+    _Keys:
+    - {fileID: 5634792546478208541}
+    - {fileID: 11400000, guid: 920edc5f61c4e4145a8be02d7bf44826, type: 2}
+    - {fileID: 326010400269446377}
+    - {fileID: 2100000, guid: c1d6d1c1056ca8f41887d066c25474ce, type: 2}
+    - {fileID: 6699476407767244329}
+    - {fileID: 4800000, guid: e6e9a19c3678ded42a3bc431ebef7dbd, type: 3}
+    - {fileID: 4800000, guid: 36e335017ad71d54fbb10842863188ae, type: 3}
+    - {fileID: -2858077689350854117}
+    - {fileID: 2800000, guid: 0e9125c0f8b7d654d8fea39791ca955b, type: 3}
+    - {fileID: -6316266800271276957, guid: 3eb51c3941dfbec4db6ba85f06058970, type: 3}
+    - {fileID: 8597307421951468535}
+    - {fileID: 825965983880371714}
+    - {fileID: 3393862057570696971}
+    - {fileID: 1096332653333590833}
+    - {fileID: 2800000, guid: 38446a4fd28ac1f49ad2f82fdcdf4f17, type: 3}
+    - {fileID: 7324930078204451155}
+    - {fileID: 2100000, guid: af578237cff6c284bb377dde947dcf3d, type: 2}
+    - {fileID: 2800000, guid: 58b56f58c726027419a434f9551625fc, type: 3}
+    - {fileID: 4800000, guid: 86f4f74dee463c144828330124ae5e9a, type: 3}
+    - {fileID: 480773057162349717}
+    - {fileID: 5789167913800884461}
+    - {fileID: 8187076741080200553}
+    - {fileID: 3369817756515190232}
+    - {fileID: 4453609102522107596}
+    - {fileID: 6723651003102093314}
+    - {fileID: 2330270354448265888}
+    _Values: 1cb1bbbd8aa2e7362af2f19bfc67047969aa4ec1f6fbbb4fa6a6bb573d22297013a10f3ef816180087dae82698b09f26d142e15142b83407692d12e6b46e7b5110a4b888b6f84727e5c2f25dd12cb85d81a2e96a6720bb6ef9b7a5900597150908b7f7e9748c4556fd9eceb08c8f0342677b1a40888a7a41b3675456f8e5497177d257b261ff032b42d93829a1113b2a35d22e4482e44164438f292c83f8a21a79329c0b1ca5c54458806c4cf36b817b8c05bd552dae992c22c31369bc1cee0f5abf093833212626ea7b668fa5fe846e
+--- !u!114 &2330270354448265888
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3393862057570696971}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9cfcc9ceea0bf419cb3bcaf548c2600d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp-firstpass::ES3AutoSave
+  saveLayer: 0
+  saveTag: 0
+  saveName: 0
+  saveHideFlags: 0
+  saveActive: 0
+  saveChildren: 0
+  saveDestroyed: 0
+  componentsToSave:
+  - {fileID: 1096332653333590833}
+  - {fileID: 6699476407767244329}

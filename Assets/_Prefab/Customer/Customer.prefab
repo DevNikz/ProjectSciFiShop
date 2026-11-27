@@ -165,6 +165,10 @@ MonoBehaviour:
   exitPoint: {fileID: 0}
   arrivalTolerance: 0.15
   spawnPause: 0.5
+  minimumHeight: 1.5
+  maximumHeight: 2
+  capsuleVisual: {fileID: 8997405238543706296}
+  headVisual: {fileID: 2956955165746690950}
   useNavMeshAgent: 1
   walkSpeed: 3.5
   turnSpeed: 540
@@ -174,9 +178,9 @@ MonoBehaviour:
   cashOverpay: 5
   randomizeCashOverpay: 1
   minimumCashOverpay: 1
-  maximumCashOverpay: 19
+  maximumCashOverpay: 25
   minimumProductTypes: 1
-  maximumProductTypes: 2
+  maximumProductTypes: 4
   maximumQuantityPerProduct: 2
   shelfPickupDelay: 0.3
   shelfTravelTimeout: 25
@@ -191,7 +195,7 @@ MonoBehaviour:
   ticketPatience: 20
   flightDuration: 0.3
   placeInterval: 0.05
-  arcHeight: 0.25
+  arcHeight: 0.2
 --- !u!195 &7612751181988966833
 NavMeshAgent:
   m_ObjectHideFlags: 0

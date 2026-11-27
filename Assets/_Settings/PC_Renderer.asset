@@ -17,7 +17,7 @@ MonoBehaviour:
     enabled: 1
     applyInSceneView: 1
     quality: 3
-    resolutionScale: 0.5
+    resolutionScale: 0.75
     custom:
       resolutionScale: 0.75
       maxSteps: 48
